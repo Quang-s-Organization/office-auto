@@ -19,6 +19,11 @@ If any missing → STOP and tell user exactly which file is missing.
 Call inspect_template(template_path).
 Save result as body_map. Log heading count to user.
 
+### Step 2b: Validate body_map
+If body_map.headings.length === 0 AND body_map.total_paragraphs === 0:
+→ STOP. Report: "inspect_template returned empty body_map. Template may be malformed or OfficeCLI response structure changed. Check the raw OfficeCLI output."
+→ DO NOT proceed to Step 3 (Decide). This is a data error, not a content decision.
+
 ### Step 3: Decide
 Read content_md and intent_json from disk.
 Analyze body_map.headings vs intent_json.sections to produce action_decisions.

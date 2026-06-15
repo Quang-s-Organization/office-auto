@@ -51,6 +51,6 @@ LLM NEVER writes paraIds, commands, or paths. Zero hallucination surface.
 2. inspect_template → body_map (ALL paragraphs)
 3. Decide → action_decisions (LLM writes 3-field IR only)
 4. compile_ops → ops_plan (deterministic code transform)
-5. execute_ops → result.json
+5. execute_ops → output.docx
 6. validate_output → pass/fail
 7. Report summary to user

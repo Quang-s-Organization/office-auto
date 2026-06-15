@@ -53,35 +53,54 @@ export function registerInspectTemplateTool(server: McpServer, worktree: string)
       const paragraphs: ParagraphEntry[] = []
       const styles = new Set<string>()
 
-      if (Array.isArray(data.paragraphs)) {
-        data.paragraphs.forEach((p: any, idx: number) => {
-          const style: string | null = p.style ?? null
-          if (style) styles.add(style)
+      const nodes: any[] =
+        data?.data?.children ??
+        data?.children ??
+        data?.body?.paragraphs ??
+        data?.paragraphs ??
+        []
 
-          const paraId: string = p.paraId ?? ""
-          const path: string = p.path ?? (paraId ? `/body/p[@paraId=${paraId}]` : "")
-
-          const para: ParagraphEntry = {
-            style,
-            text: p.text ?? "",
-            path,
-            paraId,
-            index_in_body: idx,
-          }
-          paragraphs.push(para)
-
-          if (style && /heading/i.test(style)) {
-            headings.push({
-              style,
-              text: para.text,
-              path: para.path,
-              paraId: para.paraId,
-              index_in_body: idx,
-              level: extractHeadingLevel(style),
+      if (nodes.length === 0) {
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              error: "INSPECT_EMPTY",
+              message: "OfficeCLI returned 0 nodes. Raw response keys: " + Object.keys(data).join(", "),
+              raw_preview: JSON.stringify(data).slice(0, 500),
+              template_path
             })
-          }
-        })
+          }]
+        }
       }
+
+      nodes.forEach((p: any, idx: number) => {
+        const style: string | null = p.style ?? null
+        if (style) styles.add(style)
+
+        const paraId: string = p.paraId ?? ""
+        const path: string = p.path ?? (paraId ? `/body/p[@paraId=${paraId}]` : "")
+
+        const para: ParagraphEntry = {
+          style,
+          text: p.text ?? "",
+          path,
+          paraId,
+          index_in_body: idx,
+        }
+        paragraphs.push(para)
+
+        if (style && /heading/i.test(style)) {
+          headings.push({
+            style,
+            text: para.text,
+            path: para.path,
+            paraId: para.paraId,
+            index_in_body: idx,
+            level: extractHeadingLevel(style),
+          })
+        }
+      })
 
       const bodyMap: BodyMap = {
         template_path,
