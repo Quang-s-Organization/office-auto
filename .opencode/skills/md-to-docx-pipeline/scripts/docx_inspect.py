@@ -510,6 +510,8 @@ def dump_all_para_ids(doc: Any, *, front_matter_boundary: dict[str, Any] | None 
 def summarize_styles_for_llm(styles_raw: list[dict]) -> dict[str, Any]:
     available_styles: list[dict[str, Any]] = []
     heading_map: dict[str, str] = {}
+    # Prominent name→style_id mapping for LLM clarity
+    style_name_to_id: dict[str, str] = {}
     body_text_style: str | None = None
     do_not_use_styles = ["Normal", "Default Paragraph Font"]
 
@@ -517,6 +519,11 @@ def summarize_styles_for_llm(styles_raw: list[dict]) -> dict[str, Any]:
         name = style.get("name")
         style_id = style.get("style_id")
         effective_font = style.get("effective_font") or style.get("run", {}).get("font_name") or style.get("run", {}).get("font")
+        
+        # Build prominent name→style_id mapping
+        if name and style_id:
+            style_name_to_id[str(name)] = str(style_id)
+        
         if not body_text_style and str(name or "").lower() in {"normal", "normal_style", "body text", "bodytext"}:
             body_text_style = str(style_id or name)
 
@@ -556,6 +563,8 @@ def summarize_styles_for_llm(styles_raw: list[dict]) -> dict[str, Any]:
         body_text_style = str(first_style.get("style_id") or first_style.get("name"))
 
     return {
+        "CRITICAL_USE_STYLE_ID_NOT_NAME": "Always use style_id (e.g., 'Heading1'), never display name (e.g., 'Heading 1')",
+        "style_name_to_id": style_name_to_id,
         "body_text_style": body_text_style,
         "heading_map": heading_map,
         "available_styles": available_styles,

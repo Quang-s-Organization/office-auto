@@ -2,63 +2,105 @@
 
 Repo này chốt một workflow chuẩn duy nhất cho Markdown -> DOCX bằng OpenCode + OfficeCLI, đồng thời expose lại cùng pipeline qua MCP server `office-auto`. Mục tiêu không phải tái tạo tài liệu từ đầu, mà là giữ scaffold của template Word và chỉ thay vùng nội dung chính theo contract `preserve-template-scaffold`.
 
-## Workflow chuẩn hiện tại
+## Workflow chuẩn hiện tại (v3.1 — Durable Workflow)
 
 - Đầu vào mặc định của workspace: `noidung.md`.
 - Template mặc định: `format_template.docx`.
 - File đích mặc định: `report.docx`.
-- Primitive tools MCP: `inspectTemplate`, `validateOps`, `applyOps`, `reviewOutput`, `runQA`, `refreshFields`.
- - Contract mặc định cho agent: `task.md`.
+- **Entry-point duy nhất**: `createReportFromMarkdown` (MCP tool).
+- Contract mặc định cho agent: `.opencode/AGENTS.md`.
 
-Nếu người dùng chỉ prompt ngắn kiểu “sinh report.docx mới” hoặc “đọc task.md và làm”, agent nên đi đúng đường chuẩn trên thay vì tự ghép lệnh ad-hoc.
-Session mới khong duoc mac dinh tai su dung `manual-run` hoac artifact cu neu nguoi dung chua chi ro run can resume.
+Nếu người dùng chỉ prompt ngắn kiểu "sinh report.docx mới", agent gọi `createReportFromMarkdown` NGAY LẬP TỨC. KHÔNG tự chạy script Python qua bash. KHÔNG spawn subagent qua Task tool.
 
-## Kiến trúc: LLM-as-Reasoning-Engine
+Session mới không được mặc định tái sử dụng `manual-run` hoặc artifact cũ nếu người dùng chưa chỉ rõ run cần resume.
 
-Workspace đi theo kiến trúc mới trong `issue.md`: **"Chỉ những gì không thể suy luận mới trở thành tool. Những gì suy luận được thì LLM làm."**
+## Kiến trúc: Durable Workflow (v3.1)
 
-### 5-step pipeline
+Workspace đi theo kiến trúc **durable workflow**: **"LLM là não cho quyết định mơ hồ; Scripts là tay cho thao tác chính xác; Final gate là code. Events.jsonl là nguồn sự thật duy nhất."**
+
+### Single tool entry-point
 
 ```
-1. docx_inspect.py          → raw dump (zero heuristics, zero interpretation)
-      ↓ docx_inspect_output.json
-2. [LLM REASONING]          ← LLM đọc raw dump + content, viết execution_ops.json
-      ↓ execution_ops.json
-3. docx_validate_ops.py     → warn-only validator (không block execution)
-      ↓ execution_ops_validation.json
-4. execute_execution_ops.py → mechanical executor (OfficeCLI)
-      ↓ report.docx
-5. docx_read_result.py      → read back result để LLM verify
-      ↓ result_readback.json
-6. qa_docx.py / review_docx.py → metrics & summary report
+orchestrator → call createReportFromMarkdown (native MCP tool)
+  → PipelineSupervisor điều phối graph nội bộ
+  → 12 subagent chạy tuần tự, emit event, tạo artifact
+  → final gate code-level quyết định pass/fail
+  → trả kết quả về orchestrator
+```
+
+### 12-phase pipeline (internal)
+
+```
+CREATE_RUN
+  → INSPECT_TEMPLATE     (TemplateInspectorAgent — code-only)
+  → PARSE_SOURCE         (SourceParserAgent — code-only)
+  → MAP_INSERTION        (MapperAgent — deterministic style mapping)
+  → COMPILE_OPS          (CompilerAgent — code-only, deterministic)
+  → VALIDATE_OPS         (ValidatorAgent — code-only, hard block)
+  → APPLY_DOCX           (ExecutorAgent — code-only)
+  → VERIFY_OUTPUT        (VerifierAgent — code-only)
+  → QA                   (QAAgent — code-only)
+  → REVIEW               (ReviewerAgent — code-only)
+  → REFRESH_FIELDS       (PostProcessorAgent — code-only)
+  → FINAL_GATE           (FinalGateAgent — code-only)
+  → COMPLETE / FAILED
 ```
 
 ### Nguyên lý thiết kế
 
-- **Raw data only**: `None` = inherited (chưa resolved), không pre-classification, không `heading_level` fields
-- **Scripts = hands, LLM = brain**: Không có heuristic scripts (profile_template, plan_mapping, compile_execution_plan...)
-- **Warn-only validation**: Validator chỉ báo cảnh báo, không block execution
-- **MCP-only execution**: Chỉ dùng MCP tools trong `mcp/tools/*.ts` — không dùng plugin hay wrapper cũ
-- **6 ops supported**: `insert_paragraph_after`, `insert_paragraph_before`, `remove`, `update_text`, `insert_table`/`insert_table_after`, `set_page_layout`
+- **Durable workflow**: events.jsonl là source of truth, run.json chỉ là snapshot derived
+- **Event-sourced state**: mọi state transition đều emit event, có thể replay từ bất kỳ điểm nào
+- **Deterministic compilation**: MapperAgent quyết định style_map, CompilerAgent sinh ops deterministic
+- **Hard-block validation**: ValidatorAgent block execution nếu có lỗi nghiêm trọng
+- **Code-level final gate**: FinalGateAgent kiểm tra artifact existence và quality thresholds bằng code, không phải prompt
+- **MCP-only execution**: orchestrator chỉ gọi MCP tools, không tự chạy script qua bash
 
-### Old scripts
+### Available MCP tools
 
-Các heuristic scripts cũ đã được archive vào `scripts/legacy/` — không còn được gọi bởi pipeline mới.
+**Public API** (gọi trực tiếp):
+- `createReportFromMarkdown` — ENTRY-POINT duy nhất, full pipeline
+- `resumeReportRun` — Resume run bị crash/interrupted
+- `inspectRun` — Đọc state hiện tại của run (read-only)
+- `retryFailedPhase` — Retry phase bị fail
+- `abortRun` — Abort run + release lock
 
-## Artifact quan trọng
+**Internal** (KHÔNG gọi trực tiếp, chỉ cho backward compatibility):
+- `inspectTemplate`, `prepareInsertPlan`, `validateOps`, `applyOps`, `runQA`, `reviewOutput`, `refreshFields`, `generateOpsFromSourcePacket`, `runFullPipeline`, `runPipelineFromOps`
 
-Mỗi run nằm dưới `.office-auto/state/<run_id>/` và tối thiểu nên có:
+## Artifact quan trọng (v3.1)
 
-- `preflight.json`
-- `topology.json`
-- `run.json`
-- `template_inspection_raw.json`
-- `execution_ops.json`
-- `execution_ops_validation.json`
-- `plan.json`
-- `execution_plan.json`
-- `build_report.json`
-- `result_readback.json`
+Mỗi run nằm dưới `.office-auto/state/<run_id>/` và có các artifact sau:
+
+**State management**:
+- `events.jsonl` — Append-only event log (source of truth)
+- `run.json` — Derived snapshot (rebuilt from events)
+- `artifacts.json` — Artifact manifest with SHA256 checksums
+- `lock` — Run-level mutex file
+
+**Inspection & parsing**:
+- `docx_inspect_output.json` — Full template inspection
+- `docx_inspect_styles_for_llm.json` — Compact style summary (with style_id, not name)
+- `docx_inspect_content_map.json` — Front-matter/body anchor map
+- `source_packet.json` — Mechanical markdown AST (typed blocks + SHA-256)
+
+**Mapping & compilation**:
+- `style_map.json` — LLM quyết định: markdown level → DOCX style_id
+- `replace_range.json` — LLM quyết định: insert anchor + remove paths
+- `execution_ops.json` — Deterministic compiled ops
+- `insert_plan_scaffold.json` — Aggregated scaffold
+
+**Validation & execution**:
+- `strict_validation.json` — Hard-block validation report
+- `execute_ops_report.json` — Execution summary
+
+**Verification & QA**:
+- `result_readback.json` — Output DOCX readback
+- `coverage_report.json` — Source block coverage verification
+- `qa_report.json` — QA metrics
+- `review_report.json` — Semantic review
+
+**Final gate**:
+- `final_gate.json` — CODE-LEVEL final gate verdict
 
 Schema run state nằm ở `.office-auto/run.schema.json`.
 
@@ -70,73 +112,83 @@ Schema run state nằm ở `.office-auto/run.schema.json`.
 - TOC, list-of-figures, list-of-tables, bookmark, PAGEREF, section settings, header/footer vẫn là phần bắt buộc của output.
 - Review layer là bước bàn giao cuối để soi drift về align, font, cỡ chữ và spacing mà QA thuần JSON có thể không bộc lộ rõ.
 
-## Cách chạy
+## Cách chạy (v3.1)
 
- ### Với build_report.py (legacy wrapper)
+### Với MCP tool (agent flow - recommended)
 
-```bash
-# Phase 1: Raw dump template, LLM viết execution_ops.json
-python scripts/build_report.py --phase inspect --run-dir .office-auto/state/<run_id>
-
-# Phase 2: Validate + Execute + Read Result
-python scripts/build_report.py --phase execute --run-dir .office-auto/state/<run_id>
-
-# Phase 3: QA + Review
-python scripts/build_report.py --phase qa --run-dir .office-auto/state/<run_id>
-
-# Hoặc chạy full pipeline
-python scripts/build_report.py --phase all --run-dir .office-auto/state/<run_id>
+```typescript
+// Orchestrator gọi MCP tool
+createReportFromMarkdown({
+  template_file: "format_template.docx",
+  source_file: "noidung.md",
+  target_file: "report.docx",
+  strict: true,
+  require_review: false,
+  log_level: "brief"
+})
 ```
 
- ### Với primitive tools (agent flow)
+PipelineSupervisor tự động điều phối toàn bộ 12 phase. Orchestrator chỉ cần đọc kết quả trả về.
 
-```bash
-# 1. Inspect
-python .opencode/skills/md-to-docx-pipeline/scripts/docx_inspect.py \
-  --template-file format_template.docx --run-dir .office-auto/state/<run_id>
+### Resume sau crash
 
-# 2. LLM writes execution_ops.json (manual or automated)
-
-# 3. Validate
-python .opencode/skills/md-to-docx-pipeline/scripts/docx_validate_ops.py \
-  --run-dir .office-auto/state/<run_id>
-
-# 4. Execute
-python .opencode/skills/md-to-docx-pipeline/scripts/execute_execution_ops.py \
-  --run-dir .office-auto/state/<run_id>
-
-# 5. Read result
-python .opencode/skills/md-to-docx-pipeline/scripts/docx_read_result.py \
-  --run-dir .office-auto/state/<run_id>
+```typescript
+resumeReportRun({
+  run_dir: ".office-auto/state/<run_id>",
+  log_level: "normal"
+})
 ```
 
-Sau khi build xong, lấy nhanh artifact review mới nhất:
+### Inspect run state
+
+```typescript
+inspectRun({
+  run_dir: ".office-auto/state/<run_id>"
+})
+```
+
+### Retry phase bị fail
+
+```typescript
+retryFailedPhase({
+  run_dir: ".office-auto/state/<run_id>",
+  phase: "applying"  // optional, default: current failed phase
+})
+```
+
+### Với helper script (manual inspection)
 
 ```bash
+# Lấy nhanh artifact review mới nhất
 python scripts/latest_review_artifacts.py
 ```
 
 ## OpenCode và VS Code
 
-Workspace đã được cấu hình để OpenCode/Copilot Agent đi đúng workflow chuẩn:
+Workspace đã được cấu hình để OpenCode/Copilot Agent đi đúng workflow chuẩn (v3.1):
 
-- `.opencode/AGENTS.md`: routing + hard gate.
-- `task.md`: contract chuẩn cho prompt tối giản.
+- `.opencode/AGENTS.md`: routing + hard gate (v3.1 durable workflow).
+- `.opencode/memory/project.md`: project conventions.
+- `.opencode/agents/orchestrator.md`: orchestrator agent definition (v3.1).
 - `mcp/office-auto-server.ts`: MCP server local bọc cùng workflow DOCX.
-- `mcp/tools/*.ts`: tất cả MCP tool definitions (inspect, scaffold, validate, execute, qa, review, refresh, orchestrator).
+- `mcp/tools/*.ts`: tất cả MCP tool definitions (public API + internal legacy).
+- `mcp/orchestration/pipeline-supervisor.ts`: durable workflow orchestration.
+- `mcp/agents/*.ts`: 12 internal subagents (TemplateInspectorAgent, SourceParserAgent, MapperAgent, CompilerAgent, ValidatorAgent, ExecutorAgent, VerifierAgent, QAAgent, ReviewerAgent, PostProcessorAgent, FinalGateAgent).
 - `.vscode/mcp.json`: đăng ký `office-auto` cùng `officecli`.
 - `.vscode/tasks.json`: task build DOCX, latest review summary, unit tests.
 - `.vscode/settings.json`: bật MCP auto-start và unittest config.
 
-Luu y orchestration:
-- `task_current.md` chi la session state duoc ghi de resume, khong phai default input cho moi session.
-- Artifact trong `.office-auto/state/<run_id>/`, `manual-run/`, `.manual-run/` chi duoc doc khi dung voi run ma nguoi dung dang noi den.
+Lưu ý orchestration (v3.1):
+- Orchestrator gọi `createReportFromMarkdown` NGAY LẬP TỨC, không cân nhắc bash vs MCP.
+- PipelineSupervisor tự quản lý subagent nội bộ, orchestrator không spawn qua Task tool.
+- Artifact trong `.office-auto/state/<run_id>/` chỉ được đọc khi dùng với run mà người dùng đang nói đến.
 
 Chi tiết setup và cách vận hành nằm ở `docs/opencode-agent-setup.md`.
 
 ## Tài liệu nên đọc
 
-- `task.md`: contract mặc định cho build DOCX của repo.
+- `.opencode/AGENTS.md`: v3.1 durable workflow architecture + tool calling rules.
+- `.opencode/skills/md-to-docx-pipeline/SKILL.md`: skill definition (v3.1).
 - `docs/opencode-agent-setup.md`: setup agent/workspace.
 - `docs/docx-issues-03-qa-observability.md`: observability và artifact summary.
 - `docs/docx-issues-04-roadmap.md`: roadmap còn lại sau khi đã chốt builder + review layer + workspace automation.
@@ -144,5 +196,5 @@ Chi tiết setup và cách vận hành nằm ở `docs/opencode-agent-setup.md`.
 
 ## Kiểm thử
 
-- Unit tests cho parser, planner, style-map, grounding, builder utilities và review layer nằm trong `tests/test_docx_pipeline.py`.
+- Unit tests cho parser, compiler, style-map, validator, executor và review layer nằm trong `tests/test_docx_pipeline.py` và `tests/test_deterministic_compiler.py`.
 - Khi chỉ cần rà artifact mới nhất mà không mở tay từng file JSON, dùng `scripts/latest_review_artifacts.py`.

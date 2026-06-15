@@ -1,0 +1,238 @@
+{
+  "run_id": "20260615032123._format_template",
+  "pipeline_version": "3",
+  "phase": "reviewed",
+  "status": "running",
+  "inputs": {
+    "template_file": "{cwd}/format_template.docx",
+    "source_file": "{cwd}/noidung.md",
+    "target_file": "{cwd}/report.docx",
+    "strict_mode": false
+  },
+  "artifacts": {
+    "style_map": {
+      "path": "{cwd}/.office-auto/state/20260615032123._format_template/style_map.json",
+      "sha256": "",
+      "schema": "mapping.v1",
+      "created_by": "MapperAgent",
+      "phase": "mapping",
+      "valid": true
+    },
+    "replace_range": {
+      "path": "{cwd}/.office-auto/state/20260615032123._format_template/replace_range.json",
+      "sha256": "",
+      "schema": "mapping.v1",
+      "created_by": "MapperAgent",
+      "phase": "mapping",
+      "valid": true
+    },
+    "strict_validation": {
+      "path": "{cwd}/.office-auto/state/20260615032123._format_template/strict_validation.json",
+      "sha256": "",
+      "schema": "validation.v1",
+      "created_by": "ValidatorAgent",
+      "phase": "validating",
+      "valid": true
+    },
+    "execution_ops_validation": {
+      "path": "{cwd}/.office-auto/state/20260615032123._format_template/execution_ops_validation.json",
+      "sha256": "",
+      "schema": "validation.v1",
+      "created_by": "ValidatorAgent",
+      "phase": "validating",
+      "valid": true
+    },
+    "coverage_report": {
+      "path": "{cwd}/.office-auto/state/20260615032123._format_template/coverage_report.json",
+      "sha256": "",
+      "schema": "coverage.v1",
+      "created_by": "VerifierAgent",
+      "phase": "verifying",
+      "valid": true
+    },
+    "qa_report": {
+      "path": "{cwd}/.office-auto/state/20260615032123._format_template/qa_report.json",
+      "sha256": "",
+      "schema": "qa_report.v1",
+      "created_by": "QAAgent",
+      "phase": "qa",
+      "valid": true
+    },
+    "review_report": {
+      "path": "{cwd}/.office-auto/state/20260615032123._format_template/review_report.json",
+      "sha256": "",
+      "schema": "review_report.v1",
+      "created_by": "ReviewerAgent",
+      "phase": "reviewing",
+      "valid": true
+    }
+  },
+  "agents": {
+    "TemplateInspectorAgent": {
+      "agent_id": "TemplateInspectorAgent",
+      "status": "running",
+      "started_at": "2026-06-15T03:21:24.294Z",
+      "revision": 3
+    },
+    "SourceParserAgent": {
+      "agent_id": "SourceParserAgent",
+      "status": "running",
+      "started_at": "2026-06-15T03:21:26.410Z",
+      "revision": 5
+    },
+    "MapperAgent": {
+      "agent_id": "MapperAgent",
+      "status": "completed",
+      "started_at": "2026-06-15T03:21:27.465Z",
+      "revision": 13,
+      "completed_at": "2026-06-15T03:21:27.466Z"
+    },
+    "CompilerAgent": {
+      "agent_id": "CompilerAgent",
+      "status": "running",
+      "started_at": "2026-06-15T03:21:28.028Z",
+      "revision": 15
+    },
+    "ValidatorAgent": {
+      "agent_id": "ValidatorAgent",
+      "status": "completed",
+      "started_at": "2026-06-15T03:21:29.195Z",
+      "revision": 23,
+      "completed_at": "2026-06-15T03:21:29.301Z"
+    },
+    "ExecutorAgent": {
+      "agent_id": "ExecutorAgent",
+      "status": "running",
+      "started_at": "2026-06-15T03:21:30.364Z",
+      "revision": 25
+    },
+    "VerifierAgent": {
+      "agent_id": "VerifierAgent",
+      "status": "completed",
+      "started_at": "2026-06-15T03:21:31.476Z",
+      "revision": 31,
+      "completed_at": "2026-06-15T03:21:31.536Z"
+    },
+    "QAAgent": {
+      "agent_id": "QAAgent",
+      "status": "completed",
+      "started_at": "2026-06-15T03:21:31.597Z",
+      "revision": 37,
+      "completed_at": "2026-06-15T03:21:31.650Z"
+    },
+    "ReviewerAgent": {
+      "agent_id": "ReviewerAgent",
+      "status": "completed",
+      "started_at": "2026-06-15T03:21:31.713Z",
+      "revision": 43,
+      "completed_at": "2026-06-15T03:21:31.771Z"
+    }
+  },
+  "decisions": {
+    "style_map": {
+      "path": "{cwd}/.office-auto/state/20260615032123._format_template/style_map.json",
+      "sha256": "",
+      "created_by": "MapperAgent",
+      "phase": "mapping",
+      "valid": true
+    }
+  },
+  "checks": {
+    "strict_validation": {
+      "passed": false,
+      "details": {
+        "high_severity_count": 0,
+        "warning_count": 0
+      },
+      "errors": [],
+      "warnings": []
+    },
+    "coverage": {
+      "passed": true,
+      "details": {
+        "ok": false,
+        "error": "source_packet.json not found",
+        "run_dir": "{cwd}/.office-auto/state/20260615032123._format_template"
+      },
+      "errors": [],
+      "warnings": []
+    },
+    "qa": {
+      "passed": true,
+      "details": {
+        "status": "failed",
+        "officecli_version": null,
+        "source_heading_count": 0,
+        "output_heading_count": 0,
+        "required_preserve": [],
+        "required_parts_present": false,
+        "scaffold_preserved": false,
+        "outline_ok": true,
+        "body_replaced_ok": false,
+        "template_residue": false,
+        "residual_template_headings": [],
+        "duplicate_heading_patterns": [],
+        "checks": {
+          "package": false,
+          "outline": true,
+          "numbering": true,
+          "toc": true,
+          "semantic_roundtrip": false,
+          "references": true,
+          "appendix": true,
+          "lists": true,
+          "cross_references": true,
+          "header_footer": true,
+          "placeholder_leak": true,
+          "format_fidelity": true,
+          "validate": false,
+          "section_breaks": true
+        },
+        "toc_refresh_strategy": "rendered-in-package",
+        "toc_refresh_available": false,
+        "update_fields_on_open": false,
+        "dirty_field_count": 0,
+        "bookmark_count": 0,
+        "toc_entry_count": 0,
+        "toc_rendered_matches_source": true,
+        "toc_missing_hyperlinks": [],
+        "toc_broken_anchor_entries": [],
+        "semantic_roundtrip_ok": false,
+        "format_fidelity_ok": true,
+        "format_fidelity_summary": {
+          "checked_paragraphs": 0,
+          "violation_count": 0,
+          "alignment_drift": 0,
+          "font_size_drift": 0,
+          "font_family_drift": 0,
+          "first_line_indent_drift": 0,
+          "hard_fail": false
+        },
+        "format_fidelity_violations": [],
+        "roundtrip_missing_headings": [],
+        "roundtrip_extra_headings": [],
+        "roundtrip_body_text_similarity": {},
+        "source_zone_markers": [],
+        "output_zone_markers": [],
+        "severe_issue_count": 0,
+        "message": "QA đã kiểm package, scaffold, selected range, execution graph và semantic gate cho contract preserve-template-scaffold."
+      },
+      "errors": [],
+      "warnings": []
+    },
+    "review": {
+      "passed": true,
+      "details": {
+        "status": "blocked",
+        "message": "Không thể review vì target_file chưa tồn tại.",
+        "target_file": "None"
+      },
+      "errors": [],
+      "warnings": []
+    }
+  },
+  "errors": [],
+  "revision": 43,
+  "created_at": "2026-06-15T03:21:23.227Z",
+  "updated_at": "2026-06-15T03:21:31.771Z"
+}

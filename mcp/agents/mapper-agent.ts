@@ -20,18 +20,34 @@ export class MapperAgent extends BaseAgent {
 
     const availableStyles: any[] = stylesForLlm?.available_styles || []
     const validStyleIds = new Set(availableStyles.map((s: any) => String(s.style_id)))
-    const validStyleNames = new Set(availableStyles.map((s: any) => String(s.name)))
+    // Build name→style_id lookup for normalization
+    const nameToStyleId = new Map<string, string>()
+    for (const s of availableStyles) {
+      if (s.style_id && s.name) {
+        nameToStyleId.set(String(s.name), String(s.style_id))
+      }
+    }
     const styleWarnings: string[] = []
 
     function resolveStyle(candidate: string | undefined, fallbackIds: string[]): string {
-      if (candidate && (validStyleIds.has(candidate) || validStyleNames.has(candidate))) {
-        return candidate
-      }
+      // Always normalize to style_id (never return display name)
       if (candidate) {
-        styleWarnings.push(`Style '${candidate}' not found in template styles`)
+        const candidateStr = String(candidate)
+        // If it's already a valid style_id, return it
+        if (validStyleIds.has(candidateStr)) {
+          return candidateStr
+        }
+        // If it's a display name, normalize to style_id
+        const normalized = nameToStyleId.get(candidateStr)
+        if (normalized) {
+          return normalized
+        }
+        styleWarnings.push(`Style '${candidate}' not found in template styles (use style_id, not display name)`)
       }
       for (const fb of fallbackIds) {
-        if (validStyleIds.has(fb) || validStyleNames.has(fb)) return fb
+        if (validStyleIds.has(fb)) return fb
+        const normalized = nameToStyleId.get(fb)
+        if (normalized) return normalized
       }
       return candidate || fallbackIds[0] || "Normal"
     }

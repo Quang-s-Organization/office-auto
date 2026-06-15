@@ -1,0 +1,10 @@
+{
+  "insert_after_path": "",
+  "remove_paths": [],
+  "remove_rule": "Remove 0 body placeholders (all non-front-matter)",
+  "preserve_zones": [
+    "front_matter",
+    "toc",
+    "headers_footers"
+  ]
+}
