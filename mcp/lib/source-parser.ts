@@ -1,0 +1,100 @@
+import { createHash } from "crypto"
+import type { SourcePacket, SourceBlock } from "../schemas/source-packet"
+
+function sha256Hex(data: string): string {
+  return createHash("sha256").update(data, "utf-8").digest("hex")
+}
+
+export function parseMarkdownToSourcePacket(
+  contentMd: string,
+  sourceFile: string,
+): SourcePacket {
+  const blocks: SourceBlock[] = []
+  const lines = contentMd.split("\n")
+  let byteOffset = 0
+  let blockId = 0
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const hMatch = line.match(/^(#{1,6})\s+(.+)/)
+
+    if (hMatch) {
+      const level = hMatch[1].length
+      const text = hMatch[2].trim()
+
+      blockId++
+      const block: SourceBlock = {
+        block_id: `md_${String(blockId).padStart(4, "0")}`,
+        type: "heading",
+        level,
+        text,
+        normalized_key: text
+          .normalize("NFC")
+          .replace(/\s+/g, " ")
+          .trim()
+          .toLowerCase(),
+        sha256: sha256Hex(text),
+        byte_offset: byteOffset,
+        byte_length: Buffer.byteLength(text, "utf-8"),
+      }
+      blocks.push(block)
+      byteOffset += Buffer.byteLength(line, "utf-8") + 1 // +1 for \n
+      continue
+    }
+
+    // Non-heading: collect into paragraph block
+    const trimmed = line.trim()
+    byteOffset += Buffer.byteLength(line, "utf-8") + 1
+
+    if (!trimmed) {
+      // Skip empty lines but count byte offset
+      continue
+    }
+
+    // Check for code fences
+    if (trimmed.startsWith("```")) {
+      blockId++
+      const codeLines: string[] = []
+      i++
+      while (i < lines.length && !lines[i].trim().startsWith("```")) {
+        codeLines.push(lines[i])
+        byteOffset += Buffer.byteLength(lines[i], "utf-8") + 1
+        i++
+      }
+      byteOffset += Buffer.byteLength(lines[i] ?? "", "utf-8") + 1
+
+      const codeText = codeLines.join("\n")
+      blocks.push({
+        block_id: `md_${String(blockId).padStart(4, "0")}`,
+        type: "code",
+        text: codeText,
+        sha256: sha256Hex(codeText),
+        byte_offset: byteOffset - Buffer.byteLength(codeText, "utf-8") - 2,
+        byte_length: Buffer.byteLength(codeText, "utf-8"),
+      })
+      continue
+    }
+
+    // Plain paragraph
+    blockId++
+    blocks.push({
+      block_id: `md_${String(blockId).padStart(4, "0")}`,
+      type: "paragraph",
+      text: trimmed,
+      sha256: sha256Hex(trimmed),
+      byte_offset: byteOffset - Buffer.byteLength(line, "utf-8") - 1,
+      byte_length: Buffer.byteLength(trimmed, "utf-8"),
+    })
+  }
+
+  const sourceSha256 = sha256Hex(contentMd)
+
+  return {
+    schema_version: "source_packet.v1",
+    source_file: sourceFile,
+    created_at: new Date().toISOString(),
+    blocks,
+    total_blocks: blocks.length,
+    source_sha256: sourceSha256,
+  }
+}

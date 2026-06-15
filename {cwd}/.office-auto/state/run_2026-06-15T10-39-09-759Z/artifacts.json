@@ -1,0 +1,11 @@
+{
+  "run_id": "run_2026-06-15T10-39-09-759Z",
+  "artifacts": [
+    {
+      "name": "docx_inspect_output",
+      "path": "docx_inspect_output.json",
+      "sha256": "b3a61466cca640c9b51116840cab6c3eb7bf8f7dfe4db49964dacd305347c1e7",
+      "created_at": "2026-06-15T10:39:13.440Z"
+    }
+  ]
+}

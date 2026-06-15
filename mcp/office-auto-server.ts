@@ -1,17 +1,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
-import { registerInspectTemplateTool } from "./tools/inspect_template"
-import { registerCompileOpsTool } from "./tools/compile_ops"
-import { registerExecuteOpsTool } from "./tools/execute_ops"
-import { registerValidateOutputTool } from "./tools/validate_output"
+import { registerCreateReportTool } from "./tools/create-report"
 
-const WORKTREE = process.env.OFFICE_AUTO_WORKSPACE ?? process.cwd()
-const server = new McpServer({ name: "office-auto", version: "2.0.0" })
+const server = new McpServer({ name: "office-auto", version: "3.1.0" })
 
-registerInspectTemplateTool(server, WORKTREE)
-registerCompileOpsTool(server, WORKTREE)
-registerExecuteOpsTool(server, WORKTREE)
-registerValidateOutputTool(server, WORKTREE)
+registerCreateReportTool(server)
 
 process.on("uncaughtException", (error) => {
   console.error(error)
