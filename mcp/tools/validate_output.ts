@@ -1,6 +1,14 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
-import { execSync } from "child_process"
+import { spawnSync } from "child_process"
+import { logArtifact } from "./run_logger"
+
+function run(args: string[]): string {
+  const r = spawnSync("officecli", args, { encoding: "utf-8" })
+  if (r.error) throw r.error
+  if (r.status !== 0) throw new Error(`officecli ${args[0]} failed: ${r.stderr}`)
+  return r.stdout
+}
 
 export function registerValidateOutputTool(server: McpServer, worktree: string) {
   server.tool(
@@ -10,11 +18,11 @@ export function registerValidateOutputTool(server: McpServer, worktree: string) 
       output_path: z.string().describe("Absolute path to output .docx to validate"),
     },
     async ({ output_path }) => {
-      execSync(`officecli open "${output_path}"`, { encoding: "utf-8" })
-      const validateRaw = execSync(`officecli validate "${output_path}"`, { encoding: "utf-8" })
-      const issuesRaw = execSync(`officecli view "${output_path}" issues --json --type format,structure`, { encoding: "utf-8" })
-      const outline = execSync(`officecli view "${output_path}" outline`, { encoding: "utf-8" })
-      execSync(`officecli close "${output_path}"`, { encoding: "utf-8" })
+      run(["open", output_path])
+      const validateRaw = run(["validate", output_path])
+      const issuesRaw = run(["view", output_path, "issues", "--json", "--type", "format,structure"])
+      const outline = run(["view", output_path, "outline"])
+      run(["close", output_path])
 
       let valid = false
       let issues: any[] = []
@@ -26,15 +34,19 @@ export function registerValidateOutputTool(server: McpServer, worktree: string) 
         valid = !/error|fail|invalid/i.test(issuesRaw)
       }
 
+      const result = {
+        valid,
+        issue_count: issues.length,
+        issues,
+        outline_preview: outline,
+      }
+
+      logArtifact("validation_result.json", result)
+
       return {
         content: [{
           type: "text",
-          text: JSON.stringify({
-            valid,
-            issue_count: issues.length,
-            issues,
-            outline_preview: outline,
-          }),
+          text: JSON.stringify(result),
         }],
       }
     }

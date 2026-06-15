@@ -1,6 +1,14 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
-import { execSync } from "child_process"
+import { spawnSync } from "child_process"
+import { logArtifact } from "./run_logger"
+
+function run(args: string[]): string {
+  const r = spawnSync("officecli", args, { encoding: "utf-8" })
+  if (r.error) throw r.error
+  if (r.status !== 0) throw new Error(`officecli ${args[0]} failed: ${r.stderr}`)
+  return r.stdout
+}
 
 export interface ParagraphEntry {
   style: string | null
@@ -43,10 +51,10 @@ export function registerInspectTemplateTool(server: McpServer, worktree: string)
       template_path: z.string().describe("Absolute path to the .docx template file"),
     },
     async ({ template_path }) => {
-      execSync(`officecli open "${template_path}"`, { encoding: "utf-8" })
-      const raw = execSync(`officecli get "${template_path}" /body --depth 3 --json`, { encoding: "utf-8" })
-      const outline = execSync(`officecli view "${template_path}" outline`, { encoding: "utf-8" })
-      execSync(`officecli close "${template_path}"`, { encoding: "utf-8" })
+      run(["open", template_path])
+      const raw = run(["get", template_path, "/body", "--depth", "3", "--json"])
+      const outline = run(["view", template_path, "outline"])
+      run(["close", template_path])
 
       const data = JSON.parse(raw)
       const headings: HeadingEntry[] = []
@@ -111,6 +119,8 @@ export function registerInspectTemplateTool(server: McpServer, worktree: string)
         toc_present: /TOC|Table of Contents/i.test(outline),
         total_paragraphs: paragraphs.length,
       }
+
+      logArtifact("body_map.json", bodyMap)
 
       return {
         content: [{ type: "text", text: JSON.stringify(bodyMap) }],

@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
 import type { BodyMap } from "./inspect_template"
+import { logArtifact } from "./run_logger"
 
 interface ActionDecision {
   heading_text: string
@@ -186,16 +187,20 @@ export function registerCompileOpsTool(server: McpServer, worktree: string) {
       const bodyMap: BodyMap = JSON.parse(body_map_json)
       const { ops_plan, errors } = compileOps(decisions, bodyMap, toc_refresh)
 
+      const result = {
+        ops_plan,
+        errors,
+        ops_count: ops_plan.length,
+        toc_refresh,
+        validated: errors.length === 0,
+      }
+
+      logArtifact("ops_plan.json", result)
+
       return {
         content: [{
           type: "text",
-          text: JSON.stringify({
-            ops_plan,
-            errors,
-            ops_count: ops_plan.length,
-            toc_refresh,
-            validated: errors.length === 0,
-          }),
+          text: JSON.stringify(result),
         }],
       }
     }

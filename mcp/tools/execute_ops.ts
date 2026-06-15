@@ -1,8 +1,23 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
-import { execSync } from "child_process"
+import { spawnSync } from "child_process"
 import { copyFileSync, mkdirSync } from "fs"
 import { dirname } from "path"
+import { logArtifact } from "./run_logger"
+
+function run(args: string[]): string {
+  const r = spawnSync("officecli", args, { encoding: "utf-8" })
+  if (r.error) throw r.error
+  if (r.status !== 0) throw new Error(`officecli ${args[0]} failed: ${r.stderr}`)
+  return r.stdout
+}
+
+function runStdin(args: string[], input: string): string {
+  const r = spawnSync("officecli", args, { encoding: "utf-8", input })
+  if (r.error) throw r.error
+  if (r.status !== 0) throw new Error(`officecli ${args[0]} failed: ${r.stderr}`)
+  return r.stdout
+}
 
 export function registerExecuteOpsTool(server: McpServer, worktree: string) {
   server.tool(
@@ -24,24 +39,25 @@ export function registerExecuteOpsTool(server: McpServer, worktree: string) {
         return rest
       })
 
-      execSync(`officecli open "${output_path}"`, { encoding: "utf-8" })
-      const batchResult = execSync(
-        `echo '${JSON.stringify(batch)}' | officecli batch "${output_path}" --json`,
-        { encoding: "utf-8" }
-      )
+      run(["open", output_path])
+      const batchResult = runStdin(["batch", output_path, "--json"], JSON.stringify(batch))
       if (toc_refresh) {
-        execSync(`officecli refresh "${output_path}"`, { encoding: "utf-8" })
+        run(["refresh", output_path])
       }
-      execSync(`officecli close "${output_path}"`, { encoding: "utf-8" })
+      run(["close", output_path])
+
+      const result = {
+        output_path,
+        batch_result: JSON.parse(batchResult),
+        toc_refreshed: toc_refresh,
+      }
+
+      logArtifact("result.json", result)
 
       return {
         content: [{
           type: "text",
-          text: JSON.stringify({
-            output_path,
-            batch_result: JSON.parse(batchResult),
-            toc_refreshed: toc_refresh,
-          }),
+          text: JSON.stringify(result),
         }],
       }
     }

@@ -29,3 +29,6 @@ logs.txt
 
 # Node dependencies
 node_modules/
+
+# Run artifacts
+runs/
