@@ -2,50 +2,99 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
 import { execSync } from "child_process"
 
+export interface ParagraphEntry {
+  style: string | null
+  text: string
+  path: string
+  paraId: string
+  index_in_body: number
+}
+
+export interface HeadingEntry {
+  style: string
+  text: string
+  path: string
+  paraId: string
+  index_in_body: number
+  /** Level extracted from style name (1-6). 0 if unparseable. */
+  level: number
+}
+
+export interface BodyMap {
+  template_path: string
+  inspected_at: string
+  headings: HeadingEntry[]
+  paragraphs: ParagraphEntry[]
+  body_styles_seen: string[]
+  toc_present: boolean
+  total_paragraphs: number
+}
+
+function extractHeadingLevel(style: string): number {
+  const m = style.match(/heading\s*(\d)/i)
+  return m ? parseInt(m[1], 10) : 0
+}
+
 export function registerInspectTemplateTool(server: McpServer, worktree: string) {
   server.tool(
     "inspect_template",
-    "Inspect a .docx template and return stable paraId map",
+    "Inspect a .docx template and return ALL paragraphs with stable paraIds",
     {
       template_path: z.string().describe("Absolute path to the .docx template file"),
     },
     async ({ template_path }) => {
-      const out = execSync(`officecli open "${template_path}"`, { encoding: "utf-8" })
+      execSync(`officecli open "${template_path}"`, { encoding: "utf-8" })
       const raw = execSync(`officecli get "${template_path}" /body --depth 3 --json`, { encoding: "utf-8" })
       const outline = execSync(`officecli view "${template_path}" outline`, { encoding: "utf-8" })
       execSync(`officecli close "${template_path}"`, { encoding: "utf-8" })
 
       const data = JSON.parse(raw)
-      const headings: Array<{ style: string; text: string; path: string; paraId: string; index_in_body: number }> = []
+      const headings: HeadingEntry[] = []
+      const paragraphs: ParagraphEntry[] = []
       const styles = new Set<string>()
 
       if (Array.isArray(data.paragraphs)) {
         data.paragraphs.forEach((p: any, idx: number) => {
-          if (p.style) styles.add(p.style)
-          if (p.style && /Heading/i.test(p.style)) {
+          const style: string | null = p.style ?? null
+          if (style) styles.add(style)
+
+          const paraId: string = p.paraId ?? ""
+          const path: string = p.path ?? (paraId ? `/body/p[@paraId=${paraId}]` : "")
+
+          const para: ParagraphEntry = {
+            style,
+            text: p.text ?? "",
+            path,
+            paraId,
+            index_in_body: idx,
+          }
+          paragraphs.push(para)
+
+          if (style && /heading/i.test(style)) {
             headings.push({
-              style: p.style,
-              text: p.text ?? "",
-              path: p.path ?? `/body/p[@paraId=${p.paraId}]`,
-              paraId: p.paraId ?? "",
+              style,
+              text: para.text,
+              path: para.path,
+              paraId: para.paraId,
               index_in_body: idx,
+              level: extractHeadingLevel(style),
             })
           }
         })
       }
 
+      const bodyMap: BodyMap = {
+        template_path,
+        inspected_at: new Date().toISOString(),
+        headings,
+        paragraphs,
+        body_styles_seen: [...styles],
+        toc_present: /TOC|Table of Contents/i.test(outline),
+        total_paragraphs: paragraphs.length,
+      }
+
       return {
-        content: [{
-          type: "text",
-          text: JSON.stringify({
-            template_path,
-            inspected_at: new Date().toISOString(),
-            headings,
-            body_styles_seen: [...styles],
-            toc_present: /TOC|Table of Contents/i.test(outline),
-            total_paragraphs: Array.isArray(data.paragraphs) ? data.paragraphs.length : 0,
-          }),
-        }],
+        content: [{ type: "text", text: JSON.stringify(bodyMap) }],
       }
     }
   )

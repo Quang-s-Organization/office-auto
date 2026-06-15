@@ -9,7 +9,7 @@ export function registerExecuteOpsTool(server: McpServer, worktree: string) {
     "execute_ops",
     "Apply OfficeCLI batch operations to produce output.docx",
     {
-      ops_plan_json: z.string().describe("JSON string of ops_plan array from plan_ops"),
+      ops_plan_json: z.string().describe("JSON string of ops_plan array from compile_ops"),
       template_path: z.string().describe("Absolute path to template .docx"),
       output_path: z.string().describe("Absolute path for output .docx (will be created)"),
       toc_refresh: z.boolean().default(false).describe("Whether to refresh TOC after execution"),

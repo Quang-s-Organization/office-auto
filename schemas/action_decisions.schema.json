@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["heading_text", "action"],
+    "properties": {
+      "heading_text": {
+        "type": "string",
+        "description": "Heading text to match against body_map.headings"
+      },
+      "action": {
+        "type": "string",
+        "enum": ["update", "keep", "remove", "add"]
+      },
+      "new_text": {
+        "type": "string",
+        "description": "Replacement heading text (for update) or new heading text (for add)"
+      },
+      "after": {
+        "type": "string",
+        "description": "For action=add: heading text to insert after"
+      },
+      "body_paragraphs": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Body paragraph text content for this section (update or add)"
+      },
+      "level": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 6,
+        "description": "Heading level for action=add"
+      }
+    }
+  }
+}

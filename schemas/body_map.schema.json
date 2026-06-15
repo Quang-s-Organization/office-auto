@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["template_path", "inspected_at", "headings", "body_styles_seen", "toc_present", "total_paragraphs"],
+  "required": ["template_path", "inspected_at", "headings", "paragraphs", "body_styles_seen", "toc_present", "total_paragraphs"],
   "properties": {
     "template_path": { "type": "string" },
     "inspected_at": { "type": "string", "format": "date-time" },
@@ -9,9 +9,25 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["style", "text", "path", "paraId", "index_in_body"],
+        "required": ["style", "text", "path", "paraId", "index_in_body", "level"],
         "properties": {
           "style": { "type": "string" },
+          "text": { "type": "string" },
+          "path": { "type": "string" },
+          "paraId": { "type": "string" },
+          "index_in_body": { "type": "integer", "minimum": 0 },
+          "level": { "type": "integer", "minimum": 0, "maximum": 6 }
+        }
+      }
+    },
+    "paragraphs": {
+      "type": "array",
+      "description": "Every paragraph in document body, including non-headings",
+      "items": {
+        "type": "object",
+        "required": ["style", "text", "path", "paraId", "index_in_body"],
+        "properties": {
+          "style": { "type": ["string", "null"] },
           "text": { "type": "string" },
           "path": { "type": "string" },
           "paraId": { "type": "string" },

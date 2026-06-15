@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { registerInspectTemplateTool } from "./tools/inspect_template"
-import { registerPlanOpsTool } from "./tools/plan_ops"
+import { registerCompileOpsTool } from "./tools/compile_ops"
 import { registerExecuteOpsTool } from "./tools/execute_ops"
 import { registerValidateOutputTool } from "./tools/validate_output"
 
@@ -9,7 +9,7 @@ const WORKTREE = process.env.OFFICE_AUTO_WORKSPACE ?? process.cwd()
 const server = new McpServer({ name: "office-auto", version: "2.0.0" })
 
 registerInspectTemplateTool(server, WORKTREE)
-registerPlanOpsTool(server, WORKTREE)
+registerCompileOpsTool(server, WORKTREE)
 registerExecuteOpsTool(server, WORKTREE)
 registerValidateOutputTool(server, WORKTREE)
 
