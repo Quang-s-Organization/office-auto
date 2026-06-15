@@ -18,12 +18,30 @@ export class MapperAgent extends BaseAgent {
     const headingMap = scaffold?.heading_map || stylesForLlm?.heading_map || {}
     const bodyStyle = scaffold?.body_text_style || stylesForLlm?.body_text_style || "Normal"
 
+    const availableStyles: any[] = stylesForLlm?.available_styles || []
+    const validStyleIds = new Set(availableStyles.map((s: any) => String(s.style_id)))
+    const validStyleNames = new Set(availableStyles.map((s: any) => String(s.name)))
+    const styleWarnings: string[] = []
+
+    function resolveStyle(candidate: string | undefined, fallbackIds: string[]): string {
+      if (candidate && (validStyleIds.has(candidate) || validStyleNames.has(candidate))) {
+        return candidate
+      }
+      if (candidate) {
+        styleWarnings.push(`Style '${candidate}' not found in template styles`)
+      }
+      for (const fb of fallbackIds) {
+        if (validStyleIds.has(fb) || validStyleNames.has(fb)) return fb
+      }
+      return candidate || fallbackIds[0] || "Normal"
+    }
+
     const styleMap = {
-      h1: headingMap.h1 || "Heading1",
-      h2: headingMap.h2 || "Heading2",
-      h3: headingMap.h3 || "Heading3",
-      body: bodyStyle,
-      caption: "Caption",
+      h1: resolveStyle(headingMap.h1, ["Heading1", "Heading 1", "heading 1"]),
+      h2: resolveStyle(headingMap.h2, ["Heading2", "Heading 2", "heading 2"]),
+      h3: resolveStyle(headingMap.h3, ["Heading3", "Heading 3", "heading 3"]),
+      body: resolveStyle(bodyStyle, ["Body Text", "Normal"]),
+      caption: resolveStyle(undefined, ["Caption", "caption", "Normal"]),
       preserve_zones: ["front_matter", "toc", "headers_footers"],
     }
 
@@ -42,6 +60,9 @@ export class MapperAgent extends BaseAgent {
 
     await writeJsonFile(`${runDir}/style_map.json`, styleMap)
     await writeJsonFile(`${runDir}/replace_range.json`, replaceRange)
+    if (styleWarnings.length > 0) {
+      await writeJsonFile(`${runDir}/style_warnings.json`, { warnings: styleWarnings })
+    }
 
     events.push({
       event_id: this.makeEventId(),
@@ -90,6 +111,11 @@ export class MapperAgent extends BaseAgent {
       next_revision: task.input_state_revision + 3,
     })
 
-    return { ok: true, events, summary: `Mapped ${Object.keys(headingMap).length} headings, ${removePaths.length} remove paths` }
+    const summary = `Mapped ${Object.keys(headingMap).length} headings, ${removePaths.length} remove paths`
+    const finalSummary = styleWarnings.length > 0
+      ? `${summary}, ${styleWarnings.length} style warnings`
+      : summary
+
+    return { ok: true, events, summary: finalSummary }
   }
 }

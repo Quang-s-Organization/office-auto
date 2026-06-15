@@ -157,6 +157,29 @@ def strict_invariant_checks(ops: list[dict], template_inspection: dict) -> list[
                 "op_index": i + 1,
             })
 
+    # Invariant 9: All styles must exist in template
+    styles_for_llm = template_inspection.get("styles_for_llm", {})
+    available_styles = styles_for_llm.get("available_styles", [])
+    if available_styles:
+        # Build set of valid style IDs and names
+        valid_style_ids = {s.get("style_id") for s in available_styles if s.get("style_id")}
+        valid_style_names = {s.get("name") for s in available_styles if s.get("name")}
+        valid_styles = valid_style_ids | valid_style_names
+        
+        for i, op in enumerate(ops):
+            style = op.get("style")
+            if not style:
+                continue
+            style_str = str(style)
+            if style_str not in valid_styles:
+                blocking.append({
+                    "invariant": "style_not_in_template",
+                    "severity": "high",
+                    "message": f"Op #{i+1} uses style '{style_str}' which does not exist in template. "
+                               f"Available styles: {sorted(list(valid_styles))[:10]}{'...' if len(valid_styles) > 10 else ''}",
+                    "op_index": i + 1,
+                })
+
     return blocking
 
 

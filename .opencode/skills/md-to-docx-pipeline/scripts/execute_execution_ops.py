@@ -86,6 +86,32 @@ def normalize_style(style: str, style_lookup: dict[str, str]) -> str:
     return style_lookup.get(str(style), str(style))
 
 
+def validate_styles_in_ops(ops: list[dict], style_lookup: dict[str, str]) -> list[dict]:
+    """Validate that all styles referenced in ops exist in the template.
+
+    Returns list of errors for styles not found.
+    """
+    errors: list[dict] = []
+    available_styles = set(style_lookup.keys())
+
+    for i, op in enumerate(ops):
+        if "style" not in op:
+            continue
+        style = op["style"]
+        if not style:
+            continue
+        # Check if style exists (by style_id or name)
+        if str(style) not in style_lookup:
+            errors.append({
+                "op_index": i,
+                "op_type": op.get("op", "unknown"),
+                "style": style,
+                "message": f"Style '{style}' not found in template. Available: {sorted(available_styles)[:10]}{'...' if len(available_styles) > 10 else ''}",
+            })
+
+    return errors
+
+
 # Batch sizes for efficiency
 REMOVE_BATCH_SIZE = 200
 ADD_BATCH_SIZE = 40
@@ -663,7 +689,7 @@ def execute_ops_batch(
                         officecli_save(session)
                         raise
 
-           elif op_name == "insert_paragraph_before":
+            elif op_name == "insert_paragraph_before":
                 # Flush buffer first
                 if batchable_buffer:
                     current_anchor = _flush_batch_add(session, batchable_buffer, current_anchor, report, fail_fast)
@@ -701,7 +727,7 @@ def execute_ops_batch(
                         officecli_save(session)
                         raise
 
-           elif op_name == "insert_image":
+            elif op_name == "insert_image":
                 # Flush buffer
                 if batchable_buffer:
                     current_anchor = _flush_batch_add(session, batchable_buffer, current_anchor, report, fail_fast)
@@ -896,6 +922,28 @@ def main() -> None:
         if normalized_count > 0:
             print(f"[execute_execution_ops] Normalized {normalized_count} style names to style_id")
 
+    # Validate all styles exist in template — HARD FAIL on unknown styles
+    if style_lookup:
+        style_errors = validate_styles_in_ops(ops_list, style_lookup)
+        if style_errors:
+            error_report = {
+                "status": "failed",
+                "error": f"{len(style_errors)} style(s) not found in template",
+                "style_errors": style_errors,
+                "target_file": str(target_path),
+                "template_file": str(template_file) if template_file else "",
+                "total_ops": len(ops_list),
+            }
+            write_json(run_dir / "execute_ops_report.json", error_report)
+            print(f"[execute_execution_ops] FAILED: {len(style_errors)} style(s) not found in template:")
+            for err in style_errors[:10]:
+                print(f"  - Op #{err['op_index']}: {err['message']}")
+            if len(style_errors) > 10:
+                print(f"  ... and {len(style_errors) - 10} more")
+            print("[execute_execution_ops] Fix style_map.json to use valid template style IDs.")
+            raise SystemExit(1)
+        print(f"[execute_execution_ops] All styles validated against template ({len(style_lookup)} available)")
+
     # Get range info for anchor resolution
     range_info = ops_dict.get("selected_replace_range") or ops_dict.get("range") or None
 
@@ -940,7 +988,7 @@ def main() -> None:
     write_json(report_path, report)
     existing = read_json(run_dir / "run.json") if (run_dir / "run.json").exists() else {}
     existing.update({
-        "status": "failed" if report["failed"] > 0 else "built",
+        "status": "failed" if report["failed"] > 0 else "completed",
         "target_file": str(target_path),
         "template_file": str(template_file) if template_file else existing.get("template_file", ""),
         "artifacts": {

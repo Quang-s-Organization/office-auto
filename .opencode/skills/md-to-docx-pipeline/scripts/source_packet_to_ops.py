@@ -90,6 +90,23 @@ def classify_heading_level_from_text(text: str) -> int:
     return 2
 
 
+def validate_style_map(style_map: dict, available_style_ids: set[str]) -> list[str]:
+    """Validate that style_map references styles that exist in the template.
+
+    Returns list of warning messages for styles not found.
+    """
+    warnings: list[str] = []
+    style_keys = ("h1", "h2", "h3", "h4", "h5", "h6", "body", "caption", "toc")
+    for key in style_keys:
+        style_id = style_map.get(key)
+        if style_id and style_id not in available_style_ids:
+            warnings.append(
+                f"style_map['{key}'] = '{style_id}' NOT found in template styles. "
+                f"Executor will fail when applying this style."
+            )
+    return warnings
+
+
 def compile_source_packet_to_ops(
     source_packet: dict,
     style_map: dict,
@@ -260,6 +277,18 @@ def main() -> None:
 
     # Materialize style_map so final_gate can find it
     write_json(run_dir / "style_map.json", style_map)
+
+    # Validate style_map against template styles
+    styles_raw_file = run_dir / "docx_inspect_styles_raw.json"
+    if styles_raw_file.exists():
+        styles_raw = read_json(styles_raw_file)
+        available_style_ids = {s.get("style_id") for s in styles_raw if s.get("style_id")}
+        style_warnings = validate_style_map(style_map, available_style_ids)
+        if style_warnings:
+            print(f"[source_packet_to_ops] WARNING: {len(style_warnings)} style validation issue(s):")
+            for w in style_warnings:
+                print(f"  - {w}")
+            write_json(run_dir / "style_validation_warnings.json", {"warnings": style_warnings})
 
     # Load or default replace_range
     replace_range: dict = {}
