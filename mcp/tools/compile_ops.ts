@@ -184,7 +184,9 @@ function findBodyParagraphsForSection(
       if (pl > 0 && pl <= sectionLevel) break
     }
     if (!p.style || !/heading/i.test(p.style)) {
-      result.push({ path: p.path })
+      if (p.path) {
+        result.push({ path: p.path })
+      }
     }
     j++
   }
@@ -233,7 +235,9 @@ export function compileOps(
         j++
       }
       for (let k = h.index_in_body; k < j; k++) {
-        ops.push({ command: "remove", path: bodyMap.paragraphs[k].path })
+        if (bodyMap.paragraphs[k].path) {
+          ops.push({ command: "remove", path: bodyMap.paragraphs[k].path! })
+        }
       }
       continue
     }

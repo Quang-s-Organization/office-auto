@@ -254,7 +254,7 @@ function findBestInsertAfter(
         (d.source_heading_block_id === prevSource.block_id ||
           (d.canonical_key === prevKey && d.source_heading_block_id)),
     )
-    if (matched) return matched.template_heading_id
+    if (matched) return matched.template_heading_id ?? null
   }
 
   // Fallback: last template heading
@@ -683,13 +683,12 @@ type PhaseHandlerFn = (runId: string, state: RunState) => Promise<PhaseResult>
 
 const PHASE_HANDLERS: Record<string, PhaseHandlerFn> = {
   "CREATED": phaseInspect,
-  "INSPECTED": phaseSourceParse,
-  "SOURCE_PARSED": phaseMap,
-  "MAPPED": phaseCompile,
-  "COMPILED": phaseValidate,
-  "VALIDATED": phaseApply,
-  "APPLIED": phaseVerify,
-  "VERIFIED": phaseFinalGate,
+  "SOURCE_PARSED": phaseSourceParse,
+  "MAPPED": phaseMap,
+  "COMPILED": phaseCompile,
+  "VALIDATED": phaseValidate,
+  "APPLIED": phaseApply,
+  "VERIFIED": phaseVerify,
 }
 
 // ─── Main Pipeline Runner ─────────────────────────────────────────────

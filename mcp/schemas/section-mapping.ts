@@ -1,7 +1,7 @@
 import { z } from "zod"
 
 export const SectionDecisionZ = z.object({
-  template_heading_id: z.string().min(1),
+  template_heading_id: z.string().optional(),
   template_heading_text: z.string(),
   canonical_key: z.string().min(1),
   action: z.enum(["update", "keep", "remove", "add"]),

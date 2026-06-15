@@ -3,13 +3,18 @@ import { z } from "zod"
 export const ParagraphEntryZ = z.object({
   style: z.string().nullable(),
   text: z.string(),
-  path: z.string().min(1, "paragraph path must not be empty"),
-  paraId: z.string().min(1, "paragraph paraId must not be empty"),
+  path: z.string().nullable().optional(),
+  paraId: z.string().nullable().optional(),
   index_in_body: z.number().int().nonnegative(),
+  addressable: z.boolean().optional(),
 })
 
-export const HeadingEntryZ = ParagraphEntryZ.extend({
+export const HeadingEntryZ = z.object({
   style: z.string().min(1, "heading style must not be empty"),
+  text: z.string(),
+  path: z.string().min(1, "heading path must not be empty"),
+  paraId: z.string().min(1, "heading paraId must not be empty"),
+  index_in_body: z.number().int().nonnegative(),
   level: z.number().int().min(0).max(6),
   heading_id: z.string().min(1, "heading_id must not be empty"),
   canonical_key: z.string().min(1, "canonical_key must not be empty"),

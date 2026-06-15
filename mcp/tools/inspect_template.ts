@@ -59,13 +59,15 @@ function extractParagraphNodes(data: unknown): any[] {
 }
 
 function buildParagraphEntry(p: any, idx: number, headingIndex: number): ParagraphEntry {
-  const paraId: string =
+  const paraId: string | null =
     p.paraId ??
-    (p.path ? (p.path.match(/@paraId=([^\]]+)/)?.[1] ?? "") : "")
+    (p.path ? (p.path.match(/@paraId=([^\]]+)/)?.[1] ?? null) : null)
 
-  const path: string =
+  const path: string | null =
     p.path ??
-    (paraId ? `/body/p[@paraId=${paraId}]` : "")
+    (paraId ? `/body/p[@paraId=${paraId}]` : null)
+
+  const addressable = !!(paraId && path)
 
   return {
     style: p.style ?? null,
@@ -73,6 +75,7 @@ function buildParagraphEntry(p: any, idx: number, headingIndex: number): Paragra
     path,
     paraId,
     index_in_body: idx,
+    addressable,
   }
 }
 
@@ -116,7 +119,7 @@ export function inspectTemplate(template_path: string): unknown {
 
   let headingCount = 0
   const headings: HeadingEntry[] = paragraphs
-    .filter((p) => p.style && /heading/i.test(p.style))
+    .filter((p) => p.style && /heading/i.test(p.style) && p.path && p.paraId)
     .map((p) => {
       headingCount++
       const headingId = `h_${String(headingCount).padStart(4, "0")}`
@@ -124,8 +127,8 @@ export function inspectTemplate(template_path: string): unknown {
       return {
         style: p.style!,
         text: p.text,
-        path: p.path,
-        paraId: p.paraId,
+        path: p.path!,
+        paraId: p.paraId!,
         index_in_body: p.index_in_body,
         level: extractHeadingLevel(p.style!),
         heading_id: headingId,

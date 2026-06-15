@@ -25,6 +25,7 @@ const validBodyMap = {
       path: "/body/p[@paraId=AAA11111]",
       paraId: "AAA11111",
       index_in_body: 0,
+      addressable: true,
     },
     {
       style: "Normal",
@@ -32,6 +33,7 @@ const validBodyMap = {
       path: "/body/p[@paraId=BBB22222]",
       paraId: "BBB22222",
       index_in_body: 1,
+      addressable: true,
     },
   ],
   body_styles_seen: ["Heading1", "Normal"],
@@ -151,43 +153,57 @@ describe("BodyMap schema validation", () => {
     expect(paths).toMatch(/canonical_key/)
   })
 
-  it("rejects paragraph without paraId", () => {
-    const bad = {
+  it("accepts paragraph without paraId (nullable)", () => {
+    const bodyMap = {
       ...validBodyMap,
       paragraphs: [
         {
           style: "Normal",
           text: "Body",
-          path: "/body/p[@paraId=AAA]",
+          path: null,
+          paraId: null,
           index_in_body: 0,
+          addressable: false,
         },
       ],
     }
-    const result = BodyMapZ.safeParse(bad)
-    expect(result.success).toBe(false)
-    const paths = result.error?.issues.map((i) => i.path.join(".")).join(",") ?? ""
-    expect(paths).toMatch(/paraId/)
+    const result = BodyMapZ.safeParse(bodyMap)
+    expect(result.success).toBe(true)
   })
 
-  it("rejects empty path in paragraph", () => {
-    const bad = {
+  it("accepts paragraph with missing paraId field (optional)", () => {
+    const bodyMap = {
       ...validBodyMap,
       paragraphs: [
         {
           style: "Normal",
           text: "Body",
-          path: "",
-          paraId: "BBB",
           index_in_body: 0,
         },
       ],
     }
-    const result = BodyMapZ.safeParse(bad)
-    expect(result.success).toBe(false)
+    const result = BodyMapZ.safeParse(bodyMap)
+    expect(result.success).toBe(true)
+  })
+
+  it("accepts paragraph with null path", () => {
+    const bodyMap = {
+      ...validBodyMap,
+      paragraphs: [
+        {
+          style: "Normal",
+          text: "Body",
+          path: null,
+          paraId: null,
+          index_in_body: 0,
+        },
+      ],
+    }
+    const result = BodyMapZ.safeParse(bodyMap)
+    expect(result.success).toBe(true)
   })
 
   it("validates manual body_map missing paragraphs field", () => {
-    // Simulate LLM-created body_map with only headings
     const manualMap = {
       headings: [
         {
@@ -224,15 +240,37 @@ describe("ParagraphEntry schema", () => {
     expect(result.success).toBe(true)
   })
 
-  it("rejects empty paraId", () => {
+  it("accepts null paraId", () => {
+    const result = ParagraphEntryZ.safeParse({
+      style: "Normal",
+      text: "Hello",
+      path: null,
+      paraId: null,
+      index_in_body: 0,
+      addressable: false,
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it("accepts missing paraId field", () => {
+    const result = ParagraphEntryZ.safeParse({
+      style: "Normal",
+      text: "Hello",
+      index_in_body: 0,
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it("accepts addressable flag", () => {
     const result = ParagraphEntryZ.safeParse({
       style: "Normal",
       text: "Hello",
       path: "/body/p[@paraId=ABC]",
-      paraId: "",
+      paraId: "ABC",
       index_in_body: 0,
+      addressable: true,
     })
-    expect(result.success).toBe(false)
+    expect(result.success).toBe(true)
   })
 })
 
@@ -260,6 +298,36 @@ describe("HeadingEntry schema", () => {
       paraId: "ABC",
       index_in_body: 0,
       level: 1,
+      canonical_key: "chapter 1",
+      raw_text: "Chapter 1",
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it("rejects heading with null paraId (headings must be addressable)", () => {
+    const result = HeadingEntryZ.safeParse({
+      style: "Heading1",
+      text: "Chapter 1",
+      path: "/body/p[@paraId=ABC]",
+      paraId: null,
+      index_in_body: 0,
+      level: 1,
+      heading_id: "h_0001",
+      canonical_key: "chapter 1",
+      raw_text: "Chapter 1",
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it("rejects heading with null path", () => {
+    const result = HeadingEntryZ.safeParse({
+      style: "Heading1",
+      text: "Chapter 1",
+      path: null,
+      paraId: "ABC",
+      index_in_body: 0,
+      level: 1,
+      heading_id: "h_0001",
       canonical_key: "chapter 1",
       raw_text: "Chapter 1",
     })
