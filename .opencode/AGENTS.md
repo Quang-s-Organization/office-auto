@@ -19,13 +19,14 @@ Orchestrator có 4 MCP tools:
 
 ## Kiến trúc: LLM Chỉ Quyết Định, Code Làm Phần Còn Lại
 
-LLM outputs **action_decisions** — 3-field IR đơn giản per heading:
+LLM outputs **action_decisions** — routing-only IR per heading:
 ```json
-{ "heading_text": "...", "action": "update|keep|remove|add", "new_text?": "...", "body_paragraphs?": [...] }
+{ "heading_text": "...", "action": "update|keep|remove|add", "new_text?": "...", "md_heading?": "...", "after?": "...", "level?": 1 }
 ```
 
-compile_ops tự map body_map lookup → ops_plan hoàn chỉnh.
-LLM KHÔNG BAO GIỜ tự viết paraIds, commands, paths. Không có bề mặt cho hallucinate.
+Body paragraphs are extracted by code from content.md — LLM NEVER writes body_paragraphs.
+compile_ops deterministically maps routing + body_map + content.md → ops_plan.
+LLM KHÔNG BAO GIỜ tự viết paraIds, commands, paths, hoặc body_paragraphs. Không có bề mặt cho hallucinate.
 
 ## Quy tắc vận hành
 

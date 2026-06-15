@@ -16,16 +16,15 @@ When invoked, the orchestrator follows this protocol exactly:
 
 ## Architecture: LLM Only Decides, Code Builds
 
-LLM outputs **action_decisions** — a simple IR per heading:
+LLM outputs **action_decisions** — routing-only IR per heading:
 ```json
-{ "heading_text": "...", "action": "update|keep|remove|add", "new_text?": "...", "body_paragraphs?": [...] }
+{ "heading_text": "...", "action": "update|keep|remove|add", "new_text?": "...", "md_heading?": "...", "after?": "...", "level?": 1 }
 ```
 
-`compile_ops` deterministically maps action_decisions + body_map → full ops_plan.
-LLM NEVER writes paraIds, commands, or paths. Zero hallucination surface.
+Body paragraphs are NEVER included in LLM output. `compile_ops` extracts them from content.md deterministically.
+LLM NEVER writes paraIds, commands, paths, or body_paragraphs. Zero hallucination surface.
 
 With 256K context, LLM reads ALL content.md and ALL body_map in one pass.
-Include complete body_paragraphs arrays — never truncate.
 
 ## content.md Rules
 
@@ -47,7 +46,11 @@ Include complete body_paragraphs arrays — never truncate.
 }
 ```
 
-**If intent.json does not exist**: the LLM auto-generates it by analyzing content.md headings against body_map headings. Cross-reference heading text to determine update/keep/remove/add actions. Write the generated intent.json to disk before proceeding.
+**If intent.json does not exist**: the LLM auto-generates it by analyzing content.md headings against body_map headings.
+Cross-reference heading text to determine update/keep/add actions.
+**Headings in body_map but NOT in content.md default to "keep"** (not "remove" — they are template skeleton sections).
+Only use "remove" when explicitly listed in intent.json.
+Write the generated intent.json to disk before proceeding.
 
 ## Orchestrator Protocol
 
@@ -70,13 +73,18 @@ Read the FULL body_map (all headings + all paragraphs).
 Produce action_decisions for EVERY heading in body_map (plus any to add).
 
 CRITICAL:
-- For action=update: include body_paragraphs array with ALL body paragraphs from content.md for that section
+- LLM writes ONLY routing: heading_text, action, new_text?, md_heading?, after?, level?
+- LLM does NOT include body_paragraphs — compile_ops extracts them from content.md
+- Include md_heading when markdown heading text differs from template heading_text
 - For action=remove: only heading_text + action needed
-- NEVER write paraIds, commands, or paths — compile_ops handles that
+- NEVER write paraIds, commands, paths, or body_paragraphs
 
 ### Step 4: Compile
-Call compile_ops(action_decisions_json, body_map_json, toc_refresh).
-If errors → fix and retry once. If still failing → STOP.
+Call compile_ops(action_decisions_json, body_map_json, toc_refresh, content_md=FULL_CONTENT_MD).
+Always pass content_md. If errors → fix and retry once. If still failing → STOP.
+
+### Step 4b: Large document map mode
+If body_map.total_paragraphs > 150, consider splitting action_decisions by chapter.
 
 ### Step 5: Execute
 Call execute_ops(ops_plan_json, template_path, output_path, toc_refresh).

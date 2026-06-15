@@ -8,7 +8,9 @@ interface ActionDecision {
   action: "update" | "keep" | "remove" | "add"
   new_text?: string
   after?: string
-  /** Body paragraphs following this heading (for add or update) */
+  /** Markdown heading in content.md to extract body paragraphs from. Code, not LLM, does the extraction. */
+  md_heading?: string
+  /** DEPRECATED: kept for backward compat; prefer md_heading + content_md extraction. */
   body_paragraphs?: string[]
   /** Level for new heading when action=add */
   level?: number
@@ -22,6 +24,18 @@ interface OfficeCliOp {
   after?: string
   props?: Record<string, string>
 }
+
+const ActionDecisionZod = z.object({
+  heading_text: z.string().min(1, "heading_text must not be empty"),
+  action: z.enum(["update", "keep", "remove", "add"], {
+    errorMap: () => ({ message: "action must be one of: update, keep, remove, add" }),
+  }),
+  new_text: z.string().optional(),
+  after: z.string().optional(),
+  md_heading: z.string().optional(),
+  body_paragraphs: z.array(z.string()).optional(),
+  level: z.number().int().min(1).max(6).optional(),
+})
 
 function findBodyStyle(bodyMap: BodyMap): string {
   const normals = bodyMap.body_styles_seen.filter(
@@ -45,10 +59,69 @@ function findHeadingParaId(bodyMap: BodyMap, headingText: string): string | null
 }
 
 function normalizeText(t: string): string {
-  return t.replace(/\s+/g, " ").trim().toLowerCase()
+  return t
+    .normalize("NFC")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase()
 }
 
-export function compileOps(actionDecisions: ActionDecision[], bodyMap: BodyMap, tocRefresh: boolean): {
+interface MarkdownSection {
+  heading: string
+  level: number
+  body: string[]
+}
+
+function parseMarkdownSections(mdContent: string): MarkdownSection[] {
+  const sections: MarkdownSection[] = []
+  const lines = mdContent.split("\n")
+  let currentSection: MarkdownSection | null = null
+
+  for (const line of lines) {
+    const hMatch = line.match(/^(#{1,6})\s+(.+)/)
+    if (hMatch) {
+      if (currentSection) sections.push(currentSection)
+      currentSection = {
+        heading: normalizeText(hMatch[2]),
+        level: hMatch[1].length,
+        body: [],
+      }
+    } else if (currentSection) {
+      const trimmed = line.trim()
+      if (trimmed) currentSection.body.push(trimmed)
+    }
+  }
+  if (currentSection) sections.push(currentSection)
+
+  return sections
+}
+
+function extractBodyParagraphs(
+  contentMd: string,
+  headingText: string,
+  mdHeading?: string,
+): string[] {
+  if (!contentMd) return []
+
+  const sections = parseMarkdownSections(contentMd)
+
+  if (mdHeading) {
+    const normalized = normalizeText(mdHeading)
+    const section = sections.find(s => s.heading === normalized)
+    return section?.body ?? []
+  }
+
+  const normalized = normalizeText(headingText)
+  const section = sections.find(s => s.heading === normalized)
+  return section?.body ?? []
+}
+
+export function compileOps(
+  actionDecisions: ActionDecision[],
+  bodyMap: BodyMap,
+  tocRefresh: boolean,
+  contentMd?: string,
+): {
   ops_plan: OfficeCliOp[]
   errors: string[]
 } {
@@ -63,7 +136,6 @@ export function compileOps(actionDecisions: ActionDecision[], bodyMap: BodyMap, 
     if (action === "keep") continue
 
     if (action === "remove") {
-      // Find all paragraphs in this section: heading + everything after until next same-or-higher level heading
       const h = bodyMap.headings.find(h => normalizeText(h.text) === normalizeText(d.heading_text))
       if (!h) {
         errors.push(`action[${i}]: heading "${d.heading_text}" not found in body_map`)
@@ -79,7 +151,6 @@ export function compileOps(actionDecisions: ActionDecision[], bodyMap: BodyMap, 
         }
         j++
       }
-      // Remove from heading back to (j-1)
       for (let k = h.index_in_body; k < j; k++) {
         ops.push({ command: "remove", path: bodyMap.paragraphs[k].path })
       }
@@ -95,15 +166,27 @@ export function compileOps(actionDecisions: ActionDecision[], bodyMap: BodyMap, 
       if (d.new_text && d.new_text !== h.text) {
         ops.push({ command: "set", path: h.path, props: { text: d.new_text } })
       }
-      // Update body paragraphs for this section if provided
-      if (d.body_paragraphs && d.body_paragraphs.length > 0) {
+
+      const bodyParas = d.body_paragraphs && d.body_paragraphs.length > 0
+        ? d.body_paragraphs
+        : contentMd
+          ? extractBodyParagraphs(contentMd, d.heading_text, d.md_heading)
+          : []
+
+      if (bodyParas.length > 0) {
         const sectionLevel = h.level
-        const bodyParas = findBodyParagraphsForSection(bodyMap, h, sectionLevel)
-        for (let bi = 0; bi < bodyParas.length && bi < d.body_paragraphs.length; bi++) {
+        const templateBodyParas = findBodyParagraphsForSection(bodyMap, h, sectionLevel)
+        if (bodyParas.length > templateBodyParas.length) {
+          errors.push(
+            `action[${i}]: body paragraph count mismatch — ${bodyParas.length} in content.md but only ${templateBodyParas.length} placeholders in template. ` +
+            `${bodyParas.length - templateBodyParas.length} paragraphs will be dropped.`,
+          )
+        }
+        for (let bi = 0; bi < templateBodyParas.length && bi < bodyParas.length; bi++) {
           ops.push({
             command: "set",
-            path: bodyParas[bi].path,
-            props: { text: d.body_paragraphs[bi] },
+            path: templateBodyParas[bi].path,
+            props: { text: bodyParas[bi] },
           })
         }
       }
@@ -115,30 +198,38 @@ export function compileOps(actionDecisions: ActionDecision[], bodyMap: BodyMap, 
       const style = headingStyleForLevel(bodyMap, level)
       const afterText = d.after ?? ""
       const anchorParaId = afterText ? findHeadingParaId(bodyMap, afterText) : null
+      const lastParaId = bodyMap.paragraphs[bodyMap.paragraphs.length - 1]?.paraId ?? ""
 
-      if (!anchorParaId) {
-        // Fall through: append after last paragraph
-      }
+      const bodyParas = d.body_paragraphs && d.body_paragraphs.length > 0
+        ? d.body_paragraphs
+        : contentMd
+          ? extractBodyParagraphs(contentMd, d.heading_text, d.md_heading)
+          : []
+
+      // All add ops use the same anchor — OfficeCLI batch processes ops relative
+      // to original document state (single-pass), maintaining insertion order.
+      // If OfficeCLI processes sequentially, body paragraphs would reverse; in that
+      // case the orchestrator should fall back to individual add operations.
+      const afterPath = anchorParaId
+        ? `/body/p[@paraId=${anchorParaId}]`
+        : `/body/p[@paraId=${lastParaId}]`
 
       ops.push({
         command: "add",
         parent: "/body",
         type: "paragraph",
-        after: anchorParaId ? `/body/p[@paraId=${anchorParaId}]` : `/body/p[@paraId=${bodyMap.paragraphs[bodyMap.paragraphs.length - 1]?.paraId ?? ""}]`,
+        after: afterPath,
         props: { text: d.new_text ?? d.heading_text, style },
       })
 
-      // Add body paragraphs after the new heading (will use same anchor for simplicity)
-      if (d.body_paragraphs) {
-        for (const bp of d.body_paragraphs) {
-          ops.push({
-            command: "add",
-            parent: "/body",
-            type: "paragraph",
-            after: anchorParaId ? `/body/p[@paraId=${anchorParaId}]` : `/body/p[@paraId=${bodyMap.paragraphs[bodyMap.paragraphs.length - 1]?.paraId ?? ""}]`,
-            props: { text: bp, style: bodyStyle },
-          })
-        }
+      for (const bp of bodyParas) {
+        ops.push({
+          command: "add",
+          parent: "/body",
+          type: "paragraph",
+          after: afterPath,
+          props: { text: bp, style: bodyStyle },
+        })
       }
       continue
     }
@@ -176,16 +267,53 @@ function findBodyParagraphsForSection(
 export function registerCompileOpsTool(server: McpServer, worktree: string) {
   server.tool(
     "compile_ops",
-    "Deterministically transform action_decisions + body_map into OfficeCLI ops_plan. LLM only writes action_decisions; this tool does all paraId/command mapping.",
+    "Deterministically transform action_decisions + body_map into OfficeCLI ops_plan. LLM only writes action_decisions with routing (no body_paragraphs needed); this tool extracts content from content.md deterministically.",
     {
-      action_decisions_json: z.string().describe("JSON string of ActionDecision[] — LLM output"),
+      action_decisions_json: z.string().describe("JSON string of ActionDecision[] — LLM routing output"),
       body_map_json: z.string().describe("JSON string of body_map from inspect_template"),
       toc_refresh: z.boolean().default(false).describe("Whether TOC needs refresh"),
+      content_md: z.string().optional().describe("Full content.md text. If provided, body_paragraphs are extracted from here (code, not LLM). LLM should still include md_heading for sections where markdown heading differs from template heading text."),
     },
-    async ({ action_decisions_json, body_map_json, toc_refresh }) => {
-      const decisions: ActionDecision[] = JSON.parse(action_decisions_json)
+    async ({ action_decisions_json, body_map_json, toc_refresh, content_md }) => {
+      let decisions: ActionDecision[]
+      try {
+        decisions = JSON.parse(action_decisions_json)
+      } catch {
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              ops_plan: [],
+              errors: ["Failed to parse action_decisions JSON. Ensure the output is valid JSON."],
+              ops_count: 0,
+              toc_refresh,
+              validated: false,
+            }),
+          }],
+        }
+      }
+
+      const validated = ActionDecisionZod.array().safeParse(decisions)
+      if (!validated.success) {
+        const zodErrors = validated.error.issues.map(issue =>
+          `Entry ${issue.path[0]}: field "${issue.path[issue.path.length - 1]}" — ${issue.message}`
+        )
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              ops_plan: [],
+              errors: ["Schema validation failed: " + zodErrors.join("; ")],
+              ops_count: 0,
+              toc_refresh,
+              validated: false,
+            }),
+          }],
+        }
+      }
+
       const bodyMap: BodyMap = JSON.parse(body_map_json)
-      const { ops_plan, errors } = compileOps(decisions, bodyMap, toc_refresh)
+      const { ops_plan, errors } = compileOps(validated.data, bodyMap, toc_refresh, content_md)
 
       const result = {
         ops_plan,

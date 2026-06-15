@@ -21,10 +21,14 @@
         "type": "string",
         "description": "For action=add: heading text to insert after"
       },
+      "md_heading": {
+        "type": "string",
+        "description": "Markdown heading text in content.md for body paragraph extraction. Only needed when the heading text in content.md differs from heading_text (the template heading). If omitted, heading_text is used for lookup."
+      },
       "body_paragraphs": {
         "type": "array",
         "items": { "type": "string" },
-        "description": "Body paragraph text content for this section (update or add)"
+        "description": "DEPRECATED. Body paragraph text content. Prefer passing content_md to compile_ops — the tool extracts body paragraphs from content.md deterministically. Only include if content_md is not available."
       },
       "level": {
         "type": "integer",

@@ -10,7 +10,10 @@ Never split or chunk — process everything in a single shot.
 
 ## Tools Available
 - inspect_template: Get stable paraId map from template (ALL paragraphs)
-- compile_ops: Deterministic transform — action_decisions + body_map → ops_plan
+- compile_ops: Deterministic transform — action_decisions + body_map → ops_plan.
+  **Accepts optional `content_md` param** — when provided, code extracts body_paragraphs from content.md.
+  LLM should NOT include body_paragraphs in action_decisions when content_md is passed.
+  LLM should include `md_heading` for sections where markdown heading text differs from template heading text.
 - execute_ops: Apply operations via OfficeCLI batch
 - validate_output: Check output for issues
 
@@ -37,8 +40,9 @@ Read the FULL body_map from Step 2.
 **If intent.json does NOT exist on disk:**
 Auto-generate it by cross-referencing content.md headings against body_map.headings:
 - Headings present in BOTH content.md and body_map → action="update"
-- Headings in body_map but NOT in content.md → action="remove"
+- Headings in body_map but NOT in content.md → action="keep" (DO NOT remove — they are template skeleton sections)
 - Headings in content.md but NOT in body_map → action="add" (with after= pointing to the previous heading that exists in body_map)
+- ONLY use action="remove" for headings explicitly listed with action="remove" in intent.json
 - Set toc.refresh=true
 Write the generated intent.json to disk at the paths relative to template (same directory).
 
@@ -46,28 +50,36 @@ Write the generated intent.json to disk at the paths relative to template (same 
 
 Then produce action_decisions for EVERY heading in body_map (plus any to add).
 
-action_decisions format — 3-5 simple fields per entry:
+action_decisions format — simple routing fields only (body_paragraphs are extracted by code from content.md):
 ```json
 [
-  { "heading_text": "Chương 1: Giới Thiệu", "action": "update", "new_text": "Intro", "body_paragraphs": ["paragraph 1 text...", "paragraph 2 text..."] },
+  { "heading_text": "Chương 1: Giới Thiệu", "action": "update", "new_text": "Intro", "md_heading": "Chương 1: Giới Thiệu" },
   { "heading_text": "Phụ Lục", "action": "keep" },
   { "heading_text": "Chương Cũ", "action": "remove" },
-  { "heading_text": "Chương Mới", "action": "add", "after": "Chương 2", "level": 1, "body_paragraphs": ["new content..."] }
+  { "heading_text": "Chương Mới", "action": "add", "after": "Chương 2", "level": 1, "md_heading": "Chương Mới" }
 ]
 ```
 
-CRITICAL:
-- For action=update: include body_paragraphs array with ALL body paragraphs from content.md for that section
+CRITICAL RULES:
+- LLM writes ONLY routing decisions: heading_text, action, new_text, after, md_heading, level
+- LLM does NOT include body_paragraphs — compile_ops extracts them from content.md (deterministic, no hallucination)
+- Include `md_heading` when the heading text in content.md differs from the template heading_text
 - For action=remove: only heading_text + action needed — compile_ops removes the entire section
 - NEVER write paraIds, commands, or paths — compile_ops handles that deterministically
-- Match headings by normalized text (case-insensitive, whitespace-collapsed)
+- Match headings by normalized text (case-insensitive, whitespace-collapsed, Unicode NFC normalized)
 - For sections in content.md NOT in body_map, use action=add
-- With 256K context, include complete body_paragraphs — never truncate
+- With 256K context, process all headings in one pass — never truncate
 
 ### Step 4: Compile
-Call compile_ops(action_decisions_json, body_map_json, toc_refresh).
+Call compile_ops(action_decisions_json, body_map_json, toc_refresh, content_md=FULL_CONTENT_MD_TEXT).
+**Always pass content_md** — this lets the code extract body_paragraphs deterministically.
 If compile_ops returns errors → fix action_decisions using the error messages and retry once.
 If second attempt fails → STOP and show user the errors.
+
+### Step 4b: Large document map mode
+If body_map.total_paragraphs > 150:
+Consider splitting action_decisions by chapter (H1 sections). Process each chapter's decisions
+through compile_ops independently, then merge ops_plans. This reduces LLM attention pressure.
 
 ### Step 5: Execute
 Call execute_ops(ops_plan_json=result.ops_plan, template_path, output_path, toc_refresh=result.toc_refresh).
