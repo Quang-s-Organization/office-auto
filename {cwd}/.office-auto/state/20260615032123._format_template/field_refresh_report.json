@@ -1,8 +1,0 @@
-{
-  "success": false,
-  "method": "none",
-  "error": "File not found: {cwd}/report.docx",
-  "libreoffice_available": false,
-  "toc_refresh_available": false,
-  "toc_refresh_strategy": "word_open_required"
-}

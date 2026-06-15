@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "array",
+  "items": {
+    "oneOf": [
+      {
+        "type": "object",
+        "required": ["command", "path", "props"],
+        "properties": {
+          "op_id": { "type": "string" },
+          "command": { "const": "set" },
+          "path": { "type": "string" },
+          "props": {
+            "type": "object",
+            "required": ["text"],
+            "properties": {
+              "text": { "type": "string" }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": ["command", "parent", "type", "after", "props"],
+        "properties": {
+          "op_id": { "type": "string" },
+          "command": { "const": "add" },
+          "parent": { "type": "string" },
+          "type": { "const": "paragraph" },
+          "after": { "type": "string" },
+          "props": {
+            "type": "object",
+            "required": ["text"],
+            "properties": {
+              "text": { "type": "string" },
+              "style": { "type": "string" }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": ["command", "path"],
+        "properties": {
+          "op_id": { "type": "string" },
+          "command": { "const": "remove" },
+          "path": { "type": "string" }
+        }
+      }
+    ]
+  }
+}

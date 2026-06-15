@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "mcp": "node --import tsx mcp/office-auto-server.ts"
+    "mcp": "node --import tsx mcp/office-auto-server.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

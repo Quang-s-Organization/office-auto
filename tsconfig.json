@@ -10,5 +10,5 @@
     "resolveJsonModule": true,
     "noEmit": true
   },
-  "include": ["mcp/**/*.ts", ".opencode/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts"]
+  "include": ["mcp/**/*.ts"]
 }

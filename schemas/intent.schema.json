@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["sections"],
+  "properties": {
+    "front_matter": {
+      "type": "object",
+      "properties": {
+        "action": { "type": "string", "enum": ["update", "keep", "remove"] },
+        "note": { "type": "string" }
+      }
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["heading_text", "level", "action"],
+        "properties": {
+          "heading_text": { "type": "string" },
+          "level": { "type": "integer", "minimum": 1, "maximum": 6 },
+          "action": { "type": "string", "enum": ["update", "keep", "remove", "add"] },
+          "after": { "type": "string" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "toc": {
+      "type": "object",
+      "properties": {
+        "refresh": { "type": "boolean" },
+        "note": { "type": "string" }
+      }
+    }
+  }
+}
