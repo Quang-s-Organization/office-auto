@@ -85,3 +85,34 @@ export const FinalGateReportZ = z.object({
 })
 
 export type FinalGateReport = z.infer<typeof FinalGateReportZ>
+
+export const AllowedActionZ = z.enum([
+  "report_failure_to_user",
+  "inspect_run",
+  "retry_phase",
+])
+
+export const DisallowedActionZ = z.enum([
+  "edit_pipeline_code",
+  "kill_mcp_server",
+  "start_new_run",
+  "abort_run",
+])
+
+export const FailureContractZ = z.object({
+  ok: z.literal(false),
+  run_id: z.string(),
+  run_dir: z.string(),
+  failed_phase: PipelinePhaseZ,
+  error_code: z.string(),
+  message: z.string(),
+  retryable: z.boolean(),
+  requires_code_repair: z.boolean(),
+  repair_handoff: z.string(),
+  allowed_next_actions: z.array(AllowedActionZ),
+  disallowed_next_actions: z.array(DisallowedActionZ),
+  artifact_paths: z.array(z.string()),
+  events_log: z.string(),
+})
+
+export type FailureContract = z.infer<typeof FailureContractZ>

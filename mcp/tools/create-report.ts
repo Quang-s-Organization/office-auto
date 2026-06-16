@@ -26,35 +26,22 @@ export function registerCreateReportTool(server: McpServer) {
           // If we can't get run_dir, continue without it
         }
 
-        const response = {
+        const response: Record<string, unknown> = {
           ok: false,
           run_id: result.run_id,
           run_dir,
-          phase: result.error.phase,
+          failed_phase: result.error.phase,
           error_code: result.error.error_code,
-          human_message: result.error.message,
+          message: result.error.message,
           retryable: result.error.retryable,
-          artifact_paths: result.artifacts,
-          next_actions: result.error.retryable
-            ? [
-                {
-                  tool: "retryFailedPhase",
-                  args: { run_id: result.run_id },
-                  description: "Retry the failed phase from current state",
-                },
-                {
-                  tool: "inspectRun",
-                  args: { run_id: result.run_id },
-                  description: "Inspect run state and artifacts",
-                },
-              ]
-            : [
-                {
-                  tool: "inspectRun",
-                  args: { run_id: result.run_id },
-                  description: "Inspect run state to understand the error",
-                },
-              ],
+          requires_code_repair: (result.error as any).requires_code_repair ?? false,
+          repair_handoff: (result.error as any).repair_handoff ?? `Run REPAIR MODE for ${result.error.error_code}.`,
+          allowed_next_actions: result.error.retryable
+            ? ["inspect_run", "retry_phase"]
+            : ["report_failure_to_user", "inspect_run"],
+          disallowed_next_actions: ["edit_pipeline_code", "kill_mcp_server", "start_new_run", "abort_run"],
+          artifact_paths: run_dir ? result.artifacts.map((a) => `${run_dir}/${a}.json`) : result.artifacts,
+          events_log: run_dir ? `${run_dir}/events.jsonl` : undefined,
         }
 
         return {

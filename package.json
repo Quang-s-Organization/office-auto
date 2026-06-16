@@ -2,8 +2,12 @@
   "name": "office-auto-mcp",
   "private": true,
   "type": "module",
+  "bin": {
+    "office-auto": "./bin/office-auto-cli.ts"
+  },
   "scripts": {
     "mcp": "node --import tsx mcp/office-auto-server.ts",
+    "cli": "node --import tsx bin/office-auto-cli.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"

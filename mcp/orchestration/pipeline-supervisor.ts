@@ -33,8 +33,119 @@ import { dirname } from "path"
 // ─── Phase Result Type ────────────────────────────────────────────────
 
 interface PhaseResult {
-  nextPhase: PipelinePhase
+  ok: boolean
   error?: { error_code: string; message: string; retryable: boolean }
+  artifacts?: Record<string, any>
+}
+
+// Pipe-friendly error builder
+function phaseFail(code: string, msg: string, retryable = false) {
+  return { ok: false as const, error: { error_code: code, message: msg, retryable } }
+}
+
+// ─── Pipeline Graph Definition ────────────────────────────────────────
+
+interface GraphNode {
+  phase: PipelinePhase
+  handler: (runId: string, state: RunState) => Promise<PhaseResult>
+  next_on_success: PipelinePhase
+  next_on_failure: PipelinePhase
+  inputs: string[]
+  outputs: string[]
+}
+
+export const PIPELINE_GRAPH: GraphNode[] = [
+  {
+    phase: "CREATED",
+    handler: phaseInspect,
+    next_on_success: "SOURCE_PARSED",
+    next_on_failure: "FAILED",
+    inputs: ["template_file"],
+    outputs: ["docx_inspect_output"],
+  },
+  {
+    phase: "SOURCE_PARSED",
+    handler: phaseSourceParse,
+    next_on_success: "MAPPED",
+    next_on_failure: "FAILED",
+    inputs: ["source_file"],
+    outputs: ["source_packet"],
+  },
+  {
+    phase: "MAPPED",
+    handler: phaseMap,
+    next_on_success: "COMPILED",
+    next_on_failure: "FAILED",
+    inputs: ["docx_inspect_output", "source_packet"],
+    outputs: ["section_mapping"],
+  },
+  {
+    phase: "COMPILED",
+    handler: phaseCompile,
+    next_on_success: "VALIDATED",
+    next_on_failure: "FAILED",
+    inputs: ["docx_inspect_output", "section_mapping", "source_packet"],
+    outputs: ["execution_ops", "strict_validation"],
+  },
+  {
+    phase: "VALIDATED",
+    handler: phaseValidate,
+    next_on_success: "APPLIED",
+    next_on_failure: "FAILED",
+    inputs: ["strict_validation"],
+    outputs: [],
+  },
+  {
+    phase: "APPLIED",
+    handler: phaseApply,
+    next_on_success: "VERIFIED",
+    next_on_failure: "FAILED",
+    inputs: ["execution_ops", "template_file"],
+    outputs: ["target_file", "execute_ops_report"],
+  },
+  {
+    phase: "VERIFIED",
+    handler: phaseVerify,
+    next_on_success: "COMPLETED",
+    next_on_failure: "FAILED",
+    inputs: ["target_file", "source_packet", "section_mapping"],
+    outputs: ["coverage_report", "result_readback"],
+  },
+  {
+    phase: "COMPLETED",
+    handler: phaseFinalGate,
+    next_on_success: "COMPLETED",
+    next_on_failure: "FAILED",
+    inputs: ["coverage_report", "target_file"],
+    outputs: ["final_gate"],
+  },
+]
+
+// Graph invariant: each phase appears exactly once
+function validateGraphIntegrity() {
+  const phases = PIPELINE_GRAPH.map((n) => n.phase)
+  const unique = new Set(phases)
+  if (phases.length !== unique.size) {
+    const duplicates = phases.filter((p, i) => phases.indexOf(p) !== i)
+    throw new Error(`Graph invariant violated: duplicate phases: ${duplicates.join(", ")}`)
+  }
+
+  // Verify all next_on_success and next_on_failure point to valid phases or FAILED
+  for (const node of PIPELINE_GRAPH) {
+    if (node.next_on_success !== "FAILED" && !unique.has(node.next_on_success)) {
+      throw new Error(`Graph invariant violated: ${node.phase}.next_on_success points to non-existent phase: ${node.next_on_success}`)
+    }
+    if (node.next_on_failure !== "FAILED" && !unique.has(node.next_on_failure)) {
+      throw new Error(`Graph invariant violated: ${node.phase}.next_on_failure points to non-existent phase: ${node.next_on_failure}`)
+    }
+  }
+}
+
+// Validate graph on module load
+validateGraphIntegrity()
+
+function getGraphNode(phase: PipelinePhase): GraphNode | undefined {
+  return PIPELINE_GRAPH.find((n) => n.phase === phase)
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────
@@ -51,6 +162,26 @@ function runStdin(args: string[], input: string): string {
   if (r.error) throw r.error
   if (r.status !== 0) throw new Error(`officecli ${args[0]} failed: ${r.stderr}`)
   return r.stdout
+}
+
+// Errors that indicate pipeline code bugs (not bad input or external failures)
+const CODE_REPAIR_CODES = new Set([
+  "PIPELINE_CRASH",
+  "SECTION_MAPPING_INVALID",
+  "COMPILE_ERRORS",
+  "VALIDATION_FAILED",
+])
+
+function buildError(
+  error_code: string,
+  message: string,
+  retryable: boolean,
+): { error_code: string; message: string; retryable: boolean; requires_code_repair: boolean; repair_handoff: string } {
+  const requires_code_repair = CODE_REPAIR_CODES.has(error_code)
+  const repair_handoff = requires_code_repair
+    ? `Run REPAIR MODE for ${error_code}. Read events.jsonl to diagnose, then edit pipeline code and re-run.`
+    : `Check input files and retry.`
+  return { error_code, message, retryable, requires_code_repair, repair_handoff }
 }
 
 function emitEvent(runId: string, type: PipelineEvent["event_type"], phase: PipelinePhase, payload?: Record<string, unknown>): void {
@@ -77,7 +208,7 @@ async function phaseInspect(runId: string, state: RunState): Promise<PhaseResult
       message: result.message,
     })
     return {
-      nextPhase: "FAILED",
+      ok: false,
       error: {
         error_code: result.error_code ?? "INSPECT_FAILED",
         message: result.message ?? "Template inspection failed",
@@ -99,7 +230,7 @@ async function phaseInspect(runId: string, state: RunState): Promise<PhaseResult
 
   emitEvent(runId, "ARTIFACT_CREATED", "INSPECTED", { artifact: "docx_inspect_output" })
   emitEvent(runId, "PHASE_COMPLETED", "INSPECTED")
-  return { nextPhase: "SOURCE_PARSED" }
+  return { ok: true }
 }
 
 async function phaseSourceParse(runId: string, state: RunState): Promise<PhaseResult> {
@@ -111,7 +242,7 @@ async function phaseSourceParse(runId: string, state: RunState): Promise<PhaseRe
       message: `Source file not found: ${state.source_file}`,
     })
     return {
-      nextPhase: "FAILED",
+      ok: false,
       error: {
         error_code: "SOURCE_FILE_MISSING",
         message: `Source file not found: ${state.source_file}`,
@@ -126,7 +257,7 @@ async function phaseSourceParse(runId: string, state: RunState): Promise<PhaseRe
   writeArtifact(runId, "source_packet", sourcePacket)
   emitEvent(runId, "ARTIFACT_CREATED", "SOURCE_PARSED", { artifact: "source_packet" })
   emitEvent(runId, "PHASE_COMPLETED", "SOURCE_PARSED")
-  return { nextPhase: "MAPPED" }
+  return { ok: true }
 }
 
 async function phaseMap(runId: string, state: RunState): Promise<PhaseResult> {
@@ -215,7 +346,7 @@ async function phaseMap(runId: string, state: RunState): Promise<PhaseResult> {
     const errors = validated.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`)
     emitEvent(runId, "PHASE_FAILED", "MAPPED", { errors })
     return {
-      nextPhase: "FAILED",
+      ok: false,
       error: {
         error_code: "SECTION_MAPPING_INVALID",
         message: "Section mapping validation failed: " + errors.join("; "),
@@ -227,7 +358,7 @@ async function phaseMap(runId: string, state: RunState): Promise<PhaseResult> {
   writeArtifact(runId, "section_mapping", validated.data)
   emitEvent(runId, "ARTIFACT_CREATED", "MAPPED", { artifact: "section_mapping" })
   emitEvent(runId, "PHASE_COMPLETED", "MAPPED")
-  return { nextPhase: "COMPILED" }
+  return { ok: true }
 }
 
 function findBestInsertAfter(
@@ -335,7 +466,7 @@ async function phaseCompile(runId: string, state: RunState): Promise<PhaseResult
   if (allErrors.length > 0) {
     emitEvent(runId, "PHASE_FAILED", "COMPILED", { errors: allErrors })
     return {
-      nextPhase: "FAILED",
+      ok: false,
       error: {
         error_code: "COMPILE_ERRORS",
         message: allErrors.join("; "),
@@ -345,7 +476,7 @@ async function phaseCompile(runId: string, state: RunState): Promise<PhaseResult
   }
 
   emitEvent(runId, "PHASE_COMPLETED", "COMPILED")
-  return { nextPhase: "VALIDATED" }
+  return { ok: true }
 }
 
 function buildContentMap(sourcePacket: SourcePacket): Map<string, string[]> {
@@ -403,7 +534,7 @@ async function phaseValidate(runId: string, state: RunState): Promise<PhaseResul
   if (!strictValidation.validated) {
     emitEvent(runId, "PHASE_FAILED", "VALIDATED", { errors: strictValidation.errors })
     return {
-      nextPhase: "FAILED",
+      ok: false,
       error: {
         error_code: "VALIDATION_FAILED",
         message: "Strict validation failed: " + strictValidation.errors.join("; "),
@@ -413,7 +544,7 @@ async function phaseValidate(runId: string, state: RunState): Promise<PhaseResul
   }
 
   emitEvent(runId, "PHASE_COMPLETED", "VALIDATED")
-  return { nextPhase: "APPLIED" }
+  return { ok: true }
 }
 
 async function phaseApply(runId: string, state: RunState): Promise<PhaseResult> {
@@ -429,7 +560,7 @@ async function phaseApply(runId: string, state: RunState): Promise<PhaseResult> 
     writeArtifact(runId, "execute_ops_report", result)
     emitEvent(runId, "ARTIFACT_CREATED", "APPLIED", { artifact: "execute_ops_report" })
     emitEvent(runId, "PHASE_COMPLETED", "APPLIED")
-    return { nextPhase: "VERIFIED" }
+    return { ok: true }
   }
 
   // Copy template to output
@@ -451,7 +582,7 @@ async function phaseApply(runId: string, state: RunState): Promise<PhaseResult> 
       try { unlinkSync(state.target_file) } catch { /* ignore */ }
     }
     return {
-      nextPhase: "FAILED",
+      ok: false,
       error: {
         error_code: "OFFICECLI_OPEN_FAILED",
         message: "Failed to open output document with OfficeCLI",
@@ -495,7 +626,7 @@ async function phaseApply(runId: string, state: RunState): Promise<PhaseResult> 
     }
     emitEvent(runId, "PHASE_FAILED", "APPLIED", { error: err.message })
     return {
-      nextPhase: "FAILED",
+      ok: false,
       error: {
         error_code: "OFFICECLI_BATCH_FAILED",
         message: err.message,
@@ -509,7 +640,7 @@ async function phaseApply(runId: string, state: RunState): Promise<PhaseResult> 
   if (!batchSuccess) {
     emitEvent(runId, "PHASE_FAILED", "APPLIED", { errors: applyErrors })
     return {
-      nextPhase: "FAILED",
+      ok: false,
       error: {
         error_code: "BATCH_ERRORS",
         message: applyErrors.join("; "),
@@ -519,7 +650,7 @@ async function phaseApply(runId: string, state: RunState): Promise<PhaseResult> 
   }
 
   emitEvent(runId, "PHASE_COMPLETED", "APPLIED")
-  return { nextPhase: "VERIFIED" }
+  return { ok: true }
 }
 
 async function phaseVerify(runId: string, state: RunState): Promise<PhaseResult> {
@@ -531,7 +662,7 @@ async function phaseVerify(runId: string, state: RunState): Promise<PhaseResult>
       message: `Output file not found: ${state.target_file}`,
     })
     return {
-      nextPhase: "FAILED",
+      ok: false,
       error: {
         error_code: "OUTPUT_FILE_MISSING",
         message: `Output file not found: ${state.target_file}`,
@@ -549,7 +680,7 @@ async function phaseVerify(runId: string, state: RunState): Promise<PhaseResult>
       message: "Output file is empty (0 bytes)",
     })
     return {
-      nextPhase: "FAILED",
+      ok: false,
       error: {
         error_code: "OUTPUT_FILE_EMPTY",
         message: "Output file is empty (0 bytes)",
@@ -601,7 +732,7 @@ async function phaseVerify(runId: string, state: RunState): Promise<PhaseResult>
   })
   emitEvent(runId, "PHASE_COMPLETED", "VERIFIED")
 
-  return { nextPhase: "COMPLETED" }
+  return { ok: true }
 }
 
 async function phaseFinalGate(runId: string, state: RunState): Promise<PhaseResult> {
@@ -663,7 +794,7 @@ async function phaseFinalGate(runId: string, state: RunState): Promise<PhaseResu
   if (!gateOk) {
     emitEvent(runId, "PHASE_FAILED", "COMPLETED", { final_gate: finalGate })
     return {
-      nextPhase: "FAILED",
+      ok: false,
       error: {
         error_code: "FINAL_GATE_FAILED",
         message: "Final gate checks failed. See final_gate.json for details.",
@@ -674,14 +805,14 @@ async function phaseFinalGate(runId: string, state: RunState): Promise<PhaseResu
 
   emitEvent(runId, "ARTIFACT_CREATED", "COMPLETED", { artifact: "final_gate" })
   emitEvent(runId, "PHASE_COMPLETED", "COMPLETED")
-  return { nextPhase: "COMPLETED" }
+  return { ok: true }
 }
 
 // ─── Phase Map ───────────────────────────────────────────────────────
 
 type PhaseHandlerFn = (runId: string, state: RunState) => Promise<PhaseResult>
 
-const PHASE_HANDLERS: Record<string, PhaseHandlerFn> = {
+export const PHASE_HANDLERS: Record<string, PhaseHandlerFn> = {
   "CREATED": phaseInspect,
   "SOURCE_PARSED": phaseSourceParse,
   "MAPPED": phaseMap,
@@ -689,6 +820,7 @@ const PHASE_HANDLERS: Record<string, PhaseHandlerFn> = {
   "VALIDATED": phaseValidate,
   "APPLIED": phaseApply,
   "VERIFIED": phaseVerify,
+  "COMPLETED": phaseFinalGate,
 }
 
 // ─── Main Pipeline Runner ─────────────────────────────────────────────
@@ -697,16 +829,25 @@ export async function runPipeline(
   templateFile: string,
   sourceFile: string,
   targetFile: string,
+  resumeRunId?: string,
 ): Promise<{
   ok: boolean
   run_id: string
   output_path: string
   final_gate: any
   artifacts: string[]
-  error?: any
+  error?: {
+    phase: PipelinePhase
+    error_code: string
+    message: string
+    retryable: boolean
+    requires_code_repair: boolean
+    repair_handoff: string
+  }
 }> {
-  // Create run
-  const state = createRunDir(templateFile, sourceFile, targetFile)
+  const state = resumeRunId
+    ? readRunState(resumeRunId)
+    : createRunDir(templateFile, sourceFile, targetFile)
   const runId = state.run_id
 
   emitEvent(runId, "PHASE_STARTED", state.current_phase)
@@ -716,7 +857,6 @@ export async function runPipeline(
   try {
     while (
       currentState.status === "running" &&
-      currentState.current_phase !== "COMPLETED" &&
       currentState.current_phase !== "FAILED"
     ) {
       const handler = PHASE_HANDLERS[currentState.current_phase]
@@ -732,9 +872,14 @@ export async function runPipeline(
       }
 
       const result = await handler(runId, currentState)
+      const node = getGraphNode(currentState.current_phase)
+      const nextPhase = result.ok
+        ? node?.next_on_success ?? "FAILED"
+        : node?.next_on_failure ?? "FAILED"
+      // On failure, record the phase that was executing, not the destination
       currentState = transitionPhase(
         runId,
-        result.nextPhase,
+        result.ok ? nextPhase : currentState.current_phase,
         result.error,
       )
     }
@@ -767,7 +912,12 @@ export async function runPipeline(
       output_path: targetFile,
       final_gate: finalGate,
       artifacts,
-      error: currentState.error,
+      error: currentState.error
+        ? {
+            ...currentState.error,
+            ...buildError(currentState.error.error_code, currentState.error.message, currentState.error.retryable),
+          }
+        : undefined,
     }
   } catch (err: any) {
     transitionPhase(runId, "FAILED", {
@@ -782,9 +932,8 @@ export async function runPipeline(
       final_gate: null,
       artifacts: [],
       error: {
-        error_code: "PIPELINE_CRASH",
-        message: err.message,
-        retryable: true,
+        phase: "FAILED" as PipelinePhase,
+        ...buildError("PIPELINE_CRASH", err.message, true),
       },
     }
   }
@@ -810,10 +959,8 @@ export async function resumePipeline(runId: string): Promise<{
     }
   }
 
-  // Reset to the phase where failure occurred
-  const failedPhase = state.error?.phase ?? state.current_phase
-  if (failedPhase === "FAILED") {
-    // Find the last completed phase before failure
+  // Reset to the last completed phase before retrying
+  if (state.status === "failed") {
     const events = readEvents(runId)
     const completedEvents = events.filter((e) => e.event_type === "PHASE_COMPLETED")
     const lastCompleted = completedEvents[completedEvents.length - 1]
@@ -831,5 +978,7 @@ export async function resumePipeline(runId: string): Promise<{
     updatedState.template_file,
     updatedState.source_file,
     updatedState.target_file,
+    runId,
   )
 }
+

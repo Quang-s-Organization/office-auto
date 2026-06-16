@@ -1,4 +1,19 @@
 {
+  "provider": {
+    "sglang": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "sglang",
+      "options": {
+        "baseURL": "https://appresearchpublic83.aiplatform.vcntt.tech/v1"
+      },
+      "models": {
+        "Qwen3.6-35B-A3B-GGUF": {
+          "name": "Qwen3.6-35B-A3B-GGUF"
+        }
+      }
+    }
+  },
+  "model": "sglang/Qwen3.6-35B-A3B-GGUF",
   "models": {
     "sglang/Qwen3.6-35B-A3B-GGUF": {
       "temperature": 0.6,
