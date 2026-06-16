@@ -328,6 +328,48 @@ async function phaseMap(runId: string, state: RunState): Promise<PhaseResult> {
     })
   }
 
+  // Positional fallback: for source headings still unmatched, try to pair by heading level
+  // with template headings that are also unmatched. This catches the common case where
+  // template heading text differs from source heading text but structural intent is the same.
+  for (const sh of sourceHeadings) {
+    const key = sh.normalized_key ?? canonicalHeadingKey(sh.text)
+    if (consumedSourceKeys.has(key)) continue
+
+    const shLevel = sh.level ?? 1
+    const unmatchedTemplate = bodyMap.headings.find(
+      (th) =>
+        th.level === shLevel &&
+        !decisions.some((d) => d.template_heading_id === th.heading_id),
+    )
+
+    if (unmatchedTemplate) {
+      consumedSourceKeys.add(key)
+      // Update the existing 'keep' decision for this template heading to 'update'
+      const existingIdx = decisions.findIndex(
+        (d) => d.template_heading_id === unmatchedTemplate.heading_id,
+      )
+      if (existingIdx >= 0) {
+        decisions[existingIdx] = {
+          ...decisions[existingIdx],
+          action: "update",
+          source_heading_text: sh.text,
+          source_heading_block_id: sh.block_id,
+          reason_code: "matched_by_position",
+        }
+      }
+      // Find and remove the 'add' decision for this source heading so it's not duplicated
+      const addIdx = decisions.findIndex(
+        (d) =>
+          d.action === "add" &&
+          d.source_heading_block_id === sh.block_id &&
+          d.reason_code === "new_source_section",
+      )
+      if (addIdx >= 0) {
+        decisions.splice(addIdx, 1)
+      }
+    }
+  }
+
   const sectionMapping: SectionMapping = {
     schema_version: "section_mapping.v1",
     template_path: state.template_file,
@@ -419,16 +461,6 @@ async function phaseCompile(runId: string, state: RunState): Promise<PhaseResult
   // Build a lookup from source_heading_block_id to body paragraphs
   const contentByBlockId = buildContentMap(sourcePacket)
 
-  const { ops_plan, errors } = compileOps(
-    actionDecisions,
-    bodyMap,
-    true, // toc_refresh
-    undefined, // content_md — we use artifact-based content instead
-  )
-
-  // Note: body paragraph content is resolved via source_packet in the supervisor
-  // compileOps needs content_md for body paragraph extraction; we handle this
-  // by building adjusted action_decisions that reference source blocks
   const enrichedDecisions = enrichDecisionsWithContent(
     actionDecisions,
     sectionMapping,
@@ -436,40 +468,38 @@ async function phaseCompile(runId: string, state: RunState): Promise<PhaseResult
     bodyMap,
   )
 
-  const { ops_plan: finalOps, errors: finalErrors } = compileOps(
+  const { ops_plan, errors } = compileOps(
     enrichedDecisions,
     bodyMap,
     true,
   )
 
-  const allErrors = [...errors, ...finalErrors]
-
   const executionOps: ExecutionOps = {
     schema_version: "execution_ops.v1",
     run_id: runId,
     created_at: new Date().toISOString(),
-    ops: finalOps,
-    ops_count: finalOps.length,
+    ops: ops_plan,
+    ops_count: ops_plan.length,
     toc_refresh: true,
   }
 
   writeArtifact(runId, "execution_ops", executionOps)
   writeArtifact(runId, "strict_validation", {
-    validated: allErrors.length === 0,
-    errors: allErrors,
-    ops_count: finalOps.length,
+    validated: errors.length === 0,
+    errors: errors,
+    ops_count: ops_plan.length,
     schema_version: "strict_validation.v1",
   })
 
   emitEvent(runId, "ARTIFACT_CREATED", "COMPILED", { artifacts: ["execution_ops", "strict_validation"] })
 
-  if (allErrors.length > 0) {
-    emitEvent(runId, "PHASE_FAILED", "COMPILED", { errors: allErrors })
+  if (errors.length > 0) {
+    emitEvent(runId, "PHASE_FAILED", "COMPILED", { errors: errors })
     return {
       ok: false,
       error: {
         error_code: "COMPILE_ERRORS",
-        message: allErrors.join("; "),
+        message: errors.join("; "),
         retryable: true,
       },
     }

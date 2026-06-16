@@ -323,13 +323,13 @@ export function compileOps(
         props: { text: d.new_text ?? d.heading_text, style },
       })
 
-      for (const bp of bodyParas) {
+      for (let bi = bodyParas.length - 1; bi >= 0; bi--) {
         ops.push({
           command: "add",
           parent: "/body",
           type: "paragraph",
           after: anchorPath,
-          props: { text: bp, style: bodyStyle },
+          props: { text: bodyParas[bi], style: bodyStyle },
         })
       }
 

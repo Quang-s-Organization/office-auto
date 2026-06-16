@@ -12,6 +12,7 @@ export const SectionDecisionZ = z.object({
   level: z.number().int().min(1).max(6).optional(),
   reason_code: z.enum([
     "matched",
+    "matched_by_position",
     "missing_in_source",
     "explicit_remove",
     "new_source_section",

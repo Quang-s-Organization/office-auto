@@ -1,5 +1,5 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "fs"
-import { join, dirname, resolve } from "path"
+import { join, resolve } from "path"
 import { createHash } from "crypto"
 import type {
   RunState,
@@ -10,14 +10,11 @@ import type {
 import { RunStateZ } from "../schemas/pipeline-state"
 
 export function resolveWorkspaceRoot(): string {
-  const raw = process.env.OFFICE_AUTO_WORKSPACE ?? process.cwd()
+  let raw = process.env.OFFICE_AUTO_WORKSPACE ?? process.cwd()
 
-  if (raw === "{cwd}" || raw.includes("{cwd}")) {
-    throw new Error(
-      `Invalid workspace root: literal "{cwd}" was not expanded. ` +
-      `Got: "${raw}". Ensure OFFICE_AUTO_WORKSPACE is set to the actual workspace path, ` +
-      `or let it default to process.cwd().`,
-    )
+  // Handle unexpanded tokens from various editors/environments
+  if (!raw || raw.includes("{cwd}") || raw.includes("${") || raw.includes("workspaceFolder")) {
+    raw = process.cwd()
   }
 
   return resolve(raw)
@@ -25,13 +22,7 @@ export function resolveWorkspaceRoot(): string {
 
 export function getStateRoot(): string {
   const root = resolveWorkspaceRoot()
-  const stateRoot = join(root, ".office-auto", "state")
-
-  if (stateRoot.includes("{cwd}")) {
-    throw new Error(`State root contains literal "{cwd}": ${stateRoot}`)
-  }
-
-  return stateRoot
+  return join(root, ".office-auto", "state")
 }
 
 function sha256Hex(data: Buffer | string): string {
@@ -73,11 +64,6 @@ export function createRunDir(
 
 export function getRunDir(runId: string): string {
   const dir = join(getStateRoot(), runId)
-
-  if (dir.includes("{cwd}")) {
-    throw new Error(`Run directory contains literal "{cwd}": ${dir}`)
-  }
-
   if (!existsSync(dir)) throw new Error(`Run ${runId} not found at ${dir}`)
   return dir
 }

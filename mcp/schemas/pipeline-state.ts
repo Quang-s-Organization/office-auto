@@ -9,9 +9,6 @@ export const PipelinePhaseZ = z.enum([
   "VALIDATED",
   "APPLIED",
   "VERIFIED",
-  "QA_DONE",
-  "REVIEWED",
-  "FIELDS_REFRESHED",
   "COMPLETED",
   "FAILED",
 ])

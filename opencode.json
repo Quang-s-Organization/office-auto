@@ -12,9 +12,6 @@
         "tsx",
         "mcp/office-auto-server.ts"
       ],
-      "environment": {
-        "OFFICE_AUTO_WORKSPACE": "${cwd}"
-      },
       "enabled": true
     }
   },

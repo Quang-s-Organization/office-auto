@@ -42,14 +42,11 @@ export function parseMarkdownToSourcePacket(
       continue
     }
 
-    // Non-heading: collect into paragraph block
+    // Non-heading: collect consecutive non-empty lines into a paragraph block
     const trimmed = line.trim()
     byteOffset += Buffer.byteLength(line, "utf-8") + 1
 
-    if (!trimmed) {
-      // Skip empty lines but count byte offset
-      continue
-    }
+    if (!trimmed) continue
 
     // Check for code fences
     if (trimmed.startsWith("```")) {
@@ -75,15 +72,34 @@ export function parseMarkdownToSourcePacket(
       continue
     }
 
-    // Plain paragraph
+    // Merge consecutive non-heading, non-code lines into one paragraph
+    const paraLines: string[] = [trimmed]
+    const paraStartOffset = byteOffset - Buffer.byteLength(line, "utf-8") - 1
+    let paraByteLen = Buffer.byteLength(line, "utf-8")
+
+    i++
+    while (i < lines.length) {
+      const nextLine = lines[i]
+      const nextTrimmed = nextLine.trim()
+      if (!nextTrimmed) break
+      if (nextLine.match(/^(#{1,6})\s+/)) break
+      if (nextTrimmed.startsWith("```")) break
+      paraLines.push(nextLine)
+      paraByteLen += Buffer.byteLength(nextLine, "utf-8") + 1
+      byteOffset += Buffer.byteLength(nextLine, "utf-8") + 1
+      i++
+    }
+    i--
+
     blockId++
+    const paraText = paraLines.join("\n")
     blocks.push({
       block_id: `md_${String(blockId).padStart(4, "0")}`,
       type: "paragraph",
-      text: trimmed,
-      sha256: sha256Hex(trimmed),
-      byte_offset: byteOffset - Buffer.byteLength(line, "utf-8") - 1,
-      byte_length: Buffer.byteLength(trimmed, "utf-8"),
+      text: paraText,
+      sha256: sha256Hex(paraText),
+      byte_offset: paraStartOffset,
+      byte_length: paraByteLen,
     })
   }
 

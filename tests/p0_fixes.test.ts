@@ -2,18 +2,21 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import { join } from "path"
 import { mkdirSync, rmSync, existsSync } from "fs"
 
-// P0.1: Test {cwd} literal path rejection
+// P0.1: Test {cwd} literal path handling (now falls back to cwd)
 describe("P0.1: {cwd} literal path bug fix", () => {
-  it("resolveWorkspaceRoot rejects {cwd} literal", async () => {
+  it("resolveWorkspaceRoot falls back to cwd when {cwd} is present", async () => {
     const { resolveWorkspaceRoot } = await import("../mcp/lib/artifact-store")
     
-    // Test with {cwd} in path
+    // Test with {cwd} in path — should fallback to process.cwd(), not throw
     process.env.OFFICE_AUTO_WORKSPACE = "/home/user/{cwd}"
-    expect(() => resolveWorkspaceRoot()).toThrow(/literal.*\{cwd\}/i)
+    const result = resolveWorkspaceRoot()
+    expect(result).toBe(process.cwd())
+    expect(result).not.toContain("{cwd}")
     
-    // Test with exact {cwd}
-    process.env.OFFICE_AUTO_WORKSPACE = "{cwd}"
-    expect(() => resolveWorkspaceRoot()).toThrow(/literal.*\{cwd\}/i)
+    // Test with "${cwd}" — OpenCode unexpanded token
+    process.env.OFFICE_AUTO_WORKSPACE = "${cwd}"
+    const result2 = resolveWorkspaceRoot()
+    expect(result2).toBe(process.cwd())
     
     // Clean up
     delete process.env.OFFICE_AUTO_WORKSPACE
@@ -31,38 +34,50 @@ describe("P0.1: {cwd} literal path bug fix", () => {
     delete process.env.OFFICE_AUTO_WORKSPACE
   })
 
-  it("getStateRoot rejects {cwd} in resolved path", async () => {
+  it("resolveWorkspaceRoot falls back to cwd when OFFICE_AUTO_WORKSPACE is unset", async () => {
+    const { resolveWorkspaceRoot } = await import("../mcp/lib/artifact-store")
+    
+    delete process.env.OFFICE_AUTO_WORKSPACE
+    const result = resolveWorkspaceRoot()
+    expect(result).toBe(process.cwd())
+  })
+
+  it("getStateRoot returns valid path even with {cwd} env var", async () => {
     const { getStateRoot } = await import("../mcp/lib/artifact-store")
     
     process.env.OFFICE_AUTO_WORKSPACE = "/home/user/{cwd}"
-    expect(() => getStateRoot()).toThrow(/\{cwd\}/i)
+    const result = getStateRoot()
+    expect(result).not.toContain("{cwd}")
+    expect(result).toContain(".office-auto/state")
     
     // Clean up
     delete process.env.OFFICE_AUTO_WORKSPACE
   })
 
-  it("createRunDir rejects {cwd} in run_dir", async () => {
+  it("createRunDir succeeds with {cwd} env var (falls back to cwd)", async () => {
     const { createRunDir } = await import("../mcp/lib/artifact-store")
     
     process.env.OFFICE_AUTO_WORKSPACE = "/home/user/{cwd}"
-    expect(() => createRunDir(
+    const state = createRunDir(
       "/tmp/template.docx",
       "/tmp/content.md",
       "/tmp/output.docx"
-    )).toThrow(/\{cwd\}/i)
+    )
+    expect(state.run_id).toBeTruthy()
+    expect(state.status).toBe("running")
     
     // Clean up
     delete process.env.OFFICE_AUTO_WORKSPACE
   })
 
-  it("getRunDir rejects {cwd} in run_dir", async () => {
-    const { getRunDir } = await import("../mcp/lib/artifact-store")
+  it("getRunDir succeeds when no {cwd} in path", async () => {
+    const { getRunDir, createRunDir } = await import("../mcp/lib/artifact-store")
     
-    process.env.OFFICE_AUTO_WORKSPACE = "/home/user/{cwd}"
-    expect(() => getRunDir("run_2026-06-15T10-39-09-759Z")).toThrow(/\{cwd\}/i)
-    
-    // Clean up
     delete process.env.OFFICE_AUTO_WORKSPACE
+    const state = createRunDir("/tmp/t.docx", "/tmp/c.md", "/tmp/o.docx")
+    const dir = getRunDir(state.run_id)
+    expect(dir).not.toContain("{cwd}")
+    expect(dir).toContain(state.run_id)
   })
 })
 
