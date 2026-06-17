@@ -1,142 +1,110 @@
-Tôi sẽ research toàn bộ repo để tìm nguyên nhân. Bắt đầu bằng việc đọc cấu trúc repo và `master_plan.md`.
+I'll research this thoroughly. Let me start by loading the research skill and the GitHub module interface, then dig into the actual repository.
 
-`lsDirectory` chưa bật cho tài khoản, nên tôi sẽ dùng search + loadFile. Tôi sẽ tìm `master_plan.md` và đọc các file chính.
+Let me load the research skill with the correct interface and set up my research plan.
 
-Tôi đã thấy nhiều mâu thuẫn lớn giữa các tài liệu. Cần đọc sâu vào `master_plan.md`, các agent định nghĩa, và `pipeline-supervisor.ts` để xác nhận. Tôi sẽ tải song song.
+GitHub repo browsing isn't enabled for me, but I have the full OpenCode log you shared, which is the key evidence. Let me try other ways to inspect the repo.
 
-Tôi đã thấy rõ các mâu thuẫn kiến trúc. Cần đọc `master_plan.md` (file gốc user dựa vào) và mã thực thi `pipeline-supervisor.ts` + các agent. Tôi sẽ tìm và tải.
+Let me pull the actual code for the failing logic — the positional fallback in the supervisor, the compile_ops update/add handling, and the failure-handoff wiring.
 
-Tôi sẽ đọc thêm các script lõi (parser, compiler, inspect, artifact-store) và tìm `master_plan.md` cùng định nghĩa agent "planner" để xác nhận nguyên nhân.
+I have a strong picture now. Let me grab the one remaining critical piece — the "positional fallback" block in the supervisor that the OpenCode model claimed to be the culprit — to verify it actually exists and give a precise fix.
 
-Tôi sẽ kiểm tra xem file `planner` agent và `master_plan` còn tồn tại không (đây là mấu chốt của "LLM behave lạ"), cùng `inspect_template.ts` để hiểu body_map.
+Tôi đã đọc trực tiếp source code của repo `Quang-s-Organization/office-auto` (các file `pipeline-supervisor.ts`, `compile_ops.ts`, `create-report.ts`, `report-runner.md`, `orchestrator.md`, `master_plan.md`, các schema). Dưới đây là câu trả lời đầy đủ cho câu hỏi của bạn: **vì sao log OpenCode trông giống "đi sửa code" thay vì "tạo file doc", và cách giải quyết triệt để.**
 
-Tôi đã đọc xong toàn bộ phần lõi của repo (`opencode.json`, `.opencode/AGENTS.md`, `.opencode/agents/orchestrator.md`, `.opencode/skills/.../SKILL.md`, `.opencode/memory/project.md`, `README.md`, `mcp/orchestration/pipeline-supervisor.ts`, `mcp/tools/create-report.ts`, `mcp/tools/compile_ops.ts`, `mcp/tools/inspect_template.ts`, `mcp/lib/source-parser.ts`, `mcp/lib/artifact-store.ts`, `mcp/schemas/execution-ops.ts`). Lưu ý: không tồn tại file `docs/master_plan.md` hay `.opencode/agents/planner.md` (đều 404) — đây chính là một manh mối quan trọng. Dưới đây là chẩn đoán đầy đủ.
+## TL;DR
 
----
+Việc agent quay sang đọc/sửa code **không phải là agent đi lạc** — chính pipeline của bạn đã *ra lệnh* cho nó làm vậy. Một bug nội dung thật (template ít placeholder hơn số đoạn trong markdown) bị phân loại thành **lỗi code** (`COMPILE_ERRORS` ∈ `CODE_REPAIR_CODES`), và chuỗi `repair_handoff` ghi đúng chữ *"edit pipeline code and re-run"*. Cộng thêm việc OpenCode đang chạy **agent coding tổng quát** (có Glob/Read/Edit) chứ không phải agent `report-runner` đã bị khóa, nên model làm đúng những gì contract bảo nó làm.
 
-## TL;DR — nguyên nhân gốc
-
-Có **2 tầng vấn đề độc lập**, và chúng cộng hưởng làm log LLM "loạn":
-
-1. **Lỗi chặn cứng**: `createReportFromMarkdown` **fail ngay từ giây đầu** vì bug `${cwd}` trong config → pipeline chưa bao giờ chạy được phase nào.
-2. **Repo đang sống với 2 kiến trúc mâu thuẫn nhau cùng lúc** (v3.1 "code-driven, LLM không quyết định gì" vs. tàn dư v2 "Planner LLM sinh ops + chunking"). LLM đọc tài liệu xung đột → không biết nên gọi 1 tool hay tự đóng vai Planner → hành xử thất thường. Cộng thêm `permission: edit/bash = deny` khiến nó bị kẹt, không sửa được gì, rồi spawn Task và bị cancel (đúng như log bạn dán).
+Muốn giải quyết triệt để phải sửa **2 tầng**: (A) tầng nội dung để doc thật sự tạo được, và (B) tầng contract/agent để nó ngừng hành xử như coding agent.
 
 ---
 
-## 1. Lỗi chặn ngay lập tức: bug `${cwd}` (đây là lý do report.docx không tạo được)
+## 1. Chuyện gì thực sự xảy ra (truy theo code)
 
-Chuỗi nhân quả chính xác:
+**Luồng pipeline** là một state machine 8 phase chạy trong `createReportFromMarkdown`: `CREATED → INSPECTED → SOURCE_PARSED → MAPPED → COMPILED → VALIDATED → APPLIED → VERIFIED → COMPLETED`.[[1]](github://?url=https%3A%2F%2Fgithub.com%2FQuang-s-Organization%2Foffice-auto%2Fblob%2Fmain%2F.opencode%2FAGENTS.md)[[2]](github://?url=https%3A%2F%2Fgithub.com%2FQuang-s-Organization%2Foffice-auto%2Fblob%2Fmain%2FREADME.md) Run của bạn chết ở **COMPILED**.
 
-- `opencode.json`:
+### Nguyên nhân gốc của lỗi "body paragraph count mismatch"
 
-```json
-"environment": { "OFFICE_AUTO_WORKSPACE": "${cwd}" }
-```
+Có **hai bug chồng nhau**:
 
-- opencode **không** expand cú pháp shell `${VAR}` cho env của MCP (chỉ hỗ trợ `{env:VAR}` / `{file:path}`) → MCP server nhận đúng chuỗi literal `"${cwd}"`.
-- Trong `mcp/lib/artifact-store.ts`:
+**Bug 1 — `phaseMap` flip nhầm `add` → `update` (positional fallback).**
+
+Trong `phaseMap`, vòng đầu cross-reference theo `canonical_key`: heading template khớp source → `update`; không khớp → `keep`; source thừa → `add`.[[3]](github://?url=https%3A%2F%2Fgithub.com%2FQuang-s-Organization%2Foffice-auto%2Fblob%2Fmain%2Fmcp%2Forchestration%2Fpipeline-supervisor.ts) Nhưng phần "positional fallback" (dòng ~331–371 mà log của bạn nhắc tới) lại ghép **heading source chưa khớp với heading template chưa khớp chỉ vì cùng level** — dù chúng là 2 section hoàn toàn khác nghĩa. Kết quả: "Các thách thức phổ biến liên quan đến dữ liệu" (đáng lẽ `add`) bị ghép nhầm vào "Tầm quan trọng dữ liệu… thị giác máy tính" và biến thành `update`.
+
+**Bug 2 — nhánh `update` trong `compile_ops` không thể "mọc" thêm đoạn.**
+
+Với `action === "update"`, code lấy số placeholder hiện có của template qua `findBodyParagraphsForSection` (đếm các paragraph giữa heading này và heading kế cùng/cao hơn level),[[4]](github://?url=https%3A%2F%2Fgithub.com%2FQuang-s-Organization%2Foffice-auto%2Fblob%2Fmain%2Fmcp%2Ftools%2Fcompile_ops.ts) rồi:
 
 ```tsx
-const raw = process.env.OFFICE_AUTO_WORKSPACE ?? process.cwd()
-if (raw === "{cwd}" || raw.includes("{cwd}")) {  // "${cwd}".includes("{cwd}") === true
-  throw new Error(`Invalid workspace root: literal "{cwd}" was not expanded. Got: "${raw}"`)
+if (bodyParas.length > templateBodyParas.length) {
+  errors.push(`action[${i}]: body paragraph count mismatch — ${bodyParas.length} in content.md but only ${templateBodyParas.length} placeholders... will be dropped.`)
+}
+for (let bi = 0; bi < templateBodyParas.length && bi < bodyParas.length; bi++) {
+  ops.push({ command: "set", path: templateBodyParas[bi].path, props: { text: bodyParas[bi] } })
 }
 ```
 
-- Vì `"${cwd}"` **chứa** chuỗi con `"{cwd}"`, điều kiện `.includes("{cwd}")` đúng → **ném lỗi**. `resolveWorkspaceRoot()` được gọi trong `getStateRoot()` → `createRunDir()`, tức ngay bước `CREATED`. **Mọi** lần gọi tool đều chết trước khi vào phase 1.
+Tức là nhánh `update` **chỉ ghi đè (`set`) lên placeholder có sẵn, KHÔNG bao giờ chèn thêm**. Nếu markdown có 3 đoạn mà template chỉ có 2 placeholder → 1 đoạn bị bỏ + đẩy vào `errors`.[[4]](github://?url=https%3A%2F%2Fgithub.com%2FQuang-s-Organization%2Foffice-auto%2Fblob%2Fmain%2Fmcp%2Ftools%2Fcompile_ops.ts) Đây chính xác là `action3: 3 vs 2` và `action5: 13 vs 1` trong log.
 
-→ Suy luận của LLM trong log ("the check SHOULD catch it... but error still shows") là **đúng**: check *có* bắt được, và chính việc bắt được đó là cái **throw** ra lỗi. Nó tự làm rối mình vì tưởng check "không hoạt động", trong khi thực ra check hoạt động *quá* tay.
+> Trớ trêu: nhánh `add` thì lại chèn *tất cả* các đoạn đúng cách.[[4]](github://?url=https%3A%2F%2Fgithub.com%2FQuang-s-Organization%2Foffice-auto%2Fblob%2Fmain%2Fmcp%2Ftools%2Fcompile_ops.ts) Nên Bug 1 (flip `add`→`update`) là thứ kích hoạt Bug 2.
+> 
 
-**Fix (chọn 1, nên làm cả 2 cho chắc):**
+### Vì sao một lỗi nội dung lại đẩy agent đi sửa code
 
-a) Bỏ hẳn env var trong `opencode.json` (code đã default về `process.cwd()`, và opencode chạy MCP với cwd = project root nên đúng):
-
-```json
-"office-auto": {
-  "type": "local",
-  "command": ["node", "--import", "tsx", "mcp/office-auto-server.ts"],
-  "enabled": true
-}
-```
-
-b) Làm `resolveWorkspaceRoot()` "miễn nhiễm" với token chưa expand (fallback thay vì throw):
+`errors` không rỗng → phase COMPILED fail với code `COMPILE_ERRORS`. Và đây là mấu chốt:
 
 ```tsx
-export function resolveWorkspaceRoot(): string {
-  let raw = process.env.OFFICE_AUTO_WORKSPACE ?? process.cwd()
-  // Token chưa được expand (opencode/VS Code) -> fallback về cwd, KHÔNG throw
-  if (!raw || raw.includes("{cwd}") || raw.includes("${") || raw.includes("workspaceFolder")) {
-    raw = process.cwd()
-  }
-  return resolve(raw)
-}
+const CODE_REPAIR_CODES = new Set(["PIPELINE_CRASH","SECTION_MAPPING_INVALID","COMPILE_ERRORS","VALIDATION_FAILED"])
 ```
-
-Sau khi sửa `opencode.json`, **phải thoát và khởi động lại opencode** để nạp lại MCP env.
-
----
-
-## 2. Tại sao "LLM behave lạ": tài liệu mâu thuẫn + permission deadlock
-
-Đây là phần trả lời trực tiếp cho câu "log của LLM toàn behave lạ". Repo đang chứa **hai mô hình tư duy đối nghịch**:
-
-**Mô hình MỚI (đúng với code thực tế — v3.1):**
-
-- `.opencode/AGENTS.md`, `orchestrator.md` (bản live), `project.md`: *"8-phase state machine, LLM KHÔNG tham gia routing/quyết định, chỉ gọi 1 tool, KHÔNG spawn subagent qua Task, KHÔNG chunk."*
-- Và `pipeline-supervisor.ts` đúng như vậy: `phaseMap`, `phaseCompile`… **100% code thuần, không hề có LLM nào**.
-
-**Mô hình CŨ (tàn dư v2 vẫn nằm trong repo):**
-
-- `README.md`: *"12-phase pipeline / 12 subagent (TemplateInspectorAgent … FinalGateAgent)"* và liệt kê tool nội bộ `runQA`, `reviewOutput`, `refreshFields`, `generateOpsFromSourcePacket`…
-- Nội dung index của `orchestrator.md` còn surface ra: *"# Phase 3 — Plan / Pre-Phase 3 Checklist / spawn Planner qua `Task(agent="planner")` / `use_chunked_planning` / `chunk_id` / `previous_chunk_last_anchor` / Planner tự `write_file(execution_ops.json)`"*.
-- `SKILL.md` vẫn còn section *"LLM Reasoning Chain (v3) — LLM cần ra 2 quyết định: style_map + replace_range"*.
-
-Hệ quả:
-
-- Tài liệu hứa các artifact `style_map.json`, `replace_range.json`, `insert_plan_scaffold.json`, `docx_inspect_styles_for_llm.json` — **code không hề tạo những thứ này**. Code tạo `section_mapping.json`, `execution_ops.json`, `strict_validation.json`, `coverage_report.json`.
-- Tài liệu nói có phase QA / REVIEW / REFRESH_FIELDS và `mcp/agents/*.ts` — nhưng `PIPELINE_GRAPH` thật chỉ có **8 node** (`CREATED → SOURCE_PARSED → MAPPED → COMPILED → VALIDATED → APPLIED → VERIFIED → COMPLETED`), **không có** QA/Review/RefreshFields riêng.
-
-Với một LLM đọc đống tài liệu "đá nhau" này, nó dao động giữa: *"chỉ gọi 1 tool"* và *"mình phải đóng vai Planner, tự sinh ops, tự chunk, tự `write_file`"*. Đó chính là biểu hiện "behave lạ" — và trong log bạn dán, model đã thử đúng đường cũ: nó định `Task → planner`/general task rồi bị **cancel**.
-
-**Permission deadlock làm nặng thêm:** `opencode.json` có `"edit": "deny"`, `"bash": "deny"`, `"webfetch": "deny"`. Khi tool MCP fail vì bug `${cwd}`, model chẩn đoán đúng là "phải sửa opencode.json" — **nhưng nó bị cấm edit và cấm bash**, nên không sửa được, quay sang spawn Task, rồi loop/cancel. Bạn thấy nó "bất lực" vì nó *thật sự* bị khoá tay.
-
-**Fix:**
-
-- Xoá toàn bộ tàn dư v2: cập nhật `README.md` về 8-phase; xoá/đại tu section "LLM Reasoning Chain" và mọi nhắc tới `style_map.json`/`replace_range.json`/Planner/chunking trong `SKILL.md`; xoá danh sách "12 subagent" + các tool nội bộ không tồn tại.
-- Đồng bộ tên artifact trong docs với những gì code thực sự ghi ra.
-- Khi cần để agent tự sửa cấu hình, nới `edit` cho file config (hoặc tự bạn sửa rồi restart) — đừng để nó kẹt giữa "tool fail" và "cấm mọi hành động".
-
----
-
-## 3. Các bug LOGIC trong pipeline (khiến nội dung sai/loạn KỂ CẢ khi đã chạy được)
-
-Kể cả sau khi fix `${cwd}`, output vẫn sẽ "lạ" vì 5 vấn đề ở tầng deterministic:
-
-**(a) Map heading chỉ dựa duy nhất vào text heading.** `phaseMap` ghép template↔source bằng `canonical_key` (text heading đã normalize). Template format thường có heading "khung/placeholder" khác chữ với heading trong `noidung.md` → **không khớp gì cả** → mọi heading template thành `keep`, mọi heading source thành `add` (chèn ở cuối). Kết quả: placeholder template không được điền, toàn bộ nội dung md bị "đổ đống" thành các section mới ở cuối file. Đây là kiểu "loạn nội dung" rất dễ thấy.
-
-**(b) `phaseCompile` gọi `compileOps` HAI lần và gộp lỗi.** Lần 1 chạy với `actionDecisions` **chưa có** `body_paragraphs` (không truyền contentMd) → sinh lỗi "body paragraph count mismatch"; lần 2 chạy với `enrichedDecisions`. Nhưng:
 
 ```tsx
-const allErrors = [...errors, ...finalErrors]  // gộp cả lỗi của lần chạy "rỗng"
-...
-writeArtifact(runId, "strict_validation", { validated: allErrors.length === 0, ... })
+const requires_code_repair = CODE_REPAIR_CODES.has(error_code)
+const repair_handoff = requires_code_repair
+  ? `Run REPAIR MODE for ${error_code}. Read events.jsonl to diagnose, then edit pipeline code and re-run.`
+  : `Check input files and retry.`
 ```
 
-→ Lỗi giả từ lần 1 làm `VALIDATED` fail với `COMPILE_ERRORS`. Sửa: **chỉ gọi 1 lần** với `enrichedDecisions`.
-
-**(c) Thứ tự op khi `add` bị đảo ngược.** Trong `compileOps` nhánh `add`: heading và mọi body paragraph đều push với `after: anchorPath` (cùng một anchor). Vì officecli "add after X" chèn ngay sau X, chèn lần lượt [heading, p1, p2] cùng anchor sẽ ra thứ tự **đảo**: `anchor → p2 → p1 → heading`. → Section mới có heading nằm *dưới* body, đoạn văn lộn ngược. Sửa: chèn theo thứ tự đảo, hoặc cập nhật anchor = paraId vừa chèn sau mỗi op.
-
-**(d) Parser markdown coi mỗi dòng non-empty là 1 paragraph block.** `source-parser.ts` không gộp dòng theo đoạn (blank-line). Một đoạn văn nhiều dòng trong `noidung.md` → nhiều block paragraph → số "body paragraphs" >> số placeholder template → kích hoạt lỗi mismatch ở (b) **và** rớt nội dung (vòng `for (bi < templateBodyParas.length && bi < bodyParas.length)` cắt bớt phần dư). Sửa: gộp các dòng liên tiếp thành một paragraph, ngắt theo dòng trống.
-
-**(e) Node `COMPLETED` tự trỏ về chính nó.** Trong `PIPELINE_GRAPH`, `COMPLETED` có `handler: phaseFinalGate` và `next_on_success: "COMPLETED"`. Cần rà lại vòng lặp runner (phần `runPipeline` chưa hiển thị hết) để chắc chắn nó **dừng** sau final gate chứ không lặp vô hạn / chạy final gate 2 lần.
+Pipeline tự gắn `requires_code_repair: true` và trả về **chuỗi handoff ghi rõ "đọc events.jsonl để chẩn đoán, rồi sửa code pipeline và chạy lại".**[[3]](github://?url=https%3A%2F%2Fgithub.com%2FQuang-s-Organization%2Foffice-auto%2Fblob%2Fmain%2Fmcp%2Forchestration%2Fpipeline-supervisor.ts) Agent đọc đúng câu đó và… đi sửa code. Nó không improvise — nó **tuân lệnh contract**.
 
 ---
 
-## 4. Thứ tự hành động đề xuất
+## 2. Vì sao log "giống coding agent" — 3 lý do hệ thống
 
-1. **Mở khoá ngay** (ưu tiên cao nhất): bỏ `OFFICE_AUTO_WORKSPACE` khỏi `opencode.json` **và** vá `resolveWorkspaceRoot()` (mục 1). Restart opencode → tool sẽ chạy được.
-2. **Dọn mâu thuẫn tài liệu** (mục 2): để agent ngừng "behave lạ". Đây là fix quyết định cho triệu chứng bạn mô tả.
-3. **Vá logic pipeline** (mục 3): (b) gọi compile 1 lần, (d) gộp paragraph, (c) sửa thứ tự `add`, (a) thêm fallback map theo vị trí khi heading không khớp text, (e) kiểm tra vòng lặp final gate.
-4. Thêm 1 test integration end-to-end (template thật + md thật) so khớp `coverage_report` để bắt regression — vì hiện `tests/` chỉ test unit từng phần.
+1. **Phân loại lỗi sai bản chất.** "Template ít placeholder hơn nội dung" là **tình huống dữ liệu/nội dung**, không phải bug code. Nhưng nó bị nhét vào `CODE_REPAIR_CODES`, kéo theo `requires_code_repair: true` và handoff "edit pipeline code".[[3]](github://?url=https%3A%2F%2Fgithub.com%2FQuang-s-Organization%2Foffice-auto%2Fblob%2Fmain%2Fmcp%2Forchestration%2Fpipeline-supervisor.ts)
+2. **Contract tự mâu thuẫn (failure contract hở).** `create-report.ts` đặt `disallowed_next_actions: ["edit_pipeline_code", ...]` — *cấm* sửa code,[[5]](github://?url=https%3A%2F%2Fgithub.com%2FQuang-s-Organization%2Foffice-auto%2Fblob%2Fmain%2Fmcp%2Ftools%2Fcreate-report.ts) schema cũng định nghĩa `edit_pipeline_code` là disallowed.[[6]](github://?url=https%3A%2F%2Fgithub.com%2FQuang-s-Organization%2Foffice-auto%2Fblob%2Fmain%2Fmcp%2Fschemas%2Fpipeline-state.ts) Nhưng cùng response lại kèm `repair_handoff` bảo "edit pipeline code". Hai tín hiệu ngược nhau → model chọn cái cụ thể, actionable hơn (đi sửa code). Chính `master_plan.md` đã cảnh báo phải "đóng failure contract (typed, closed) — chống improvisation".[[7]](github://?url=https%3A%2F%2Fgithub.com%2FQuang-s-Organization%2Foffice-auto%2Fblob%2Fmain%2Fmaster_plan.md)
+3. **Chạy nhầm agent.** Repo có `report-runner.md` bị khóa cứng: *"NEVER try to fix errors yourself / NEVER read/edit code files / You Are Not a Debugger / report it and STOP".*[[8]](github://?url=https%3A%2F%2Fgithub.com%2FQuang-s-Organization%2Foffice-auto%2Fblob%2Fmain%2F.opencode%2Fagents%2Freport-runner.md) Nhưng phiên OpenCode của bạn chạy **agent build/coding tổng quát** (Qwen3 35B, có Glob/Read/Edit, đang đứng trong repo). Với một coding model + có tool sửa file + đứng trong codebase + nhận lỗi → hành vi mặc định là debug code. `master_plan.md` mô tả đúng cái bẫy này: *"Mỗi lần fail, bạn vô thức trượt về phía 'để LLM lo' — và đó chính là cái cửa để nó improvise, sửa code, kill server."*[[7]](github://?url=https%3A%2F%2Fgithub.com%2FQuang-s-Organization%2Foffice-auto%2Fblob%2Fmain%2Fmaster_plan.md)
 
-Nếu bạn muốn, tôi có thể đi sâu vào **phần runner `runPipeline`/`resumePipeline`** (tôi chưa đọc hết đoạn cuối `pipeline-supervisor.ts` và phần `phaseVerify`/`phaseFinalGate`) để xác nhận chắc chắn (e) và logic coverage — chỉ cần bạn xác nhận đó là chỗ bạn nghi log "lạ" nhất.
+Nói cách khác: từ góc nhìn OpenCode, task không phải "tạo doc" mà là "gọi 1 MCP tool". Khi tool fail với cờ "cần sửa code", agent coding làm việc của agent coding.
+
+---
+
+## 3. Giải pháp triệt để
+
+### Tầng A — Sửa để doc thật sự tạo được (đúng yêu cầu "chỉ thay phần có nội dung, giữ format còn lại")
+
+**A1. Cho nhánh `update` được "mọc" thêm đoạn thay vì drop + báo lỗi.** Đây là fix quan trọng nhất và đúng tinh thần yêu cầu của bạn (template thường để 1 placeholder/section, nội dung thật dài hơn). Trong `compile_ops.ts`, nhánh update nên:
+
+- `set` cho `min(N, M)` đoạn đầu (ghi đè placeholder, giữ nguyên style template);
+- nếu `N > M`: **`add`** các đoạn dư, anchor sau placeholder cuối cùng, dùng `bodyStyle` của section;
+- nếu `M > N`: `remove` placeholder thừa (hoặc để trống) để không lòi placeholder.
+
+Như vậy "update" = "fill + grow", và "body paragraph count mismatch" trở thành thao tác bình thường, **không còn là lỗi**.
+
+**A2. Siết hoặc bỏ "positional fallback" trong `phaseMap`.** Chỉ được ghép theo level khi có quan hệ ngữ nghĩa/ancestor thật (chung heading cha), hoặc bỏ hẳn và chỉ dựa vào `canonical_key` match + `add`. Việc ghép 2 heading khác nghĩa chỉ vì cùng level là sai nguyên tắc và là thứ châm ngòi A1.
+
+**A3. Đảm bảo thứ tự chèn của nhánh `add` đúng.** Hiện mỗi đoạn `add` đều dùng cùng `anchorPath`;[[4]](github://?url=https%3A%2F%2Fgithub.com%2FQuang-s-Organization%2Foffice-auto%2Fblob%2Fmain%2Fmcp%2Ftools%2Fcompile_ops.ts) cần chắc chắn thứ tự forward đúng (chèn ngược + cùng anchor, hoặc cập nhật anchor sau mỗi lần chèn). Viết unit test cho case "1 placeholder, N đoạn".
+
+### Tầng B — Để agent ngừng hành xử như code-fixer
+
+**B1. Bỏ `COMPILE_ERRORS` (và các lỗi nội dung) khỏi `CODE_REPAIR_CODES`.**[[3]](github://?url=https%3A%2F%2Fgithub.com%2FQuang-s-Organization%2Foffice-auto%2Fblob%2Fmain%2Fmcp%2Forchestration%2Fpipeline-supervisor.ts) Lỗi loại "nội dung > placeholder" phải là **tình huống nội dung xử lý được trong code** (theo A1), không phải `requires_code_repair`. Chỉ giữ `PIPELINE_CRASH` thật sự là code-repair.
+
+**B2. Đóng kín failure contract — gỡ mâu thuẫn.** `repair_handoff` không bao giờ được chứa chỉ dẫn "edit pipeline code" trong vận hành bình thường. Khi `disallowed_next_actions` chứa `edit_pipeline_code`, thì handoff phải nói "report to user / retry", nhất quán với `report-runner.md`.[[8]](github://?url=https%3A%2F%2Fgithub.com%2FQuang-s-Organization%2Foffice-auto%2Fblob%2Fmain%2F.opencode%2Fagents%2Freport-runner.md)[[5]](github://?url=https%3A%2F%2Fgithub.com%2FQuang-s-Organization%2Foffice-auto%2Fblob%2Fmain%2Fmcp%2Ftools%2Fcreate-report.ts)
+
+**B3. Ép đúng agent chạy.** Trong cấu hình OpenCode/MCP, report flow phải route vào agent kiểu `report-runner` (report-and-stop, không có quyền edit/shell), không phải agent build tổng quát. Nếu vẫn dùng agent coding, ít nhất phải gỡ tool edit/glob khỏi phiên đó để contract "disallowed" có hiệu lực thật.
+
+**Thứ tự ưu tiên:** A1 → A2 → B1 → B2 → B3. Chỉ riêng **A1 + A2** là run của bạn sẽ qua được COMPILED và sinh `report.docx`; B làm cho lần sau dù có fail thì agent cũng dừng và báo cáo thay vì lao vào sửa code.
+
+---
+
+## 4. Một lưu ý về kỳ vọng
+
+Bản thân tôi (Notion AI) không chạy được MCP server `office-auto` hay phiên OpenCode local của bạn, nên tôi không trực tiếp re-run pipeline đó được. Nếu bạn muốn **có ngay file `report.docx`** mà không phụ thuộc vào việc vá pipeline, bạn có thể đính kèm `noidung.md` và `format_template.docx` vào chat — tôi có thể dựng file docx (giữ style template, chỉ thay phần nội dung) trực tiếp ở đây. Còn để vá repo cho đúng gốc rễ thì làm theo Mục 3 ở trên.
