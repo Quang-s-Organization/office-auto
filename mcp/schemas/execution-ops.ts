@@ -17,7 +17,8 @@ export const OfficeCliAddOpZ = z.object({
     text: z.string(),
     style: z.string().optional(),
   }).passthrough(),
-})
+  w14_paraId: z.string().optional(),
+}).passthrough()
 
 export const OfficeCliRemoveOpZ = z.object({
   command: z.literal("remove"),

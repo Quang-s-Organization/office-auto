@@ -622,7 +622,7 @@ async function phaseApply(runId: string, state: RunState): Promise<PhaseResult> 
       error: {
         error_code: "OFFICECLI_BATCH_FAILED",
         message: err.message,
-        retryable: true,
+        retryable: false,
       },
     }
   } finally {
@@ -636,7 +636,7 @@ async function phaseApply(runId: string, state: RunState): Promise<PhaseResult> 
       error: {
         error_code: "BATCH_ERRORS",
         message: applyErrors.join("; "),
-        retryable: true,
+        retryable: false,
       },
     }
   }

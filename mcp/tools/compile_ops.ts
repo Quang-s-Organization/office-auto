@@ -27,6 +27,28 @@ function findBodyStyle(bodyMap: BodyMap): string {
   return normals[0] ?? bodyMap.body_styles_seen[0] ?? "Normal"
 }
 
+function generateUniqueParaIds(bodyMap: BodyMap, count: number): string[] {
+  const existing = new Set(bodyMap.paragraphs.map((p) => p.paraId))
+  const ids: string[] = []
+  for (let i = 0; i < count; i++) {
+    let id: string
+    let attempts = 0
+    do {
+      const ts = Date.now().toString(36)
+      const rnd = Math.floor(Math.random() * 0xffff).toString(16)
+      id = (ts + rnd).slice(-8).toUpperCase().padStart(8, "0")
+      attempts++
+      if (attempts > 100) {
+        id = `NEW${String(i).padStart(5, "0")}`
+        break
+      }
+    } while (existing.has(id) || ids.includes(id))
+    existing.add(id)
+    ids.push(id)
+  }
+  return ids
+}
+
 function headingStyleForLevel(bodyMap: BodyMap, level: number): string {
   const match = bodyMap.body_styles_seen.find(
     (s) => new RegExp(`heading\\s*${level}`, "i").test(s),
@@ -278,17 +300,24 @@ export function compileOps(
 
         // Grow: add extra body paragraphs after the last template paragraph
         if (bodyParas.length > templateBodyParas.length) {
-          const anchorPath = templateBodyParas.length > 0
-            ? templateBodyParas[templateBodyParas.length - 1].path
-            : h.path
-          for (let bi = bodyParas.length - 1; bi >= templateBodyParas.length; bi--) {
+          const anchorParaId = templateBodyParas.length > 0
+            ? templateBodyParas[templateBodyParas.length - 1].path.match(/@paraId=([^\]]+)/)?.[1] ?? ""
+            : h.paraId
+          const extraCount = bodyParas.length - templateBodyParas.length
+          const newIds = generateUniqueParaIds(bodyMap, extraCount)
+          let prevId = anchorParaId
+          for (let bi = 0; bi < extraCount; bi++) {
+            const idx = templateBodyParas.length + bi
+            const newId = newIds[bi]
             ops.push({
               command: "add",
               parent: "/body",
               type: "paragraph",
-              after: anchorPath,
-              props: { text: bodyParas[bi], style: bodyStyle },
+              after: `/body/p[@paraId=${prevId}]`,
+              props: { text: bodyParas[idx], style: bodyStyle },
+              w14_paraId: newId,
             })
+            prevId = newId
           }
         }
 
@@ -334,22 +363,32 @@ export function compileOps(
             ? extractBodyParagraphs(contentMd, d.heading_text, d.md_heading)
             : []
 
+      const anchorParaId = anchorPath.match(/@paraId=([^\]]+)/)?.[1] ?? ""
+      const totalNew = 1 + bodyParas.length
+      const newIds = generateUniqueParaIds(bodyMap, totalNew)
+      const headingNewId = newIds[0]
+
       ops.push({
         command: "add",
         parent: "/body",
         type: "paragraph",
         after: anchorPath,
         props: { text: d.new_text ?? d.heading_text, style },
+        w14_paraId: headingNewId,
       })
 
-      for (let bi = bodyParas.length - 1; bi >= 0; bi--) {
+      let prevId = headingNewId
+      for (let bi = 0; bi < bodyParas.length; bi++) {
+        const newId = newIds[1 + bi]
         ops.push({
           command: "add",
           parent: "/body",
           type: "paragraph",
-          after: anchorPath,
+          after: `/body/p[@paraId=${prevId}]`,
           props: { text: bodyParas[bi], style: bodyStyle },
+          w14_paraId: newId,
         })
+        prevId = newId
       }
 
       // Emit warning for legacy "after" field usage

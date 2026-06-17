@@ -37,14 +37,8 @@ Full single-pass processing. Never chunk, never split.
 - NEVER reconstruct `body_map` manually
 - NEVER use shell commands (`officecli view outline`, etc.)
 - NEVER pass full markdown inline to tools — code reads files via artifact paths
-- NEVER self-retry pipeline — use `retryFailedPhase` if a run fails
+- NEVER self-retry pipeline — failures are handled internally by PipelineSupervisor
 - NEVER write paraIds, paths, or OfficeCLI commands
-
-## If a run fails
-
-- Call `inspectRun(run_id)` to see what phase failed
-- Call `retryFailedPhase(run_id)` to retry the failed phase
-- Call `abortRun(run_id)` to clean up
 
 ## Artifacts
 
