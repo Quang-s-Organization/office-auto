@@ -1,0 +1,35 @@
+{"event_id":"evt_1781660968174_b2kebo","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:49:28.175Z","event_type":"PHASE_STARTED","phase":"CREATED"}
+{"event_id":"evt_1781660968175_f9uiim","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:49:28.175Z","event_type":"PHASE_STARTED","phase":"INSPECTED"}
+{"event_id":"evt_1781660972095_5k66ef","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:49:32.095Z","event_type":"ARTIFACT_CREATED","phase":"INSPECTED","payload":{"artifact":"docx_inspect_output"}}
+{"event_id":"evt_1781660972095_putisx","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:49:32.095Z","event_type":"PHASE_COMPLETED","phase":"INSPECTED"}
+{"event_id":"evt_1781660972096_7q7adx","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:49:32.096Z","event_type":"PHASE_STARTED","phase":"SOURCE_PARSED"}
+{"event_id":"evt_1781660972100_e64m1q","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:49:32.100Z","event_type":"ARTIFACT_CREATED","phase":"SOURCE_PARSED","payload":{"artifact":"source_packet"}}
+{"event_id":"evt_1781660972100_gl01vv","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:49:32.100Z","event_type":"PHASE_COMPLETED","phase":"SOURCE_PARSED"}
+{"event_id":"evt_1781660972101_yte7aw","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:49:32.101Z","event_type":"PHASE_STARTED","phase":"MAPPED"}
+{"event_id":"evt_1781660972104_bjhgae","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:49:32.104Z","event_type":"ARTIFACT_CREATED","phase":"MAPPED","payload":{"artifact":"section_mapping"}}
+{"event_id":"evt_1781660972104_a4z7vu","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:49:32.104Z","event_type":"PHASE_COMPLETED","phase":"MAPPED"}
+{"event_id":"evt_1781660972104_x873ia","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:49:32.104Z","event_type":"PHASE_STARTED","phase":"COMPILED"}
+{"event_id":"evt_1781660972110_3eef2a","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:49:32.110Z","event_type":"ARTIFACT_CREATED","phase":"COMPILED","payload":{"artifacts":["execution_ops","strict_validation"]}}
+{"event_id":"evt_1781660972110_vc3rey","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:49:32.110Z","event_type":"PHASE_COMPLETED","phase":"COMPILED"}
+{"event_id":"evt_1781660972110_vn9qxo","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:49:32.110Z","event_type":"PHASE_STARTED","phase":"VALIDATED"}
+{"event_id":"evt_1781660972111_lxsje2","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:49:32.111Z","event_type":"PHASE_COMPLETED","phase":"VALIDATED"}
+{"event_id":"evt_1781660972111_25vzxw","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:49:32.111Z","event_type":"PHASE_STARTED","phase":"APPLIED"}
+{"event_id":"evt_1781660974993_oftjph","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:49:34.993Z","event_type":"PHASE_FAILED","phase":"APPLIED","payload":{"error":"officecli batch failed: "}}
+{"event_id":"evt_1781660978914_46a50q","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:49:38.914Z","event_type":"PHASE_STARTED","phase":"VALIDATED"}
+{"event_id":"evt_1781660978914_cedu9v","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:49:38.914Z","event_type":"PHASE_STARTED","phase":"VALIDATED"}
+{"event_id":"evt_1781660978914_ypvwxn","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:49:38.914Z","event_type":"PHASE_STARTED","phase":"VALIDATED"}
+{"event_id":"evt_1781660978914_e10kyf","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:49:38.914Z","event_type":"PHASE_COMPLETED","phase":"VALIDATED"}
+{"event_id":"evt_1781660978915_gxyd68","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:49:38.915Z","event_type":"PHASE_STARTED","phase":"APPLIED"}
+{"event_id":"evt_1781660981616_rryvgf","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:49:41.616Z","event_type":"PHASE_FAILED","phase":"APPLIED","payload":{"error":"officecli batch failed: "}}
+{"event_id":"evt_1781661012563_flj668","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:50:12.563Z","event_type":"PHASE_STARTED","phase":"VALIDATED"}
+{"event_id":"evt_1781661012563_c8p1z3","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:50:12.563Z","event_type":"PHASE_STARTED","phase":"VALIDATED"}
+{"event_id":"evt_1781661012563_u9wyy3","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:50:12.563Z","event_type":"PHASE_STARTED","phase":"VALIDATED"}
+{"event_id":"evt_1781661012563_dou868","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:50:12.563Z","event_type":"PHASE_COMPLETED","phase":"VALIDATED"}
+{"event_id":"evt_1781661012563_ggfv51","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:50:12.563Z","event_type":"PHASE_STARTED","phase":"APPLIED"}
+{"event_id":"evt_1781661015297_zey17l","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:50:15.297Z","event_type":"PHASE_FAILED","phase":"APPLIED","payload":{"error":"officecli batch failed: "}}
+{"event_id":"evt_1781661023207_jjfou2","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:50:23.207Z","event_type":"PHASE_STARTED","phase":"VALIDATED"}
+{"event_id":"evt_1781661023207_1knipg","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:50:23.207Z","event_type":"PHASE_STARTED","phase":"VALIDATED"}
+{"event_id":"evt_1781661023208_9c3f8d","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:50:23.208Z","event_type":"PHASE_STARTED","phase":"VALIDATED"}
+{"event_id":"evt_1781661023208_3ioj8i","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:50:23.208Z","event_type":"PHASE_COMPLETED","phase":"VALIDATED"}
+{"event_id":"evt_1781661023208_b7j3v9","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:50:23.208Z","event_type":"PHASE_STARTED","phase":"APPLIED"}
+{"event_id":"evt_1781661025977_h047du","run_id":"run_2026-06-17T01-49-28-170Z","timestamp":"2026-06-17T01:50:25.978Z","event_type":"PHASE_FAILED","phase":"APPLIED","payload":{"error":"officecli batch failed: "}}

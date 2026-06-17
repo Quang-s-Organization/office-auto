@@ -266,18 +266,37 @@ export function compileOps(
       if (bodyParas.length > 0) {
         const sectionLevel = h.level
         const templateBodyParas = findBodyParagraphsForSection(bodyMap, h, sectionLevel)
-        if (bodyParas.length > templateBodyParas.length) {
-          errors.push(
-            `action[${i}]: body paragraph count mismatch — ${bodyParas.length} in content.md but only ${templateBodyParas.length} placeholders in template. ` +
-              `${bodyParas.length - templateBodyParas.length} paragraphs will be dropped.`,
-          )
-        }
-        for (let bi = 0; bi < templateBodyParas.length && bi < bodyParas.length; bi++) {
+        const toFill = Math.min(bodyParas.length, templateBodyParas.length)
+
+        for (let bi = 0; bi < toFill; bi++) {
           ops.push({
             command: "set",
             path: templateBodyParas[bi].path,
             props: { text: bodyParas[bi] },
           })
+        }
+
+        // Grow: add extra body paragraphs after the last template paragraph
+        if (bodyParas.length > templateBodyParas.length) {
+          const anchorPath = templateBodyParas.length > 0
+            ? templateBodyParas[templateBodyParas.length - 1].path
+            : h.path
+          for (let bi = bodyParas.length - 1; bi >= templateBodyParas.length; bi--) {
+            ops.push({
+              command: "add",
+              parent: "/body",
+              type: "paragraph",
+              after: anchorPath,
+              props: { text: bodyParas[bi], style: bodyStyle },
+            })
+          }
+        }
+
+        // Shrink: remove unused placeholders
+        if (templateBodyParas.length > bodyParas.length) {
+          for (let bi = bodyParas.length; bi < templateBodyParas.length; bi++) {
+            ops.push({ command: "remove", path: templateBodyParas[bi].path })
+          }
         }
       }
       continue

@@ -1,0 +1,722 @@
+{
+  "schema_version": "body_map.v1",
+  "template_path": "format_template.docx",
+  "inspected_at": "2026-06-17T01:49:32.090Z",
+  "headings": [
+    {
+      "style": "heading 1",
+      "text": "GIỚI THIỆU",
+      "path": "/body/p[@paraId=04C2E2D0]",
+      "paraId": "04C2E2D0",
+      "index_in_body": 64,
+      "level": 1,
+      "heading_id": "h_0001",
+      "canonical_key": "giới thiệu",
+      "raw_text": "GIỚI THIỆU"
+    },
+    {
+      "style": "heading 1",
+      "text": "CƠ SỞ LÝ THUYẾT",
+      "path": "/body/p[@paraId=051169A1]",
+      "paraId": "051169A1",
+      "index_in_body": 66,
+      "level": 1,
+      "heading_id": "h_0002",
+      "canonical_key": "cơ sở lý thuyết",
+      "raw_text": "CƠ SỞ LÝ THUYẾT"
+    },
+    {
+      "style": "heading 2",
+      "text": "Tầm quan trọng dữ liệu ảnh huấn luyện trong thị giác máy tính ",
+      "path": "/body/p[@paraId=05E2D782]",
+      "paraId": "05E2D782",
+      "index_in_body": 67,
+      "level": 2,
+      "heading_id": "h_0003",
+      "canonical_key": "tầm quan trọng dữ liệu ảnh huấn luyện trong thị giác máy tính",
+      "raw_text": "Tầm quan trọng dữ liệu ảnh huấn luyện trong thị giác máy tính "
+    },
+    {
+      "style": "heading 3",
+      "text": "Thu thập dữ liệu ảnh thủ công",
+      "path": "/body/p[@paraId=15D7D3CD]",
+      "paraId": "15D7D3CD",
+      "index_in_body": 72,
+      "level": 3,
+      "heading_id": "h_0004",
+      "canonical_key": "thu thập dữ liệu ảnh thủ công",
+      "raw_text": "Thu thập dữ liệu ảnh thủ công"
+    },
+    {
+      "style": "heading 1",
+      "text": "KẾT LUẬN",
+      "path": "/body/p[@paraId=37D21BE6]",
+      "paraId": "37D21BE6",
+      "index_in_body": 75,
+      "level": 1,
+      "heading_id": "h_0005",
+      "canonical_key": "kết luận",
+      "raw_text": "KẾT LUẬN"
+    },
+    {
+      "style": "heading 1",
+      "text": "TÀI LIỆU THAM KHẢO",
+      "path": "/body/p[@paraId=7FA7A178]",
+      "paraId": "7FA7A178",
+      "index_in_body": 77,
+      "level": 1,
+      "heading_id": "h_0006",
+      "canonical_key": "tài liệu tham khảo",
+      "raw_text": "TÀI LIỆU THAM KHẢO"
+    }
+  ],
+  "paragraphs": [
+    {
+      "style": "Normal",
+      "text": "",
+      "path": "/body/p[@paraId=5E9CB3ED]",
+      "paraId": "5E9CB3ED",
+      "index_in_body": 0,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "",
+      "path": "/body/p[@paraId=32B41AD9]",
+      "paraId": "32B41AD9",
+      "index_in_body": 1,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "",
+      "path": "/body/p[@paraId=61AC199D]",
+      "paraId": "61AC199D",
+      "index_in_body": 2,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "",
+      "path": "/body/p[@paraId=460B6396]",
+      "paraId": "460B6396",
+      "index_in_body": 3,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "",
+      "path": "/body/p[@paraId=79942BDE]",
+      "paraId": "79942BDE",
+      "index_in_body": 4,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "",
+      "path": "/body/p[@paraId=44D02F0C]",
+      "paraId": "44D02F0C",
+      "index_in_body": 5,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "",
+      "path": "/body/p[@paraId=66105842]",
+      "paraId": "66105842",
+      "index_in_body": 6,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "",
+      "path": "/body/p[@paraId=331B1895]",
+      "paraId": "331B1895",
+      "index_in_body": 7,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "",
+      "path": "/body/p[@paraId=36E4C0F1]",
+      "paraId": "36E4C0F1",
+      "index_in_body": 8,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "",
+      "path": "/body/p[@paraId=7A7499CF]",
+      "paraId": "7A7499CF",
+      "index_in_body": 9,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "",
+      "path": "/body/p[@paraId=641441CE]",
+      "paraId": "641441CE",
+      "index_in_body": 10,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "BÁO CÁO CHUYÊN ĐỀ",
+      "path": "/body/p[@paraId=3FD0B2F5]",
+      "paraId": "3FD0B2F5",
+      "index_in_body": 11,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "",
+      "path": "/body/p[@paraId=02614FCD]",
+      "paraId": "02614FCD",
+      "index_in_body": 12,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "NGHIÊN CỨU VÀ ĐÁNH GIÁ PHƯƠNG PHÁP SINH DỮ LIỆU HUẤN LUYỆN SỬ DỤNG CÔNG NGHỆ MÔ PHỎNG",
+      "path": "/body/p[@paraId=739F7B5F]",
+      "paraId": "739F7B5F",
+      "index_in_body": 13,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "",
+      "path": "/body/p[@paraId=31E9F98E]",
+      "paraId": "31E9F98E",
+      "index_in_body": 14,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "",
+      "path": "/body/p[@paraId=0F796C34]",
+      "paraId": "0F796C34",
+      "index_in_body": 15,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "MỤC LỤC",
+      "path": "/body/p[@paraId=7D417905]",
+      "paraId": "7D417905",
+      "index_in_body": 16,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "",
+      "path": "/body/p[@paraId=53CCB46B]",
+      "paraId": "53CCB46B",
+      "index_in_body": 17,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "Trang",
+      "path": "/body/p[@paraId=6F325398]",
+      "paraId": "6F325398",
+      "index_in_body": 18,
+      "addressable": true
+    },
+    {
+      "style": "toc 1",
+      "text": "DANH MỤC CÁC KÝ HIỆU, CHỮ VIẾT TẮT\tiii",
+      "path": "/body/p[@paraId=3E2F376D]",
+      "paraId": "3E2F376D",
+      "index_in_body": 19,
+      "addressable": true
+    },
+    {
+      "style": "toc 1",
+      "text": "DANH MỤC CÁC HÌNH VẼ\tiv",
+      "path": "/body/p[@paraId=346E1F46]",
+      "paraId": "346E1F46",
+      "index_in_body": 20,
+      "addressable": true
+    },
+    {
+      "style": "toc 1",
+      "text": "GIỚI THIỆU\t1",
+      "path": "/body/p[@paraId=7FB28FA0]",
+      "paraId": "7FB28FA0",
+      "index_in_body": 21,
+      "addressable": true
+    },
+    {
+      "style": "toc 1",
+      "text": "CHƯƠNG 1. CƠ SỞ LÝ THUYẾT\t4",
+      "path": "/body/p[@paraId=003CED1B]",
+      "paraId": "003CED1B",
+      "index_in_body": 22,
+      "addressable": true
+    },
+    {
+      "style": "toc 2",
+      "text": "1.1. Tầm quan trọng dữ liệu ảnh huấn luyện trong thị giác máy tính\t4",
+      "path": "/body/p[@paraId=3C60E193]",
+      "paraId": "3C60E193",
+      "index_in_body": 23,
+      "addressable": true
+    },
+    {
+      "style": "toc 2",
+      "text": "1.2. Các thách thức phổ biến liên quan đến dữ liệu\t5",
+      "path": "/body/p[@paraId=6BBAAA27]",
+      "paraId": "6BBAAA27",
+      "index_in_body": 24,
+      "addressable": true
+    },
+    {
+      "style": "toc 2",
+      "text": "1.3. Các lĩnh vực ứng dụng chính\t9",
+      "path": "/body/p[@paraId=731E9C04]",
+      "paraId": "731E9C04",
+      "index_in_body": 25,
+      "addressable": true
+    },
+    {
+      "style": "toc 2",
+      "text": "1.4. Các phương pháp sinh dữ liệu ảnh truyền thống\t11",
+      "path": "/body/p[@paraId=78543D69]",
+      "paraId": "78543D69",
+      "index_in_body": 26,
+      "addressable": true
+    },
+    {
+      "style": "toc 3",
+      "text": "1.4.1. Thu thập dữ liệu ảnh thủ công\t11",
+      "path": "/body/p[@paraId=52C4DE01]",
+      "paraId": "52C4DE01",
+      "index_in_body": 27,
+      "addressable": true
+    },
+    {
+      "style": "toc 3",
+      "text": "1.4.2. Tăng cường dữ liệu ảnh\t12",
+      "path": "/body/p[@paraId=6585A5C0]",
+      "paraId": "6585A5C0",
+      "index_in_body": 28,
+      "addressable": true
+    },
+    {
+      "style": "toc 1",
+      "text": "KẾT LUẬN\t15",
+      "path": "/body/p[@paraId=5334AB56]",
+      "paraId": "5334AB56",
+      "index_in_body": 29,
+      "addressable": true
+    },
+    {
+      "style": "toc 1",
+      "text": "TÀI LIỆU THAM KHẢO\t15",
+      "path": "/body/p[@paraId=269DF45C]",
+      "paraId": "269DF45C",
+      "index_in_body": 30,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "DANH MỤC CÁC KÝ HIỆU, CHỮ VIẾT TẮT",
+      "path": "/body/p[@paraId=55DA03B3]",
+      "paraId": "55DA03B3",
+      "index_in_body": 31,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "",
+      "path": "/body/p[@paraId=27CCBD33]",
+      "paraId": "27CCBD33",
+      "index_in_body": 32,
+      "addressable": true
+    },
+    {
+      "style": null,
+      "text": "AI",
+      "path": "/body/tbl[1]/tr[1]/tc[1]",
+      "paraId": null,
+      "index_in_body": 33,
+      "addressable": false
+    },
+    {
+      "style": null,
+      "text": "Trí tuệ nhân tạo (Artificial Intelligence)",
+      "path": "/body/tbl[1]/tr[1]/tc[2]",
+      "paraId": null,
+      "index_in_body": 34,
+      "addressable": false
+    },
+    {
+      "style": null,
+      "text": "ANN",
+      "path": "/body/tbl[1]/tr[2]/tc[1]",
+      "paraId": null,
+      "index_in_body": 35,
+      "addressable": false
+    },
+    {
+      "style": null,
+      "text": "Mạng nơ ron nhân tạo (Artificial Neural Network)",
+      "path": "/body/tbl[1]/tr[2]/tc[2]",
+      "paraId": null,
+      "index_in_body": 36,
+      "addressable": false
+    },
+    {
+      "style": null,
+      "text": "CMCN 4.0",
+      "path": "/body/tbl[1]/tr[3]/tc[1]",
+      "paraId": null,
+      "index_in_body": 37,
+      "addressable": false
+    },
+    {
+      "style": null,
+      "text": "Cách mạng công nghiệp 4.0",
+      "path": "/body/tbl[1]/tr[3]/tc[2]",
+      "paraId": null,
+      "index_in_body": 38,
+      "addressable": false
+    },
+    {
+      "style": null,
+      "text": "CNN",
+      "path": "/body/tbl[1]/tr[4]/tc[1]",
+      "paraId": null,
+      "index_in_body": 39,
+      "addressable": false
+    },
+    {
+      "style": null,
+      "text": "Mạng nơ ron tích chập (Convolutional Neural Network)",
+      "path": "/body/tbl[1]/tr[4]/tc[2]",
+      "paraId": null,
+      "index_in_body": 40,
+      "addressable": false
+    },
+    {
+      "style": null,
+      "text": "DA",
+      "path": "/body/tbl[1]/tr[5]/tc[1]",
+      "paraId": null,
+      "index_in_body": 41,
+      "addressable": false
+    },
+    {
+      "style": null,
+      "text": "Tăng cường dữ liệu (Data Augmentation)",
+      "path": "/body/tbl[1]/tr[5]/tc[2]",
+      "paraId": null,
+      "index_in_body": 42,
+      "addressable": false
+    },
+    {
+      "style": null,
+      "text": "DL",
+      "path": "/body/tbl[1]/tr[6]/tc[1]",
+      "paraId": null,
+      "index_in_body": 43,
+      "addressable": false
+    },
+    {
+      "style": null,
+      "text": "Học sâu (Deep Learning)",
+      "path": "/body/tbl[1]/tr[6]/tc[2]",
+      "paraId": null,
+      "index_in_body": 44,
+      "addressable": false
+    },
+    {
+      "style": null,
+      "text": "DRL",
+      "path": "/body/tbl[1]/tr[7]/tc[1]",
+      "paraId": null,
+      "index_in_body": 45,
+      "addressable": false
+    },
+    {
+      "style": null,
+      "text": "Học sâu tăng cường (Deep Reinforcement Learning)",
+      "path": "/body/tbl[1]/tr[7]/tc[2]",
+      "paraId": null,
+      "index_in_body": 46,
+      "addressable": false
+    },
+    {
+      "style": null,
+      "text": "ML",
+      "path": "/body/tbl[1]/tr[8]/tc[1]",
+      "paraId": null,
+      "index_in_body": 47,
+      "addressable": false
+    },
+    {
+      "style": null,
+      "text": "Học máy (Machine Learning)",
+      "path": "/body/tbl[1]/tr[8]/tc[2]",
+      "paraId": null,
+      "index_in_body": 48,
+      "addressable": false
+    },
+    {
+      "style": null,
+      "text": "NLP",
+      "path": "/body/tbl[1]/tr[9]/tc[1]",
+      "paraId": null,
+      "index_in_body": 49,
+      "addressable": false
+    },
+    {
+      "style": null,
+      "text": "Xử lý ngôn ngữ tự nhiên (Natural Language Processing)",
+      "path": "/body/tbl[1]/tr[9]/tc[2]",
+      "paraId": null,
+      "index_in_body": 50,
+      "addressable": false
+    },
+    {
+      "style": null,
+      "text": "RNN",
+      "path": "/body/tbl[1]/tr[10]/tc[1]",
+      "paraId": null,
+      "index_in_body": 51,
+      "addressable": false
+    },
+    {
+      "style": null,
+      "text": "Mạng nơ ron hồi quy (Recurrent Neural Network)",
+      "path": "/body/tbl[1]/tr[10]/tc[2]",
+      "paraId": null,
+      "index_in_body": 52,
+      "addressable": false
+    },
+    {
+      "style": null,
+      "text": "TTNT",
+      "path": "/body/tbl[1]/tr[11]/tc[1]",
+      "paraId": null,
+      "index_in_body": 53,
+      "addressable": false
+    },
+    {
+      "style": null,
+      "text": "Trí tuệ nhân tạo",
+      "path": "/body/tbl[1]/tr[11]/tc[2]",
+      "paraId": null,
+      "index_in_body": 54,
+      "addressable": false
+    },
+    {
+      "style": "Normal",
+      "text": "",
+      "path": "/body/p[@paraId=0ACB56CA]",
+      "paraId": "0ACB56CA",
+      "index_in_body": 55,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "",
+      "path": "/body/p[@paraId=35CD336A]",
+      "paraId": "35CD336A",
+      "index_in_body": 56,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "DANH MỤC CÁC HÌNH VẼ",
+      "path": "/body/p[@paraId=1C3A2D8C]",
+      "paraId": "1C3A2D8C",
+      "index_in_body": 57,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "",
+      "path": "/body/p[@paraId=7EF204A2]",
+      "paraId": "7EF204A2",
+      "index_in_body": 58,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "Trang",
+      "path": "/body/p[@paraId=25A8C492]",
+      "paraId": "25A8C492",
+      "index_in_body": 59,
+      "addressable": true
+    },
+    {
+      "style": "table of figures",
+      "text": "Hình 1.1. Các bước xây dựng mô hình học máy\t4",
+      "path": "/body/p[@paraId=0682C4FA]",
+      "paraId": "0682C4FA",
+      "index_in_body": 60,
+      "addressable": true
+    },
+    {
+      "style": "table of figures",
+      "text": "Hình 1.2. Vai trò của dữ liệu đối với xây dựng và đánh giá mô hình học máy\t5",
+      "path": "/body/p[@paraId=61CB5E72]",
+      "paraId": "61CB5E72",
+      "index_in_body": 61,
+      "addressable": true
+    },
+    {
+      "style": "table of figures",
+      "text": "Hình 1.3. Minh hoạ một số phương pháp tăng cường ảnh truyền thống\t13",
+      "path": "/body/p[@paraId=51F31B06]",
+      "paraId": "51F31B06",
+      "index_in_body": 62,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "",
+      "path": "/body/p[@paraId=49349C0D]",
+      "paraId": "49349C0D",
+      "index_in_body": 63,
+      "addressable": true
+    },
+    {
+      "style": "heading 1",
+      "text": "GIỚI THIỆU",
+      "path": "/body/p[@paraId=04C2E2D0]",
+      "paraId": "04C2E2D0",
+      "index_in_body": 64,
+      "addressable": true
+    },
+    {
+      "style": "Normal_style",
+      "text": "Nội dung …",
+      "path": "/body/p[@paraId=47DD4FDA]",
+      "paraId": "47DD4FDA",
+      "index_in_body": 65,
+      "addressable": true
+    },
+    {
+      "style": "heading 1",
+      "text": "CƠ SỞ LÝ THUYẾT",
+      "path": "/body/p[@paraId=051169A1]",
+      "paraId": "051169A1",
+      "index_in_body": 66,
+      "addressable": true
+    },
+    {
+      "style": "heading 2",
+      "text": "Tầm quan trọng dữ liệu ảnh huấn luyện trong thị giác máy tính ",
+      "path": "/body/p[@paraId=05E2D782]",
+      "paraId": "05E2D782",
+      "index_in_body": 67,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "Nội dung...",
+      "path": "/body/p[@paraId=3B91656F]",
+      "paraId": "3B91656F",
+      "index_in_body": 68,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "",
+      "path": "/body/p[@paraId=4A77C03D]",
+      "paraId": "4A77C03D",
+      "index_in_body": 69,
+      "addressable": true
+    },
+    {
+      "style": "Bảng biểu - title",
+      "text": "",
+      "path": "/body/p[@paraId=114C20C7]",
+      "paraId": "114C20C7",
+      "index_in_body": 70,
+      "addressable": true
+    },
+    {
+      "style": "Bảng biểu - title",
+      "text": "Hình .. Các bước xây dựng mô hình học máy",
+      "path": "/body/p[@paraId=450E8917]",
+      "paraId": "450E8917",
+      "index_in_body": 71,
+      "addressable": true
+    },
+    {
+      "style": "heading 3",
+      "text": "Thu thập dữ liệu ảnh thủ công",
+      "path": "/body/p[@paraId=15D7D3CD]",
+      "paraId": "15D7D3CD",
+      "index_in_body": 72,
+      "addressable": true
+    },
+    {
+      "style": "Normal_style",
+      "text": "Nội dung ",
+      "path": "/body/p[@paraId=4C9C80FE]",
+      "paraId": "4C9C80FE",
+      "index_in_body": 73,
+      "addressable": true
+    },
+    {
+      "style": "Normal",
+      "text": "",
+      "path": "/body/p[@paraId=409677A3]",
+      "paraId": "409677A3",
+      "index_in_body": 74,
+      "addressable": true
+    },
+    {
+      "style": "heading 1",
+      "text": "KẾT LUẬN",
+      "path": "/body/p[@paraId=37D21BE6]",
+      "paraId": "37D21BE6",
+      "index_in_body": 75,
+      "addressable": true
+    },
+    {
+      "style": "Normal_style",
+      "text": "Nội dung...",
+      "path": "/body/p[@paraId=7AFAB967]",
+      "paraId": "7AFAB967",
+      "index_in_body": 76,
+      "addressable": true
+    },
+    {
+      "style": "heading 1",
+      "text": "TÀI LIỆU THAM KHẢO",
+      "path": "/body/p[@paraId=7FA7A178]",
+      "paraId": "7FA7A178",
+      "index_in_body": 77,
+      "addressable": true
+    },
+    {
+      "style": "List Paragraph",
+      "text": "The comprehensive Vietnamese virtual assistant on VinFast's electric car - vinbigdata, truy cập vào tháng 3 20, 2025, https://vinbigdata.com/en/case-studies/the-comprehensive-vietnamese-virtual-assistant-on-vinfasts-electric-car.html",
+      "path": "/body/p[@paraId=3F0FE4AF]",
+      "paraId": "3F0FE4AF",
+      "index_in_body": 78,
+      "addressable": true
+    }
+  ],
+  "body_styles_seen": [
+    "Normal",
+    "toc 1",
+    "toc 2",
+    "toc 3",
+    "table of figures",
+    "heading 1",
+    "Normal_style",
+    "heading 2",
+    "Bảng biểu - title",
+    "heading 3",
+    "List Paragraph"
+  ],
+  "toc_present": false,
+  "total_paragraphs": 79
+}

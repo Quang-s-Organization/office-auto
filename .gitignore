@@ -8,7 +8,7 @@ __pycache__/
 .codegraph/errors.log
 
 # DOCX/PPTX pipeline runtime outputs
-.office-auto/state/
+# .office-auto/state/
 .office-auto/*.jsonl
 .office-auto/help_*.json
 .office-auto/*_query.json

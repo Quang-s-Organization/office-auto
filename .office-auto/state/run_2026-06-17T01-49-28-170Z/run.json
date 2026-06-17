@@ -1,0 +1,16 @@
+{
+  "run_id": "run_2026-06-17T01-49-28-170Z",
+  "status": "failed",
+  "current_phase": "FAILED",
+  "template_file": "format_template.docx",
+  "source_file": "noidung.md",
+  "target_file": "report.docx",
+  "created_at": "2026-06-17T01:49:28.170Z",
+  "updated_at": "2026-06-17T01:50:27.038Z",
+  "error": {
+    "phase": "APPLIED",
+    "error_code": "OFFICECLI_BATCH_FAILED",
+    "message": "officecli batch failed: ",
+    "retryable": true
+  }
+}

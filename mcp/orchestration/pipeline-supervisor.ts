@@ -168,8 +168,6 @@ function runStdin(args: string[], input: string): string {
 const CODE_REPAIR_CODES = new Set([
   "PIPELINE_CRASH",
   "SECTION_MAPPING_INVALID",
-  "COMPILE_ERRORS",
-  "VALIDATION_FAILED",
 ])
 
 function buildError(
@@ -179,8 +177,8 @@ function buildError(
 ): { error_code: string; message: string; retryable: boolean; requires_code_repair: boolean; repair_handoff: string } {
   const requires_code_repair = CODE_REPAIR_CODES.has(error_code)
   const repair_handoff = requires_code_repair
-    ? `Run REPAIR MODE for ${error_code}. Read events.jsonl to diagnose, then edit pipeline code and re-run.`
-    : `Check input files and retry.`
+    ? `REPAIR needed for ${error_code}. Read events.jsonl for diagnostics, then report findings to user — do NOT edit pipeline code yourself.`
+    : `Check input files and retry, or report to user if retries are exhausted.`
   return { error_code, message, retryable, requires_code_repair, repair_handoff }
 }
 
@@ -328,47 +326,11 @@ async function phaseMap(runId: string, state: RunState): Promise<PhaseResult> {
     })
   }
 
-  // Positional fallback: for source headings still unmatched, try to pair by heading level
-  // with template headings that are also unmatched. This catches the common case where
-  // template heading text differs from source heading text but structural intent is the same.
-  for (const sh of sourceHeadings) {
-    const key = sh.normalized_key ?? canonicalHeadingKey(sh.text)
-    if (consumedSourceKeys.has(key)) continue
-
-    const shLevel = sh.level ?? 1
-    const unmatchedTemplate = bodyMap.headings.find(
-      (th) =>
-        th.level === shLevel &&
-        !decisions.some((d) => d.template_heading_id === th.heading_id),
-    )
-
-    if (unmatchedTemplate) {
-      consumedSourceKeys.add(key)
-      // Update the existing 'keep' decision for this template heading to 'update'
-      const existingIdx = decisions.findIndex(
-        (d) => d.template_heading_id === unmatchedTemplate.heading_id,
-      )
-      if (existingIdx >= 0) {
-        decisions[existingIdx] = {
-          ...decisions[existingIdx],
-          action: "update",
-          source_heading_text: sh.text,
-          source_heading_block_id: sh.block_id,
-          reason_code: "matched_by_position",
-        }
-      }
-      // Find and remove the 'add' decision for this source heading so it's not duplicated
-      const addIdx = decisions.findIndex(
-        (d) =>
-          d.action === "add" &&
-          d.source_heading_block_id === sh.block_id &&
-          d.reason_code === "new_source_section",
-      )
-      if (addIdx >= 0) {
-        decisions.splice(addIdx, 1)
-      }
-    }
-  }
+  // Positional fallback removed: blindly pairing unmatched headings by level
+  // was causing semantically unrelated sections to be merged (e.g. an "add"
+  // becomes "update"), triggering body paragraph count mismatches downstream.
+  // Unmatched template headings stay as "keep", unmatched source headings
+  // stay as "add" — the update branch in compile_ops now handles both cases.
 
   const sectionMapping: SectionMapping = {
     schema_version: "section_mapping.v1",

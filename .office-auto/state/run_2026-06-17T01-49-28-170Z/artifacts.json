@@ -1,0 +1,40 @@
+{
+  "run_id": "run_2026-06-17T01-49-28-170Z",
+  "artifacts": [
+    {
+      "name": "docx_inspect_output",
+      "path": "docx_inspect_output.json",
+      "sha256": "10dd7babc901586bc85313236689c66b3c332b05e4c9efa595361b58920f9b12",
+      "created_at": "2026-06-17T01:49:32.095Z",
+      "schema_version": "body_map.v1"
+    },
+    {
+      "name": "source_packet",
+      "path": "source_packet.json",
+      "sha256": "6331c795229ad08eae237b165532f174a77dde93408b2a29a6888dd43e14d288",
+      "created_at": "2026-06-17T01:49:32.100Z",
+      "schema_version": "source_packet.v1"
+    },
+    {
+      "name": "section_mapping",
+      "path": "section_mapping.json",
+      "sha256": "d401fd62e0ac26610074743b40f3317fadd9474254acff0f3622fa2ca12a4992",
+      "created_at": "2026-06-17T01:49:32.104Z",
+      "schema_version": "section_mapping.v1"
+    },
+    {
+      "name": "execution_ops",
+      "path": "execution_ops.json",
+      "sha256": "25792496b4c0f71860c45183aef2447cb16948af5898dcd642220d3c704c29e0",
+      "created_at": "2026-06-17T01:49:32.109Z",
+      "schema_version": "execution_ops.v1"
+    },
+    {
+      "name": "strict_validation",
+      "path": "strict_validation.json",
+      "sha256": "b6c11654a09805f7d6622a90b39e34990ef1f210177deb398ebc5ea20813feaa",
+      "created_at": "2026-06-17T01:49:32.110Z",
+      "schema_version": "strict_validation.v1"
+    }
+  ]
+}
