@@ -1,24 +1,17 @@
 {
+  "$schema": "https://opencode.ai/config.json",
   "provider": {
-    "sglang": {
+    "llamacpp": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "sglang",
+      "name": "llama.cpp (local Qwen3-A3B)",
       "options": {
-        "baseURL": "https://appresearchpublic83.aiplatform.vcntt.tech/v1"
+        "baseURL": "http://127.0.0.1:8080/v1"
       },
       "models": {
-        "Qwen3.6-35B-A3B-GGUF": {
-          "name": "Qwen3.6-35B-A3B-GGUF"
+        "qwen3-a3b": {
+          "name": "Qwen3-30B-A3B"
         }
       }
-    }
-  },
-  "model": "sglang/Qwen3.6-35B-A3B-GGUF",
-  "models": {
-    "sglang/Qwen3.6-35B-A3B-GGUF": {
-      "temperature": 0.6,
-      "top_p": 0.95,
-      "top_k": 20
     }
   },
   "mcp": {
@@ -39,11 +32,14 @@
       }
     }
   },
+  "tools": {
+    "officecli*": false
+  },
   "agent": {
     "docgen-orchestrator": {
       "mode": "primary",
-      "model": "sglang/Qwen3.6-35B-A3B-GGUF",
-      "description": "Orchestrates document generation pipeline. Coordinates template audit, content normalization, docx rendering, and validation.",
+      "model": "llamacpp/qwen3-a3b",
+      "description": "Orchestrates document generation pipeline: audit, normalize, render, validate",
       "tools": {
         "office-auto*": true,
         "officecli*": true
@@ -55,8 +51,8 @@
     },
     "content-normalizer": {
       "mode": "subagent",
-      "model": "sglang/Qwen3.6-35B-A3B-GGUF",
-      "description": "Debug only: converts natural language to content.json. Production path goes through pipeline-core.",
+      "model": "llamacpp/qwen3-a3b",
+      "description": "Debug only: NL -> content.json. Production path goes through pipeline-core.",
       "temperature": 0.2,
       "permission": {
         "edit": "deny",

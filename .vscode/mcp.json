@@ -1,0 +1,12 @@
+{
+  "servers": {
+    "officecli": {
+      "command": "officecli",
+      "args": ["mcp"]
+    },
+    "office-auto": {
+      "command": "npx",
+      "args": ["tsx", "src/mcp/office-auto-server.ts"]
+    }
+  }
+}
