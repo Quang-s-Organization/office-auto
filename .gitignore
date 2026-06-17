@@ -2,33 +2,5 @@
 __pycache__/
 .github
 
-# Local index/cache outputs
-.codegraph/
-.codegraph/codegraph.db
-.codegraph/errors.log
-
-# DOCX/PPTX pipeline runtime outputs
-# .office-auto/state/
-.office-auto/*.jsonl
-.office-auto/help_*.json
-.office-auto/*_query.json
-.office-auto/*_get.json
-.office-auto/*_result.json
-.office-auto/template_*.json
-.office-auto/template_*.xml
-.office-auto/*.txt
-.office-auto/*.docx
-.manual-run/
-manual-run/
-manual-run-state-summary.md
-
-# Local inspection artifacts
-convert.md
-report_convert.md
-logs.txt
-
 # Node dependencies
 node_modules/
-
-# Run artifacts
-runs/

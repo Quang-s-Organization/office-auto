@@ -1,589 +1,701 @@
-Scope thay đổi căn bản: đây là **văn bản hành chính** (quyết định, nghị quyết) theo thể thức chuẩn — format gần như cố định, chỉ thay nội dung/field. Điều này đổi hẳn thiết kế tối ưu, nên tôi research kỹ thể thức văn bản hành chính (Nghị định 30/2020/NĐ-CP) và cách đánh số Điều/Khoản/Điểm để plan khớp đúng, rồi mới deliver file markdown.
+<aside>
+🎯
 
-Research xong. Scope mới làm rõ một điều quan trọng: đây là **văn bản hành chính theo thể thức chuẩn** (Nghị định 30/2020/NĐ-CP) — format gần như cố định, chỉ thay nội dung/field. Điều này lật lại một giả định lớn trong pipeline hiện tại: **cách splice toàn bộ `<w:body>` thực ra LÀM HỎNG thể thức** (khối chữ ký, nơi nhận, quốc hiệu nằm trong body sẽ bị xóa). Bài toán đúng của bạn là **điền field vào template (mail-merge / region replacement)**, không phải render markdown tự do.
+**Core Philosophy:** The LLM only generates **schema-based data (JSON)**; all `.docx` operations are performed by **deterministic code** (deterministic compiler + OfficeCLI). This plan preserves your existing *Determinism Boundary* backbone, **revalidates it using the actual OfficeCLI source code (commit `5e51ae`, index 10/06/2026)**, and **fully integrates the OpenCode and Qwen3 serving components** that you currently lack.
 
-Dưới đây là file markdown đầy đủ, viết lại hoàn toàn theo scope văn bản hành chính. Copy nguyên khối (outer fence dùng `~~~~`):
+</aside>
 
-markdown
+## 0. Prerequisite Reading: 4 Important Adjustments Compared to Your Analysis
 
-# Office-Auto — Administrative-Document Pipeline Plan (v3.1 → v4-AD)
+Your analysis is about 90% correct. After directly comparing `SKILL.md`, the OfficeCLI wiki, and the OpenCode/llama.cpp documentation, there are **4 points that need to be corrected before coding** to avoid errors right from the ground up.
 
-> **Scope (locked):** Vietnamese **administrative documents** (văn bản hành chính) —
-> 
-
-> quyết định, nghị quyết, công văn, tờ trình, thông báo, etc. — produced for a
-> 
-
-> government/agency office. The document **format is fixed by the template** and
-> 
-
-> follows the national standard **Nghị định 30/2020/NĐ-CP** ("thể thức và kỹ thuật
-> 
-
-> trình bày văn bản hành chính"). The pipeline's job is to **update content/fields**
-> 
-
-> (decision name, resolution body, số/ký hiệu, ngày tháng, căn cứ, điều khoản, nơi
-> 
-
-> nhận, người ký…) into that template **without disturbing the official layout**.
-> 
-
-> 
-> 
-
-> This plan is written for a coding agent to implement. It supersedes the prior
-> 
-
-> "general md→docx hardening" plan because the scope is now narrower and more
-> 
-
-> deterministic.
-> 
-
----
-
-## 0. TL;DR for the implementer
-
-1. **Stop replacing the whole `<w:body>`.** For administrative documents this is
-    
-    actively wrong: the thể thức components (Quốc hiệu/Tiêu ngữ, khối chữ ký, Nơi
-    
-    nhận, dấu) live *inside* the body. Full-body splice silently destroys them.
-    
-2. **Adopt a template-as-form model.** The template is the authoritative document.
-    
-    Mark the variable regions (fields + the nội dung region) and replace *only*
-    
-    those regions. Everything else is preserved byte-for-byte.
-    
-3. **Two replacement units:**
-    - **Field merge** (single-value tokens: số, ký hiệu, ngày, tên loại, trích yếu,
-        
-        người ký, chức vụ, nơi nhận…). 90% of real edits are here.
-        
-    - **Body region rendering** (the "Nội dung" block: Điều / Khoản / Điểm with
-        
-        Vietnamese legal numbering, paragraphs, căn cứ list, optional simple table).
-        
-4. **Shrink the IR.** No general tables/images/code as first-class. Admin docs need:
-    
-    headings/Điều, legal-numbered clauses, paragraphs, inline bold/italic/underline,
-    
-    centered lines, simple "danh sách" tables, page breaks. Everything else →
-    
-    `unsupported` with a loud error.
-    
-5. **LLM is an extractor/mapper, not a renderer.** It converts the user's source
-    
-    into a typed, validated *FieldSet + BodyPlan* JSON. It never emits XML, never
-    
-    decides styling, never touches the template chrome.
-    
-6. **Fail loud + thể thức compliance gate.** Validate: all required fields filled,
-    
-    no leftover tokens, chrome unchanged outside replaced regions, and the 9 ND-30
-    
-    components still present.
-    
-
----
-
-## 1. Current architecture (grounding)
-
-Confirmed from the repo (`Quang-s-Organization/office-auto`, MCP server `v3.1.0`):
-
-- Phase graph: `CREATED → SOURCE_PARSED → MAPPED → COMPILED → VALIDATED →
-    
-    APPLIED → VERIFIED → COMPLETED`, supervised by handlers
-    
-    `phaseInspect/phaseSourceParse/phaseMap/phaseCompile/phaseValidate/phaseApply/
-    
-    phaseVerify/phaseFinalGate`.
-    
-- Apply step (`apply_splice.ts › spliceDocxBody`): copy template → `AdmZip` →
-    
-    replace the entire `word/document.xml` body → write zip.
-    
-- Chrome handling (`docx-xml.ts`): `extractChrome` keeps **front-matter** (blocks
-    
-    before the first heading) + the **first `sectPr`**. Body rendering
-    
-    (`buildParagraphXml`) emits **one `<w:r>` per paragraph**, no inline runs, no
-    
-    `<w:br/>`.
-    
-- Style resolution (`resolveStyleMap`, `findFirstHeadingParagraph`): hardcoded
-    
-    candidate lists of styleIds/names; unmapped role → paragraph **silently skipped**.
-    
-- Validation (`validate_output.ts`): currently rubber-stamps (`validated:true`).
-
-### Why this breaks on administrative documents specifically
-
-| Thể thức component (ND-30) | Where it sits in OOXML | Current pipeline result |
-| --- | --- | --- |
-| Quốc hiệu + Tiêu ngữ (header table) | top of `<w:body>`, before content | Kept *only if* it's "front-matter" before first heading — fragile |
-| Số, ký hiệu / Địa danh, ngày tháng | in the header table cells | Not a "field" → cannot be updated; survives by luck |
-| Nội dung (Điều/Khoản/Điểm) | middle of body | Flattened to single runs; legal numbering lost |
-| **Chức vụ + chữ ký người có thẩm quyền** | **after** the content | **Destroyed** — it's after the last heading, inside the replaced range |
-| **Nơi nhận** | **after/below** content | **Destroyed** for the same reason |
-| Dấu / chữ ký số | overlay near signature | Lost / misplaced |
-
-**Conclusion:** the splice model preserves the *top* of the thể thức by accident and
-
-deletes the *bottom* (signature block + nơi nhận) by design. For this scope, the
-
-fix is not "render the body better" — it's "stop regenerating the body; replace
-
-only marked regions."
-
----
-
-## 2. Research basis (what the standard actually requires)
-
-Vietnamese administrative documents follow a **fixed, legally-specified structure**
-
-(ND 30/2020/NĐ-CP, Phụ lục I). The main thể thức components are:[[1]](https://storage-edu.vnpt.vn/edu-lci/8398/Vanban/12_trich-tt-30.pdf)
-
-1. Quốc hiệu và Tiêu ngữ
-2. Tên cơ quan, tổ chức ban hành văn bản
-3. Số, ký hiệu của văn bản
-4. Địa danh và thời gian ban hành văn bản
-5. Tên loại và trích yếu nội dung văn bản
-6. Nội dung văn bản
-7. Chức vụ, họ tên và chữ ký của người có thẩm quyền
-8. Dấu, chữ ký số của cơ quan, tổ chức
-9. Nơi nhận
-
-Optional components: phụ lục, dấu chỉ độ mật/khẩn, ký hiệu người soạn thảo, etc.
-
-Technical presentation rules (Phụ lục I):[[2]](http://thptvantao.edu.vn/tin-tuc-thong-bao/thong-bao/diem-moi-trong-nghi-dinh-30-2020-nd-cp-ve-ky-thuat-trinh-bay.html)[[3]](https://thptphunghung.hcm.edu.vn/tai-nguyen/the-thuc-va-ky-thuat-trinh-bay-van-ban-theo-nghi-dinh-so-302020nd-cp-cua-chinh/ctmb/14161/449348)
-
-- Paper: **A4 (210 × 297 mm)**, portrait (landscape only for wide tables).
-- Font: **Times New Roman**, Unicode (TCVN 6909:2001), black, size typically 13–14.
-- Component positions fixed by Mục IV Phần I Phụ lục I.
-
-Body numbering hierarchy (Phần/Chương/Mục/Tiểu mục/Điều/Khoản/Điểm):[[4]](http://thcskimchung.pgd-donganh.edu.vn/van-ban-cong-van/so-do-the-thuc-van-ban-hanh-chinh-theo-nghi-dinh-30-2020-nd-cp-nhu-the-nao-cach-trinh-bay-the-thuc-van-ban-hanh-chinh-.html)
-
-- **Điều**: `Điều 1.`, `Điều 2.` … (bold label).
-- **Khoản**: `1.`, `2.` …
-- **Điểm**: `a)`, `b)`, `c)` …
-- Căn cứ lines are in *italics* and end with `;` (last one ends with `.`).
-- Signature block uses authority prefixes such as `TM.`, `KT.`, `Q.`, `TL.`,
-    
-    `TUQ.` (e.g. "TM. ỦY BAN NHÂN DÂN").[[5]](https://cadn.com.vn/van-ban-hanh-chinh-cua-co-quan-va-nguoi-dung-dau-co-quan-post236264.html)
-    
-
-**Design implication:** the value space is *small and closed*. We can enumerate the
-
-constructs exhaustively. This is the opposite of "general markdown," and it justifies
-
-a deterministic, template-locked pipeline with the LLM used only for extraction.
-
-> Official text of the decree is published at [chinhphu.vn](http://chinhphu.vn) for citation in code
-> 
-
-> comments / tests.[[6]](https://vanban.chinhphu.vn/default.aspx?pageid=27160&docid=199378)
-> 
-
----
-
-## 3. Problem statement (v3.1 risks, re-scoped to admin docs)
-
-| ID | Problem | Code location | Admin-doc impact |
+| # | Points in your version | Verified facts | Action |
 | --- | --- | --- | --- |
-| **P1** | Signature block + Nơi nhận after content are deleted by full-body splice | `apply_splice.ts`, `extractChrome` | **Critical** — invalid văn bản, missing thẩm quyền/chữ ký |
-| **P2** | No field-level update (số, ký hiệu, ngày, trích yếu, người ký) | no field model exists | Core use-case ("update đồng bộ") impossible without regenerating whole body |
-| **P3** | Inline formatting flattened to one run; markdown markers (`**`,`*`) leak as literal text | `buildParagraphXml` | Bold trích yếu / "QUYẾT ĐỊNH:" / căn cứ italics lost |
-| **P4** | Vietnamese legal numbering (Điều/Khoản/Điểm) not modeled | `build_render_list.roleForSourceBlock` returns Normal for everything | Clause numbering wrong/missing |
-| **P5** | Line breaks `\n` collapse | single `<w:t>` | Multi-line căn cứ / nơi nhận lists merge |
-| **P6** | Style role hardcoded; unmapped → silently skipped | `resolveStyleMap`, `buildRenderList` (`if(!styleId) continue`) | Content silently disappears |
-| **P7** | `extractChrome` grabs first `sectPr` only; `generateParaId` may collide with retained paraIds | `docx-xml.ts` | Multi-section docs + duplicate paraId corruption |
-| **P8** | Validation rubber-stamps; no thể thức compliance check | `validate_output.ts`, final gate | Invalid documents pass as "ok" |
+| C1 | `batch.json` has uppercase field names: `{ "Command", "Path", "Props", "Index" }` | The OfficeCLI batch uses **lowercase** field **names**: `command` (or `op`), `path`, `parent`, `type`, `from`, `to`, `index`, `after`, `before`, `props`, `selector`, `mode`, `depth`, `part`, `xpath`, `action`, `xml` | **Change the BatchItem schema to lowercase.** This is an error that will cause a 100% failure if left as is. |
+| C2 | `Set sdt[tag=agency_name]` directly | SKILL.md explicitly states: **“Bare unscoped selectors rejected on `set/remove`.”** Bare selectors without a path scope are rejected upon writing. | The Binding-planner **resolves `the tag` → specific path via `a query` first** (determined and cached in the manifest), then `sets it` based on the path. Do not `set it` directly using a bare selector. |
+| C3 | GBNF uses the `--grammar` flag and “forces” the model in OpenCode | (a) llama-server accepts **`json_schema`** (completion) / **`response_format`** (chat) — the schema **MUST NOT be embedded in the prompt**; the model does not “see” it. (b) OpenCode calls the model via the OpenAI-compatible API and **does not** reliably **expose arbitrary grammar flags**. | **Separate L2 from the OpenCode chat loop**: run the normalizer as **a service that calls the llama-server directly** with`json_schema/grammar`. OpenCode acts as **a coordinating harness + host for MCP OfficeCLI**; it is not where the grammar is enforced. (Details in §8–§9.) |
+| C4 | `Add `--index` ` to specify the insertion position | `--index` is **0-based** and is considered *legacy*. New recommended approach: **`--after <path>` / `--before <path>`** (1-based anchors per XPath). | The binding planner generates insertion operations using ``after` `/``before` ` based on anchors in the manifest; it does not use `indices`. |
+
+<aside>
+✅
+
+The items in your version **are correct and should remain unchanged**: remove XML databinding (write directly to SDT), remove altChunk from the default path, prioritize ``add --from` clone-block` over the repeating-section SDT, treat the manifest as the sole source of truth, use two validation gates (``validate` ` + ``view issues``) plus `a `:contains` query` to catch missing placeholders, and use resident mode for multi-step operations.
+
+</aside>
 
 ---
 
-## 4. Design principles (v4-AD)
+## 1. Verified OfficeCLI capabilities (foundation for design)
 
-1. **Template is sacred.** Default behavior = preserve 100% of the template; mutate
-    
-    only explicitly-marked regions. No region marked → no change (and a warning).
-    
-2. **Deterministic core, LLM advisor at the edges.** All XML generation is pure code.
-    
-    LLM only produces a typed `FieldSet`/`BodyPlan` from the source and is fully
-    
-    schema-validated before use.
-    
-3. **Closed construct set.** Enumerate every admin-doc construct. Anything outside →
-    
-    `unsupported` with a hard error and a precise message (no silent skip).
-    
-4. **Fail loud.** Missing required field, leftover token, unmapped construct, chrome
-    
-    drift → error with a `repair_handoff`, never a silent pass.
-    
-5. **Reproducible & auditable.** Same input ⇒ byte-identical output. Persist the
-    
-    `FieldSet`, `BodyPlan`, and a region-diff report in the run state dir.
-    
+Excerpt from the actual `SKILL.md` file — only the sections directly relevant to the framework.
 
----
-
-## 5. Target architecture (v4-AD)
-
-```
-INSPECT_TEMPLATE → BIND_FIELDS → PARSE_SOURCE → BUILD_PLAN → COMPILE_REGIONS
-   → APPLY_REGIONS → VALIDATE → COMPLIANCE_GATE → VERIFY → COMPLETED
-```
-
-| Phase | Module (new/changed) | Responsibility |
+| Verb | Validation syntax | Used in the class |
 | --- | --- | --- |
-| INSPECT_TEMPLATE | `lib/template-introspect.ts` | Discover variable regions (content controls / bookmarks / `{{tokens}}`), read style table, locate the "Nội dung" body region, detect sections |
-| BIND_FIELDS | `lib/field-binding.ts` | Build the `FieldSet` schema from the template's discovered fields |
-| PARSE_SOURCE | `lib/source-parse/*` (mdast-based) | Parse the source markdown into a structured tree |
-| BUILD_PLAN | `tools/build_plan.ts` (+ optional `lib/llm-advisor.ts`) | Map source → `FieldSet` values + `BodyPlan` (Điều/Khoản/Điểm tree) |
-| COMPILE_REGIONS | `lib/ooxml/{runs,paragraph,clause,table,numbering}.ts` | Render *only* the replacement OOXML fragments |
-| APPLY_REGIONS | `tools/apply_regions.ts` | Splice fragments into the marked regions; rest untouched |
-| VALIDATE | `tools/validate_body.ts` | Real structural/XML validation |
-| COMPLIANCE_GATE | `lib/thethuc-check.ts` | ND-30 component presence + no leftover tokens + chrome diff |
-| VERIFY | existing officecli `view`/`validate` | Final document sanity |
+| `create` | `officecli create <file>` (file type inferred from the file extension) | — |
+| `view` | `view <file> <mode>` — mode: `outline`, `stats`, `issues`, `text`, `annotated`, `html` | L1, L4 |
+| `get` | `get <file> <path> --depth N [--json]` | L1 |
+| `query` | `query <file> <selector>` — CSS-like selector: `[attr=value]` `[attr!=value]` `[attr~=text]` `:contains("...")` `:empty` `:has(formula)` `:no-alt`; boolean`and/or` | L1, L3a, L4 |
+| `set` | `set <file> <path> --prop key=value [--prop ...]`; supports `find=/--replace`; **bare selectors are rejected — must be scoped** | L3b |
+| `add` | `add <file> <parent> --type <type> [--after/--before <path>] [--prop ...]`; **`add <file> <parent> --from <path>`** = deep clone with cross-part relationships | L3b |
+| `remove/move/swap` | Remove redundant placeholders; reorder nodes | L3b |
+| `batch` | `batch <file> --input x.json` / `--commands '[...]'` / stdin; defaults to **continue-on-error** (exits with 1 if any item fails); `--stop-on-error`; `--force` bypass docx-protection | L3b |
+| `dump` | `dump <file> [path]` → exports **a replayable JSON batch** (round-trip). Great for **regression testing**. | Test |
+| `refresh` | Recalculate TOC / PAGE / cross-ref page numbers after replay (Word backend on Windows; headless-HTML fallback elsewhere) | L4 |
+| `open/close` | Resident. **Automatically starts as a resident process on the first access (idle for 60 seconds)**; explicit`open/close` to maintain a long session (idle for 12 minutes). Disable: `OFFICECLI_NO_AUTO_RESIDENT=1` | L3b |
+| `validate` | `validate <file>` → checks OOXML schema, returns issues in JSON | L4 |
+| `raw/raw-set/add-part` | L3**escape-only** (XML-specific) | L3b (rare) |
+| `mcp/load_skill/help` | MCP server (1 tool `command` • `load_skill` • `help`); `help <format>` & `load_skill <name>` ( `## Setup` stripped) — minimal context mechanism | §8 |
 
-> Keep the existing supervisor/run-state/artifact-store machinery. Retire
-> 
+<aside>
+📐
 
-> `compile_ops.ts` (dead) and the full-body path in `apply_splice.ts`.
-> 
+**Path conventions (verification):** **1-based** XPath-style paths (`/body/p[3]`, `/body/tbl[1]/tr[2]/tc[1]`, `/header[1]`, `/styles`, `/numbering`). `add --index` uses **0-based** (legacy). `sdt` is a valid type for `add`; SDT supports dropdown/combobox/locked + text replacement.
 
-### 5.1 Region-marking mechanism (pick one; recommend A)
-
-The template must tell the pipeline *what is variable*. Three options:
-
-- **A. Word content controls (`<w:sdt>`) — RECOMMENDED.** Each variable region is a
-    
-    content control with a stable `<w:tag w:val="so_ky_hieu">`. Pros: tag-addressable,
-    
-    survive reformatting, native Word UX, can't be accidentally split. Cons: template
-    
-    authors must insert them (one-time setup per template).
-    
-- **B. Bookmarks.** `<w:bookmarkStart w:name="...">…</w:bookmarkEnd>`. Pros: simple.
-    
-    Cons: easy to break, ranges fragile across edits.
-    
-- **C. Text tokens `{{so_ky_hieu}}`.** Pros: zero template tooling. Cons: tokens can
-    
-    be split across runs by Word; need run-merge normalization; fragile in tables.
-    
-
-**Recommendation:** implement **A as primary**, with **C as a fallback** (token
-
-normalizer that merges split runs) so existing un-instrumented templates still work.
-
-Document a short "how to mark a template" guide for the office.
+</aside>
 
 ---
 
-## 6. Data model
+## 2. Overall Architecture (revised + topology serving added)
 
-### 6.1 FieldSet (single-value merges — the common case)
+The biggest difference from your diagram: **clarifying who calls the LLM, who enforces the grammar, and where OpenCode fits in.**
 
-```tsx
-// schemas/field-set.ts
-export type FieldValue =
-  | { kind: "text"; runs: InlineRun[] }      // supports bold/italic/underline
-  | { kind: "date"; iso: string; display: string } // "Hà Nội, ngày 05 tháng 3 năm 2026"
-  | { kind: "lines"; lines: InlineRun[][] }; // e.g. Nơi nhận list
+```mermaid
+flowchart TD
+    U["Yêu cầu người dùng (NL)"] --> ORCH
+    subgraph OC ["OpenCode (harness điều phối, KHÔNG ép grammar)"]
+        ORCH["Primary agent: docgen-orchestrator"]
+    end
+    ORCH -->|"gọi tool / script"| CORE["pipeline-core (TS thuần)"]
+    M["template.manifest.json (L1, cache)"] --> CORE
 
-export type FieldSet = Record<string /* tag */, FieldValue>;
+    subgraph LLMZONE ["VÙNG LLM - có thể sai"]
+        L2["L2 content-normalizer<br/>gọi llama-server TRỰC TIẾP<br/>json_schema/GBNF + Zod"]
+    end
+    CORE -->|"prompt hẹp + json_schema"| L2
+    L2 -->|"content.json"| ZOD{"Zod validate"}
+    ZOD -- fail --> L2
+    ZOD -- pass --> BP
 
-// Typical tags for a Quyết định:
-//   ten_co_quan, so_ky_hieu, dia_danh_ngay, ten_loai, trich_yeu,
-//   can_cu[], noi_dung (-> BodyPlan), chuc_vu_ky, ho_ten_ky, noi_nhan[]
+    subgraph CODEZONE ["VÙNG CODE TẤT ĐỊNH - không được sai"]
+        BP["L3a binding-planner<br/>field→tag→path→op"]
+        RD["L3b docx-renderer<br/>→ batch.json (lowercase)"]
+        BP --> RD
+    end
+    RD -->|"batch.json qua stdin"| OCLI["OfficeCLI batch / resident"]
+    OCLI --> OUT["output.docx"]
+    OUT --> VAL
+    subgraph VALZONE ["L4 Validation"]
+        VAL["validate + view issues<br/>+ query :contains placeholder sót<br/>+ structural_invariants"]
+    end
+    VAL -- lỗi cấu trúc --> BP
+    VAL -- lỗi dữ liệu --> L2
+    VAL -- pass --> DONE["✅ Bàn giao"]
 ```
 
-### 6.2 InlineRun (closed inline set)
+| Class | Responsibility | Definite? | Tool |
+| --- | --- | --- | --- |
+| **L1 Template Contract** | Scan template → generate `manifest` (run once per template, cached) | ✅ Code | `View outline`, `query`, `get` |
+| **L2 Content Structuring** | NL → `content.json` with correct schema | ❌ LLM | llama-server (Qwen3-A3B) + GBNF/json_schema + Zod |
+| **L3a Binding Planner** | manifest + content → op plan (field→tag→path→op) | ✅ Code | Pure TS (unit test) |
+| **L3b Docx Renderer** | schedule → `batch.json` → apply patch | ✅ Code | TS + OfficeCLI `batch/resident` |
+| **L4 Validation** | schema + missing placeholders + invariants | ✅ Code | `validate`, `view issues`, `query` |
 
-```tsx
-export type InlineRun = {
-  text: string;
-  bold?: boolean;
-  italic?: boolean;
-  underline?: boolean;
-  // no colors/strike/links by default — add only if a real template needs them
-};
+---
+
+## 3. Platform decision (finalize before coding)
+
+<aside>
+🧭
+
+These are architectural decisions you haven’t made yet. I’ll provide recommendations and reasoning; please confirm so that I (or you) can proceed.
+
+</aside>
+
+### 3.1 Serving Qwen3-A3B: choose llama-server (recommended)
+
+- **llama-server (llama.cpp)** — *recommended*. It’s **the only** option that supports`GBNF/json_schema` at the sampler level → ensuring strict adherence to the correct `content.json` structure. It’s OpenAI-compatible, so OpenCode can connect to it.
+- Ollama: Convenient, but the`grammar/json_schema` transmission is unstable; not recommended for hard-coded L2.
+- LM Studio: Good GUI for testing, but use the headless llama-server for production.
+
+### 3.2 Grammar enforcement boundary: L2 calls llama-server DIRECTLY, not through the OpenCode chat
+
+Reason explained in C3. Result: **Only `the `content-normalizer`` interacts with the LLM**, and it is **TypeScript code making an HTTP call** to `llama-server` with `a `json_schema``— **not** a chat subagent within OpenCode. OpenCode still has a *conceptual* ``content-normalizer`` subagent that you can call manually during debugging, but the production path goes through ``pipeline-core``.
+
+### 3.3 OpenCode’s Role: harness + MCP host, not the product runtime
+
+OpenCode is a **dev/agentic** environment where you issue commands to “generate a decision from this request”; it coordinates calls `to pipeline-core` and includes the OfficeCLI MCP for exploration (`help/query`). The actual product runtime is your **`office-auto` MCP server** (matching the project you’re migrating).
+
+---
+
+## 4. Full Repo Structure
+
 ```
-
-### 6.3 BodyPlan (the "Nội dung" region)
-
-```tsx
-export type BodyNode =
-  | { type: "dieu"; num: number; title: InlineRun[]; children: BodyNode[] }
-  | { type: "khoan"; num: number; content: InlineRun[]; children: BodyNode[] }
-  | { type: "diem"; label: string /* a,b,c */; content: InlineRun[] }
-  | { type: "para"; align?: "left"|"center"|"justify"; content: InlineRun[] }
-  | { type: "cancu"; content: InlineRun[] }      // italic, ends ';' or '.'
-  | { type: "table"; rows: InlineRun[][][] }     // simple "danh sách kèm theo"
-  | { type: "pagebreak" }
-  | { type: "unsupported"; reason: string; raw: string };
-
-export type BodyPlan = { nodes: BodyNode[] };
-```
-
-> **Legal numbering is rendered deterministically** from `num`/`label`, never copied
-> 
-
-> from the source text. The parser/LLM only identifies *which* node type a line is.
-> 
-
-### 6.4 Style binding
-
-```tsx
-// resolved from the template's own style table, with confidence + fallback
-export type StyleBinding = {
-  role: "dieu" | "khoan" | "diem" | "para" | "cancu" | "table" | "tieude";
-  styleId: string;
-  source: "content_control" | "exact_match" | "heuristic" | "llm" | "default";
-  confidence: number; // 0..1
-};
+office-auto/
+├── opencode.json                 # cấu hình OpenCode: provider Qwen, MCP, agents
+├── AGENTS.md                     # luật cứng cho agent (determinism boundary)
+├── .opencode/
+│   └── agents/
+│       ├── docgen-orchestrator.md  # primary: điều phối pipeline
+│       └── content-normalizer.md   # subagent (chỉ để debug tay)
+├── .vscode/
+│   └── mcp.json                  # MCP cho VS Code (officecli + office-auto)
+├── package.json                  # Bun + @modelcontextprotocol/sdk + zod
+├── tsconfig.json
+├── src/
+│   ├── pipeline-core.ts          # API thuần: runPipeline(req) -> result
+│   ├── llm/
+│   │   ├── client.ts             # gọi llama-server /completion + json_schema
+│   │   └── normalizer.ts         # L2: NL -> content.json + Zod + self-repair
+│   ├── manifest/
+│   │   ├── schema.ts             # Zod cho manifest + content (schema-as-contract)
+│   │   ├── auditor.ts            # L1: docx -> manifest (officecli view/query)
+│   │   └── cache.ts
+│   ├── render/
+│   │   ├── binding-planner.ts    # L3a: manifest+content -> Op[]
+│   │   ├── docx-renderer.ts      # L3b: Op[] -> batch.json (lowercase) -> officecli
+│   │   └── officecli.ts          # wrapper spawn officecli (bash/MCP)
+│   ├── validate/
+│   │   └── validator.ts          # L4
+│   └── mcp/
+│       └── office-auto-server.ts # MCP server expose: generate_document, audit_template
+├── templates/                    # *.docx mẫu
+├── manifests/                    # *.manifest.json (cache L1)
+├── grammars/                     # *.gbnf sinh từ json_schema (tùy chọn)
+├── out/                          # output.docx + batch.json log
+└── test/
+    ├── golden/                   # batch.json + docx vàng cho regression
+    └── *.test.ts
 ```
 
 ---
 
-## 7. Component implementation checklist
+## 5. L1 — Template Contract & Manifest
 
-### 7.1 `lib/template-introspect.ts`
+### 5.1 Two template modes
 
-- [ ]  Parse `word/document.xml` + `styles.xml` with a real XML parser (keep
-    
-    `adm-zip` for the package).
-    
-- [ ]  Enumerate variable regions: `<w:sdt>` tags (mode A), bookmarks (B), `{{token}}`
-    
-    scan with split-run merge (C).
-    
-- [ ]  Locate the **Nội dung region** (between the trích yếu/QUYẾT ĐỊNH line and the
-    
-    signature block) as an addressable range.
-    
-- [ ]  Read all `sectPr` (not just the first); record section boundaries.
-- [ ]  Emit a `TemplateProfile { fields[], bodyRegion, styleBindings[], sections[] }`.
+| Mode | Anchoring Mechanism | OfficeCLI command | When using |
+| --- | --- | --- | --- |
+| `strict-sdt` | SDT with standard `tags`  | `query sdt[tag=...]` → resolve path → `set <path>` | New template, controlled editing |
+| `legacy-anchor` | Placeholder text / bookmark | `set <scoped-path> --find "agency_name" --replace ...` | Old administrative template |
 
-### 7.2 `lib/field-binding.ts`
+### 5.2 `manifest` = the single source of truth
 
-- [ ]  Build the expected `FieldSet` schema from `TemplateProfile.fields`.
-- [ ]  Mark required vs optional (required: số/ký hiệu, ngày, tên loại, trích yếu,
-    
-    nội dung, người ký, nơi nhận — configurable per doc type).
-    
+Maintain the structure you proposed, **adding two fields** to define C2 and C4:
 
-### 7.3 `lib/source-parse/*`
+- `resolved_path` for each field (pre-resolved by the auditor from `tag` → path, so L3b doesn’t have to query during rendering).
+- Use ` `after``/``before` ` instead of ` `index`` for the repeater’s`anchor`.
 
-- [ ]  Use an mdast parser (e.g. `remark`/`micromark`) — drop the line-merge parser.
-- [ ]  Produce a structured tree with inline marks intact.
+```json
+{
+  "template_id": "quyet-dinh-001",
+  "mode": "strict-sdt",
+  "locale": "vi-VN",
+  "fields": {
+    "agency_name":     { "sdt_tag": "agency_name", "resolved_path": "/body/sdt[1]", "type": "scalar", "max_len": 120 },
+    "document_number": { "sdt_tag": "doc_no", "resolved_path": "/body/sdt[2]", "type": "scalar", "pattern": "^[0-9]+/[A-ZĐ-]+$" },
+    "issue_date":      { "sdt_tag": "issue_date", "resolved_path": "/body/sdt[3]", "type": "date" },
+    "signer_name":     { "sdt_tag": "signer_name", "resolved_path": "/body/sdt[4]", "type": "scalar" }
+  },
+  "repeaters": {
+    "decision_items": {
+      "clone_from": "/body/p[@style='DieuKhoan'][1]",
+      "insert_anchor": { "mode": "after", "path": "/body/p[@style='DieuKhoan'][last()]" },
+      "item_fields": { "title": "run[1]", "content": "run[2]" }
+    }
+  },
+  "tables": {
+    "appendix_table": { "path": "/body/tbl[1]", "header_rows": 1, "columns": ["stt", "name"] }
+  },
+  "structural_invariants": {
+    "required_sections": ["QUOC_HIEU", "TIEU_NGU", "signature_block"],
+    "page_numbering": true
+  }
+}
+```
 
-### 7.4 `tools/build_plan.ts` (+ `lib/llm-advisor.ts`)
+### 5.3 Auditor (L1) — outline
 
-- [ ]  Deterministic mapping first: map known source sections → field tags by
-    
-    label/anchor.
-    
-- [ ]  Detect clause structure (Điều/Khoản/Điểm) by regex + position; renumber
-    
-    deterministically.
-    
-- [ ]  **LLM advisor** (bounded) for: (a) free-form source → field tag mapping when
-    
-    labels are ambiguous; (b) clause-type classification when regex is uncertain;
-    
-    (c) căn cứ vs nội dung disambiguation. Output is `FieldSet`+`BodyPlan` JSON,
-    
-    **schema-validated (Zod)**; invalid → reject + fail.
-    
-- [ ]  LLM never emits XML and never chooses styleIds.
+```tsx
+// src/manifest/auditor.ts — chạy offline 1 lần / template
+export async function auditTemplate(docxPath: string): Promise<Manifest> {
+  const outline = await officecli(["view", docxPath, "outline", "--json"])
+  const sdts    = await officecli(["query", docxPath, "sdt", "--json"]) // liệt kê mọi SDT
+  const fields: Record<string, FieldSpec> = {}
+  for (const sdt of sdts) {
+    // resolve tag -> path NGAY tại đây (C2): cache resolved_path
+    fields[sdt.tag] = { sdt_tag: sdt.tag, resolved_path: sdt.path, type: inferType(sdt) }
+  }
+  // dò repeaters bằng query theo style; dò bảng bằng query tbl; ...
+  const manifest = ManifestSchema.parse({ /* ... */ })
+  return manifest
+}
+```
 
-### 7.5 `lib/ooxml/*`
+<aside>
+🔎
 
-- [ ]  `runs.ts`: `InlineRun[] → <w:r><w:rPr>…</w:rPr><w:t xml:space="preserve">`
-    
-    with `<w:b/> <w:i/> <w:u w:val="single"/>`; `\n → <w:br/>`.
-    
-- [ ]  `clause.ts`: render Điều/Khoản/Điểm with correct labels and indentation;
-    
-    bold "Điều N." label; `a) b) c)` for điểm.
-    
-- [ ]  `numbering.ts`: only if a template uses real list numbering; otherwise render
-    
-    labels as literal text (admin docs usually do literal labels — verify per
-    
-    template).
-    
-- [ ]  `paragraph.ts`: alignment + style mapping; `table.ts`: simple grid for
-    
-    "danh sách kèm theo".
-    
+**Field verification is needed (run once in production):** check if the JSON output of `the sdt query` returns both `the tag` and `path` simultaneously, and verify the syntax of the predicate `[@style='...']` in`the query/add --from` command. Use ` `officecli help docx query` ` and ``officecli help docx add``. If `the query` does not return a path, fallback to ` `get / --depth N --json` ` and then manually traverse the tree to find the sdt by tag.
 
-### 7.6 `tools/apply_regions.ts`
-
-- [ ]  Replace **only** marked regions in `word/document.xml`. Never touch the rest.
-- [ ]  Always `copyFileSync` template → output first (template never mutated — keep
-    
-    the existing invariant from `.opencode/memory/project.md`).
-    
-- [ ]  Re-pack with `adm-zip`, preserving all other parts byte-identical.
-
-### 7.7 `tools/validate_body.ts` (replace rubber-stamp)
-
-- [ ]  XML well-formedness of `document.xml`.
-- [ ]  All required `FieldSet` tags filled.
-- [ ]  **No leftover tokens / empty content controls.**
-- [ ]  paraId uniqueness; no duplicate IDs introduced.
-
-### 7.8 `lib/thethuc-check.ts` (COMPLIANCE_GATE)
-
-- [ ]  Assert presence of ND-30 components 1–9 (by tag/anchor) in the **output**.
-- [ ]  Chrome diff: every part *except* replaced regions must be byte-identical to the
-    
-    copied template. Any drift → fail.
-    
-- [ ]  Optional: font/size check (Times New Roman) on rendered runs.
-- [ ]  Emit a human-readable compliance report into the run state dir.
+</aside>
 
 ---
 
-## 8. LLM usage map (precise)
+## 6. L2 — Content schema & constrained generation (LLM-specific area)
 
-| Decision point | Deterministic? | LLM role | Output | Guardrail |
-| --- | --- | --- | --- | --- |
-| Inline bold/italic/underline | ✅ parser | none | — | grammar is exact |
-| Điều/Khoản/Điểm detection | ✅ regex + position | fallback only | node type | confidence gate |
-| Renumbering | ✅ code | none | — | deterministic |
-| Source section → field tag | ⚠️ partial | **primary when ambiguous** | tag mapping JSON | Zod + required-field check |
-| Căn cứ vs nội dung split | ⚠️ | fallback | classification | validated |
-| Unrepresentable content | ✅ detect | triage message | `unsupported` reason | hard error |
-| StyleId / XML | ✅ code | **never** | — | LLM output is text/JSON only |
+### 6.1 schema-as-contract (Zod → JSON Schema → GBNF)
 
-LLM is "advisor": typed, validated, replaceable by rules. The document is correct
+```tsx
+// src/manifest/schema.ts
+import { z } from "zod"
 
-even if the LLM is removed (it just handles fewer ambiguous inputs).
+export const ContentSchema = z.object({
+  template_id: z.literal("quyet-dinh-001"),
+  locale: z.literal("vi-VN"),
+  fields: z.object({
+    agency_name: z.string().max(120),
+    document_number: z.string().regex(/^[0-9]+\/[A-ZĐ-]+$/),
+    issue_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    signer_name: z.string(),
+    signer_title: z.string(),
+  }),
+  blocks: z.object({
+    legal_basis: z.array(z.string()).min(1),
+    decision_items: z.array(z.object({ title: z.string(), content: z.string() })).min(1),
+  }),
+  tables: z.object({
+    appendix_table: z.array(z.object({ stt: z.number().int(), name: z.string() })),
+  }).partial(),
+})
+export type Content = z.infer<typeof ContentSchema>
+```
+
+Generate a JSON Schema from Zod (Zod v4 includes ``z.toJSONSchema``), then load it into llama-server as ` `json_schema``.
+
+### 6.2 Call llama-server with a hard-coded structure
+
+```tsx
+// src/llm/client.ts
+export async function generateJSON(prompt: string, jsonSchema: object): Promise<unknown> {
+  const res = await fetch("http://127.0.0.1:8080/completion", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      prompt,
+      json_schema: jsonSchema,   // <- ép cứng ở sampler (KHÔNG nhúng vào prompt)
+      temperature: 0.2,
+      n_predict: 1024,
+      cache_prompt: true,
+    }),
+  })
+  const data = await res.json()
+  return JSON.parse(data.content)
+}
+```
+
+<aside>
+⚠️
+
+**Caveat regarding GBNF JSON (verified by the llama.cpp community):** since `the JSON Schema` is **not** embedded in the prompt, the model does not “know” the structure → **you still need to describe the schema in words within the prompt** so the model can populate *the* correct *semantics* (syntax correctness is handled by the grammar). Additionally, some automatically generated JSON grammars **do not blacklist `\`r/`\n`** within strings → check the grammar and escaping carefully.
+
+</aside>
+
+### 6.3 Narrow self-repair loop
+
+```tsx
+// src/llm/normalizer.ts — L2
+export async function normalize(req: UserRequest, manifest: Manifest): Promise<Content> {
+  const jsonSchema = toJSONSchema(ContentSchema)
+  const prompt = buildPrompt(req, manifest.fields) // chỉ fields+blocks (tên+kiểu), KHÔNG path/XML
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const raw = await generateJSON(prompt, jsonSchema)
+    const parsed = ContentSchema.safeParse(raw)
+    if (parsed.success) return parsed.data
+    // self-repair HẸP: chỉ gửi lại field sai + thông báo lỗi Zod, không sinh lại cả file
+    prompt = appendRepairHint(prompt, parsed.error)
+  }
+  throw new ContentValidationError()
+}
+```
+
+<aside>
+🧠
+
+**Principle for A3B:** each call = **one narrow task, one small schema**. Separate “summary + legal basis” from “clause content” if the form has > ~20–40 fields. The narrower the task, the more reliable the 3B-active model.
+
+</aside>
 
 ---
 
-## 9. Case-coverage matrix
+## 7. L3 — Binding Planner + Docx Renderer
 
-Two axes (from the redesign): **Syntactic vs Semantic** × **Closed vs Open**.
+### 7.1 Three-level rendering strategy (C1/C2/C4 revised)
 
-|  | Closed (enumerable) | Open (needs judgment) |
+| Level | Revision | Op OfficeCLI |
 | --- | --- | --- |
-| **Syntactic** | inline marks, line breaks, clause labels, tables → **pure code** | — |
-| **Semantic** | known field tags, known doc types → **rules** | ambiguous source→field mapping, clause classification → **LLM advisor** |
+| 1. Scalar | Write the SDT directly to **the resolved path** (or use find/replace for legacy files) | `set <resolved_path> --prop text=...` |
+| 2. Structured block | **Clone a block as needed** • add paragraph/table; insert using`after/before` | `add <parent> --from <template> --after <anchor>`, `add --type table`, `set` cells |
+| 3. Workaround | `raw/raw-set/add-part` for OOXML-specific cases (NO default altChunk) | `raw`, `raw-set`, `add-part` |
 
-Input dimensions to test:
+### 7.2 Binding-planner (L3a, pure code)
 
-1. Doc type: quyết định / nghị quyết / công văn / tờ trình / thông báo.
-2. Region mode: content control / bookmark / token.
-3. Edit type: field-only update vs body re-author vs both.
-4. Clause depth: Điều→Khoản→Điểm; nested vs flat.
-5. Căn cứ list length 0..N.
-6. Nơi nhận list length 1..N.
-7. Signature authority prefix: TM./KT./Q./TL./TUQ./none.
-8. Multi-section / landscape table page.
-9. Inline formatting density (bold trích yếu, italic căn cứ).
+```tsx
+// src/render/binding-planner.ts
+export type Op =
+  | { kind: "set"; path: string; props: Record<string, string> }
+  | { kind: "clone"; parent: string; from: string; after?: string; before?: string }
+  | { kind: "setCell"; path: string; props: Record<string, string> }
 
-Anything outside the matrix → `unsupported` with a clear message (e.g. images,
+export function plan(content: Content, manifest: Manifest): Op[] {
+  const ops: Op[] = []
+  // 1) scalar fields -> set theo resolved_path (C2)
+  for (const [name, val] of Object.entries(content.fields)) {
+    const f = manifest.fields[name]
+    ops.push({ kind: "set", path: f.resolved_path, props: { text: String(val) } })
+  }
+  // 2) repeaters -> clone-block, chèn after anchor (C4)
+  const r = manifest.repeaters.decision_items
+  content.blocks.decision_items.forEach((item, i) => {
+    ops.push({ kind: "clone", parent: "/body", from: r.clone_from,
+               after: r.insert_anchor.path })
+    // sau clone: set run con theo item_fields (title/content)
+  })
+  // 3) tables -> add tr + set tc ...
+  return ops
+}
+```
 
-embedded charts, complex merged tables) — **degrade loudly, never silently**.
+<aside>
+⚙️
+
+**Note on multiple clones:** when cloning repeatedly, the `"after"` anchor shifts after each insertion. Two possible approaches: (a) always insert `after` the newly cloned node (tracking the new path), or (b) clone in **reverse** order and always `use` the same original `"after"` anchor. Choose (a), and **log to batch.json** for diffing.
+
+</aside>
+
+### 7.3 Docx-renderer (L3b) — compiles to CORRECT `batch.json` (lowercase)
+
+```tsx
+// src/render/docx-renderer.ts
+function toBatch(ops: Op[]): object[] {
+  return ops.map((op) => {
+    switch (op.kind) {
+      case "set":     return { command: "set", path: op.path, props: op.props }
+      case "clone":   return { command: "add", parent: op.parent, from: op.from,
+                               ...(op.after ? { after: op.after } : {}),
+                               ...(op.before ? { before: op.before } : {}) }
+      case "setCell": return { command: "set", path: op.path, props: op.props }
+    }
+  })
+}
+
+export async function render(ops: Op[], file: string) {
+  const batch = toBatch(ops)
+  await Bun.write("out/batch.json", JSON.stringify(batch, null, 2)) // log để audit/regression
+  // resident cho multi-step: open -> batch -> close
+  await officecli(["open", file])
+  await officecliStdin(["batch", file, "--input", "out/batch.json", "--stop-on-error", "--json"], batch)
+  await officecli(["close", file])
+}
+```
+
+Example of `a` properly formatted `batch.json` (lowercase, using " `after"`):
+
+```json
+[
+  { "command": "set", "path": "/body/sdt[1]", "props": { "text": "UBND Quận X" } },
+  { "command": "set", "path": "/body/sdt[2]", "props": { "text": "12/QĐ-UBND" } },
+  { "command": "add", "parent": "/body", "type": "paragraph", "after": "/body/p[3]", "props": { "style": "CanCu", "text": "Căn cứ Luật..." } },
+  { "command": "add", "parent": "/body", "from": "/body/p[@style='DieuKhoan'][1]", "after": "/body/p[@style='DieuKhoan'][last()]" },
+  { "command": "set", "path": "/body/tbl[1]/tr[2]/tc[1]", "props": { "text": "1" } }
+]
+```
+
+<aside>
+❗
+
+**Need to verify:** the `text` key for SDT (`text` vs. `value`) and for cells — run ``officecli help docx set` ` and ` `officecli help docx sdt``. Also confirm that `the batch` accepts ``after`/`from` ` in an item (SKILL.md lists the ``from` ``/`after`` /``before`` fields for the batch — likely OK, but still test one item).
+
+</aside>
 
 ---
 
-## 10. Test & verification strategy
+## 8. L4 — Validation
 
-- **Golden corpus:** 8–12 real (anonymized) office templates + their filled outputs.
-    
-    Store `template.docx`, `source.md`, `expected.docx`.
-    
-- **Region-diff test:** assert output == template except inside marked regions.
-- **Compliance test:** all 9 ND-30 components present; no leftover tokens.
-- **Fidelity metric:** structural match score on rendered runs/clauses (target ≥0.98)
-    
-    in addition to "coverage 100%". Coverage alone is not correctness (P8).
-    
-- **Round-trip determinism:** run twice → byte-identical output.
-- **Negative tests:** missing required field, unmarked region, unsupported construct
-    
-    → must fail with the right error code.
-    
+```tsx
+// src/validate/validator.ts
+export async function validate(file: string, manifest: Manifest) {
+  const schema = await officecli(["validate", file, "--json"])            // cổng cứng OOXML
+  const issues = await officecli(["view", file, "issues", "--json"])      // heuristic
+  const leftover = await officecli(["query", file, ":contains(\"{{\")"]) // placeholder sót
+  const invariants = checkInvariants(file, manifest.structural_invariants)
+  // nếu có field code (TOC/PAGE) cần số trang đúng -> officecli refresh
+  return { ok: schema.ok && issues.length === 0 && leftover.length === 0 && invariants.ok,
+           schema, issues, leftover, invariants }
+}
+```
 
----
-
-## 11. Rollout
-
-- **M1 (correctness foundation):** template-introspect (mode A + token fallback),
-    
-    FieldSet model, `apply_regions.ts` (region-only splice), `validate_body.ts`,
-    
-    compliance gate. **Fixes P1, P2, P6, P8.** Field-only updates work end-to-end.
-    
-- **M2 (body rendering):** mdast parse, `runs.ts` (inline marks, `<w:br/>`),
-    
-    `clause.ts` (Điều/Khoản/Điểm), căn cứ italics. **Fixes P3, P4, P5.**
-    
-- **M3 (structure):** multi-section/sectPr handling, paraId-collision-safe IDs,
-    
-    simple "danh sách" tables. **Fixes P7.**
-    
-- **M4 (robust mapping):** style-binding with confidence + LLM advisor sidecar for
-    
-    ambiguous source→field mapping.
-    
-- **M5 (hardening):** golden corpus, fidelity metrics, determinism + negative tests.
+Error path: **structural** error → go back to L3a (do not call LLM); **data** error → one narrow self-repair loop at L2.
 
 ---
 
-## 12. Risks & mitigations
+## 9. Serving Qwen3-A3B + GBNF (llama.cpp) — specific configuration
 
-| Risk | Mitigation |
+### 9.1 Launching llama-server
+
+```bash
+# Qwen3 30B/35B-A3B GGUF, ép JSON ở cấp sampler, bật prompt cache
+llama-server \
+  -m ./models/Qwen3-30B-A3B-Q4_K_M.gguf \
+  --host 127.0.0.1 --port 8080 \
+  -c 16384 \          # context: đủ cho manifest.fields + prompt; KHÔNG cần 256k
+  -ngl 99 \           # offload tối đa lên GPU (tùy VRAM)
+  --jinja \           # template chat đúng của Qwen3
+  --temp 0.2
+```
+
+- Pass `the json_schema` **in the request body** (as in §6.2) — no need for the CLI grammar flag.
+- Alternatively, generate the `.gbnf` file using `examples/json_schema_to_grammar.py` and pass `the grammar`.
+- **Context budget:** a typical L2 prompt ≈ a few thousand tokens (request + `manifest.fields` + schema description). Path/OOXML **never** enters the context (they reside in the code area).
+
+### 9.2 Minimize the context using the OfficeCLI mechanism itself
+
+| Mechanism | Used for |
 | --- | --- |
-| Office templates aren't instrumented with content controls | Ship token-mode fallback + a 1-page "how to mark a template" guide |
-| Authority/signature rules vary by org (TM./KT./…) | Keep signature as fields; never auto-generate authority prefix |
-| LLM mis-maps a field | Required-field check + compliance gate catch it; fail loud |
-| Numbering schemes differ (Điều vs Mục vs số thứ tự) | Per-doc-type numbering config |
-| Template uses real list numbering vs literal labels | Detect at introspect; render to match the template, not assumed |
+| `help docx` / `help docx <element>` | The agent looks up the **correct** prop/enum/unit name **when needed**, without having to remember it |
+| `load_skill docx` | Load the scene guide on demand (with `## Setup` removed), < 5k tokens |
+| `officecli mcp` | Make OfficeCLI a robust tool (single-parameter `command`) — no CLI description tokens required |
 
 ---
 
-## 13. Decision needed before M1
+## 10. Complete OpenCode configuration (the parts you don’t have yet)
 
-Pick the **region-marking mode** the office can realistically maintain:
+<aside>
+📌
 
-- **A (recommended):** we add content controls to each template once. Most robust.
-- **C (zero-tooling):** rely on `{{token}}` text in templates. Faster to start,
-    
-    more fragile.
-    
+Order of loading OpenCode config by proximity: **project-local `.opencode/` → parent directory → global `~/.config/opencode/.`** For project-specific config, place everything in `the office-auto/` repo `.`
 
-Default assumption for M1 if unanswered: **implement A + C together** (content
+</aside>
 
-controls primary, token fallback), so both instrumented and plain templates work.
+### 10.1 `opencode.json`
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  // 1) Provider: trỏ tới llama-server local (OpenAI-compatible)
+  "provider": {
+    "llamacpp": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "llama.cpp (local Qwen3-A3B)",
+      "options": { "baseURL": "http://127.0.0.1:8080/v1" },
+      "models": { "qwen3-a3b": { "name": "Qwen3-30B-A3B" } }
+    }
+  },
+
+  // 2) MCP: OfficeCLI (khám phá help/skill/query) + office-auto (runtime sản phẩm)
+  "mcp": {
+    "officecli": {
+      "type": "local",
+      "command": ["officecli", "mcp"],
+      "enabled": true,
+      "environment": { "OFFICECLI_NO_AUTO_RESIDENT": "0" }
+    },
+    "office-auto": {
+      "type": "local",
+      "command": ["bun", "run", "src/mcp/office-auto-server.ts"],
+      "enabled": true,
+      "environment": { "LLAMA_BASE_URL": "http://127.0.0.1:8080" }
+    }
+  },
+
+  // 3) Tắt MCP nặng toàn cục, chỉ bật theo agent (tiết kiệm context)
+  "tools": { "officecli*": false },
+
+  // 4) Agents
+  "agent": {
+    "docgen-orchestrator": {
+      "mode": "primary",
+      "model": "llamacpp/qwen3-a3b",
+      "prompt": "{file:./.opencode/prompts/orchestrator.txt}",
+      "tools": { "office-auto*": true, "officecli*": true },
+      "permission": { "edit": "allow", "bash": "allow" }
+    },
+    "content-normalizer": {
+      "mode": "subagent",
+      "model": "llamacpp/qwen3-a3b",
+      "description": "Debug tay: NL -> content.json. Production đi qua pipeline-core.",
+      "temperature": 0.2,
+      "prompt": "{file:./.opencode/prompts/normalizer.txt}",
+      "permission": { "edit": "deny", "bash": "deny" }
+    }
+  },
+  "default_agent": "docgen-orchestrator"
+}
+```
+
+<aside>
+ℹ️
+
+The `provider` block uses OpenCode’s OpenAI-compatible mechanism to point to the llama-server. If your version of OpenCode declares a slightly different provider, keep the same concept: `baseURL` = `http://127.0.0.1:8080/v1`, optional model ID. This is a point worth **quickly verifying** with the current version `of OpenCode`.
+
+</aside>
+
+### 10.2 `AGENTS.md` (hard rules — preventing LLMs from circumventing boundaries)
+
+```markdown
+# office-auto — Quy tắc cho agent
+
+## Determinism Boundary (BẮT BUỘC)
+- TUYỆT ĐỐI KHÔNG tự sinh: OOXML, đường path (`/body/p[3]`), hay `batch.json`.
+- Khi cần tạo/sửa .docx: LUÔN gọi tool `office-auto_generate_document` (đi qua pipeline-core).
+- LLM chỉ được sinh `content.json` đúng schema; mọi ánh xạ field→path là code.
+
+## Khám phá tài liệu docx
+- Cần biết prop/enum: dùng `officecli` MCP `help docx <element>` hoặc `load_skill docx`.
+- KHÔNG nạp XML thô template vào context. Chỉ đọc `manifest.fields`.
+
+## Render
+- Luôn dùng `batch` (1 open/save), field chữ thường, log `out/batch.json`.
+- Sau render: chạy validate + view issues + query placeholder sót.
+
+## Setup
+- Chạy llama-server trước (port 8080). Cài: `bun install`.
+```
+
+### 10.3 `.opencode/agents/content-normalizer.md` (Markdown agent — manual debugging)
+
+```markdown
+---
+description: NL -> content.json đúng schema (chỉ debug; production qua pipeline-core)
+mode: subagent
+model: llamacpp/qwen3-a3b
+temperature: 0.2
+permission:
+  edit: deny
+  bash: deny
+---
+Bạn là content-normalizer. Nhiệm vụ DUY NHẤT: chuyển yêu cầu NL thành `content.json`
+đúng schema được cung cấp. KHÔNG sinh path, OOXML, hay lệnh officecli.
+Chỉ điền dữ liệu ngữ nghĩa (đúng cú pháp do grammar đảm bảo).
+Nếu thiếu thông tin: để trống field optional, KHÔNG bịa số quyết định/ngày.
+```
+
+### 10.4 `.vscode/mcp.json` (configure your VS Code/OpenCode environment)
+
+```json
+{
+  "servers": {
+    "officecli":   { "command": "officecli", "args": ["mcp"] },
+    "office-auto": { "command": "bun", "args": ["run", "src/mcp/office-auto-server.ts"] }
+  }
+}
+```
+
+### 10.5 `office-auto` MCP server (product runtime)
+
+```tsx
+// src/mcp/office-auto-server.ts (Bun + @modelcontextprotocol/sdk + zod)
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
+import { z } from "zod"
+import { runPipeline } from "../pipeline-core"
+
+const server = new McpServer({ name: "office-auto", version: "0.1.0" })
+
+server.tool("generate_document",
+  { template_id: z.string(), request: z.string() },
+  async ({ template_id, request }) => {
+    const r = await runPipeline({ templateId: template_id, request })
+    return { content: [{ type: "text", text: JSON.stringify(r) }] }
+  })
+
+server.tool("audit_template",
+  { docx_path: z.string() },
+  async ({ docx_path }) => { /* gọi auditTemplate -> cache manifest */ })
+```
 
 ---
 
-### Appendix A — Reference sources
+## 11. End-to-end orchestration (single run of “Administrative Decision”)
 
-- ND 30/2020/NĐ-CP official text — [chinhphu.vn](http://chinhphu.vn)
-- Thể thức components (9 main parts) — trích TT-30 summary
-- Presentation rules (A4, Times New Roman, Unicode) — Phụ lục I summaries
-- Phần/Chương/Mục/Điều/Khoản/Điểm layout — sơ đồ thể thức
-- Signature authority prefixes (TM./KT./…) — Điều 13 ND-30 commentary
+1. **(L1, offline, cache)** `audit_template(quyet-dinh.docx)` → `manifests/quyet-dinh-001.manifest.json` (pre-resolved `resolved_path` for all SDTs).
+2. **(L2, LLM)** `pipeline-core` calls llama-server with prompt = request + `manifest.fields` + `json_schema` → `content.json`; Zod validation (≤3 rounds of narrow self-repair).
+3. **(L3a, code)** `binding-planner` → `Op[]` (scalar → set based on resolved_path; repeater → clone `--from ... --after ...`; table → add tr + set tc).
+4. **(L3b, code)** `docx-renderer` → `out/batch.json` (lowercase) → `officecli open` → `batch --input ... --stop-on-error` → `close`.
+5. **(L4, code)** `validate` + `view issues` + `query :contains("")` + invariants; if TOC/PAGE exists → `refresh`. Structural error → L3a; data error → L2.
 
-Vài lưu ý quan trọng về thay đổi tư duy so với plan trước:
+---
 
-1. **Đảo ngược kiến trúc cốt lõi:** với văn bản hành chính, splice toàn bộ body là *sai về bản chất* — nó xóa khối chữ ký + nơi nhận (nằm sau nội dung trong body). Plan mới chuyển sang **chỉ thay vùng được đánh dấu** (content control / bookmark / token), giữ nguyên 100% thể thức.[[1]](https://storage-edu.vnpt.vn/edu-lci/8398/Vanban/12_trich-tt-30.pdf)
-2. **IR thu nhỏ mạnh:** không cần general tables/images/code. Chỉ cần Điều/Khoản/Điểm (đánh số theo ND-30), inline bold/italic/underline, line break, danh sách đơn giản.[[4]](http://thcskimchung.pgd-donganh.edu.vn/van-ban-cong-van/so-do-the-thuc-van-ban-hanh-chinh-theo-nghi-dinh-30-2020-nd-cp-nhu-the-nao-cach-trinh-bay-the-thuc-van-ban-hanh-chinh-.html)
-3. **LLM lùi về vai trò extractor/mapper** (source → FieldSet/BodyPlan typed JSON), không render XML, không chọn style.
-4. Thêm **COMPLIANCE_GATE** kiểm tra 9 thành phần thể thức + không còn token thừa + chrome không đổi ngoài vùng thay.
+## 12. Testing & Regression
 
-Một điểm cần bạn quyết trước khi code agent bắt M1 (mục §13): **template của cơ quan sẽ đánh dấu vùng biến đổi bằng cách nào** — dùng *content control* (bền nhất, cần chèn 1 lần) hay chỉ `{{token}}` text (không cần công cụ, nhưng dễ vỡ)? Nếu bạn cho biết, tôi sẽ chốt M1 và có thể phác code khung `template-introspect.ts` + `apply_regions.ts` + `field-set.ts` cho bạn.
+- **Unit tests (Bun) for specific code areas:** `binding-planner` (content+manifest → expected Op[]) and `docx-renderer` (Op[] → byte-exact batch.json). This is where "consistency enforcement" is verified.
+- **Golden batch.json:** save `test/golden/*.batch.json`; any changes to the planner must pass a clean diff.
+- **Round-trip with `dump`:** `officecli dump output.docx` → compare against the expected batch to catch drift.
+- **Snapshot validation:** Run `validate` and `review issues` on the golden output; fail if new issues arise.
+- **L2 evaluation (soft):** a set of ~20 natural language requests → check the Zod pass rate in the first round (measuring the reliability of Qwen-A3B + prompt).
 
-Lưu ý: tôi chỉ đọc repo (read-only) — không push, không chạy pipeline, không tạo report.docx hộ được.
+---
+
+## 13. Phase-based deployment roadmap
+
+| Phase | Objectives | Deliverable | Completion Criteria |
+| --- | --- | --- | --- |
+| **P0 — Verification Spike** | Demystifying the 5 OfficeCLI Mysteries (§5.3, §7.3, §10.1) | 1 Bash script to test `SDT queries`, `set` SDT, `add --from and --after` parameters, run `in batch mode`, and `validate` on a sample .docx file | Understand key text sets, predicate syntax, and batch fields |
+| **P1 — Serving + Skeleton** | llama-server is running; skeleton repo + Zod schema | llama-server :8080, `pipeline-core` stub, `ContentSchema` | `generateJSON` returns JSON that passes through Zod for a sample prompt |
+| **P2 — L1 auditor** | docx → manifest (resolve path) | `auditor.ts` • `manifests/*.json` | Manifest 1 real template—parse with Zod OK |
+| **P3 — L3 render (core component)** | manifest+content → docx (no LLM needed yet; use manually written content.json) | `binding-planner` • `docx-renderer` • golden tests | Generates the correct .docx from the sample content.json, passes all validations |
+| **P4 — L2 normalizer** | Integrate LLM + GBNF + self-repair | `normalizer.ts` | ≥80% of NL requests pass Zod in ≤2 rounds |
+| **P5 — L4 + e2e** | Full validation + loopback error path | `validator.ts`, `runPipeline` | 1 natural language command → end-to-end valid output.docx |
+| **P6 — OpenCode + MCP** | Packaged as office-auto MCP + OpenCode configuration | `opencode.json`, `AGENTS.md`, `office-auto-server.ts` | Call `generate_document` from OpenCode to run |
+| **P7 — legacy-anchor + multiple templates** | Extend the `legacy-anchor` mode, add text types | Official letter/memorandum templates… | ≥3 types of administrative documents run smoothly |
+
+---
+
+## 14. Architecture Decision Log
+
+| # | Decision | Reason |
+| --- | --- | --- |
+| D1 | LLM only generates `content.json`; the code generates `batch.json` | A3B 3B-active is not reliable for path/OOXML |
+| D2 | Write SDT directly to the resolved path, omitting XML data binding | OfficeCLI lacks verb binding; headless-friendly |
+| D3 | Remove altChunk/HTML from the default path | OfficeCLI does not import HTML; raw is only for fallback |
+| D4 | Clone-block (`add --from --after`) replaces repeating-section SDT | Definite, not dependent on Word version |
+| D5 | Manifest = the single source of truth (including `resolved_path`) | Keep XML/path out of the LLM context; avoid queries during rendering |
+| D6 | **L2 calls llama-server directly with `json_schema`**; does not enforce grammar in OpenCode | OpenCode does not expose trusted grammar; only llama-server can hardcode it |
+| D7 | OpenCode = harness + MCP host; actual runtime = office-auto MCP | Separate the dev environment from the production environment |
+| D8 | Use **lowercase** for BatchItem; use " `after`" or "`before` " instead of `an index` | Ensure the batch format matches what OfficeCLI has verified |
+
+---
+
+## 15. Risks & points to verify in the field
+
+<aside>
+🚧
+
+Run ` `officecli help docx <verb>` ` to confirm — faster than reading the source code:
+
+</aside>
+
+- **Key set text for SDT/cell** (`text` vs. `value`): `officecli help docx set`, `help docx sdt`.
+- **Predicate `[@style='...']`** in `query` and `add --from`: `officecli help docx add`, `help docx query`.
+- **Batch accepts**  "**`from`"/"`after`** " in items: test a single item clone before building the planner.
+- Does**the `sdt --json query`output**  include `a path` (if not → fallback to traversing the tree from `get / --depth N`)?
+- **The**  `**llama-server` provider in**  `**`opencode.json`**`: verify the provider syntax against the current OpenCode version.
+- **Qwen3-A3B + Vietnamese JSON Schema regex** (character `Đ`, diacritics): test whether `the document_number` regex in the grammar correctly handles Unicode; ensure the JSON grammar does not blacklist `\r\n`.
+- **Cross-platform`refresh`**: On Linux, use headless-HTML as a fallback for TOC/PAGE — verify page number accuracy if the text requires a TOC.
+
+---
+
+## 16. Summary of Recommendations
+
+1. **Keep** your backbone: 4 layers, Determinism Boundary, 2-mode template, manifest-as-contract.
+2. **Fix 4 foundational bugs** before coding: batch lowercase (C1), resolve SDT path before setting (C2), L2 enforce grammar outside OpenCode (C3), use`after/before` instead of `index` (C4).
+3. **Serving:** llama-server + `json_schema`; OpenCode is just a harness + MCP host; the runtime is office-auto MCP.
+4. **Start with P0** (spike verifying 5 hidden variables) then P3 (deterministic rendering core) — this is the real “consistency enforcement” part; build and test before the LLM.
+
+<aside>
+🔗
+
+Cross-referenced sources: OfficeCLI SKILL.md & wiki (DeepWiki/GitHub, commit `5e51ae`), OpenCode documentation (config/agents/mcp-servers), and the llama.cpp GBNF guide. Any items marked with 🚧/❗ are points you should `help verify` when you start coding.
+
+https://deepwiki.com/iOfficeAI/OfficeCLI
+
+https://github.com/iOfficeAI/OfficeCLI
+</aside>
