@@ -226,7 +226,9 @@ export function compileOps(
   ops_plan: OfficeCliOp[]
   errors: string[]
 } {
-  const ops: OfficeCliOp[] = []
+  const removeOps: OfficeCliOp[] = []
+  const setOps: OfficeCliOp[] = []
+  const addOps: OfficeCliOp[] = []
   const errors: string[] = []
   const bodyStyle = findBodyStyle(bodyMap)
 
@@ -258,7 +260,7 @@ export function compileOps(
       }
       for (let k = h.index_in_body; k < j; k++) {
         if (bodyMap.paragraphs[k].path) {
-          ops.push({ command: "remove", path: bodyMap.paragraphs[k].path! })
+          removeOps.push({ command: "remove", path: bodyMap.paragraphs[k].path! })
         }
       }
       continue
@@ -275,7 +277,7 @@ export function compileOps(
 
       const h = match.heading
       if (d.new_text && d.new_text !== h.text) {
-        ops.push({ command: "set", path: h.path, props: { text: d.new_text } })
+        setOps.push({ command: "set", path: h.path, props: { text: d.new_text } })
       }
 
       const bodyParas =
@@ -291,14 +293,21 @@ export function compileOps(
         const toFill = Math.min(bodyParas.length, templateBodyParas.length)
 
         for (let bi = 0; bi < toFill; bi++) {
-          ops.push({
+          setOps.push({
             command: "set",
             path: templateBodyParas[bi].path,
             props: { text: bodyParas[bi] },
           })
         }
 
-        // Grow: add extra body paragraphs after the last template paragraph
+        // Shrink: remove unused placeholders (removeOps go first)
+        if (templateBodyParas.length > bodyParas.length) {
+          for (let bi = bodyParas.length; bi < templateBodyParas.length; bi++) {
+            removeOps.push({ command: "remove", path: templateBodyParas[bi].path })
+          }
+        }
+
+        // Grow: add extra body paragraphs after the last template paragraph (addOps go last)
         if (bodyParas.length > templateBodyParas.length) {
           const anchorParaId = templateBodyParas.length > 0
             ? templateBodyParas[templateBodyParas.length - 1].path.match(/@paraId=([^\]]+)/)?.[1] ?? ""
@@ -309,7 +318,7 @@ export function compileOps(
           for (let bi = 0; bi < extraCount; bi++) {
             const idx = templateBodyParas.length + bi
             const newId = newIds[bi]
-            ops.push({
+            addOps.push({
               command: "add",
               parent: "/body",
               type: "paragraph",
@@ -318,13 +327,6 @@ export function compileOps(
               w14_paraId: newId,
             })
             prevId = newId
-          }
-        }
-
-        // Shrink: remove unused placeholders
-        if (templateBodyParas.length > bodyParas.length) {
-          for (let bi = bodyParas.length; bi < templateBodyParas.length; bi++) {
-            ops.push({ command: "remove", path: templateBodyParas[bi].path })
           }
         }
       }
@@ -368,7 +370,7 @@ export function compileOps(
       const newIds = generateUniqueParaIds(bodyMap, totalNew)
       const headingNewId = newIds[0]
 
-      ops.push({
+      addOps.push({
         command: "add",
         parent: "/body",
         type: "paragraph",
@@ -380,7 +382,7 @@ export function compileOps(
       let prevId = headingNewId
       for (let bi = 0; bi < bodyParas.length; bi++) {
         const newId = newIds[1 + bi]
-        ops.push({
+        addOps.push({
           command: "add",
           parent: "/body",
           type: "paragraph",
@@ -399,6 +401,10 @@ export function compileOps(
       continue
     }
   }
+
+  // Apply in safe order: removes first (free anchors), then sets (modify existing),
+  // then adds (insert new content after existing anchors)
+  const ops: OfficeCliOp[] = [...removeOps, ...setOps, ...addOps]
 
   return { ops_plan: ops, errors }
 }

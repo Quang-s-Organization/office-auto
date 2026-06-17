@@ -1,0 +1,12 @@
+{
+  "output_path": "/home/minhquang/office-auto/report.docx",
+  "ops_total": 61,
+  "ops_applied": 6,
+  "success": false,
+  "errors": [
+    "op[6]: officecli batch failed:  (path: /body/p[@paraId=4C9C80FE])"
+  ],
+  "last_failed_op_index": 6,
+  "last_failed_op_path": "/body/p[@paraId=4C9C80FE]",
+  "toc_refreshed": true
+}

@@ -1,0 +1,18 @@
+{"event_id":"evt_1781664743767_c8st11","run_id":"run_2026-06-17T02-52-23-764Z","timestamp":"2026-06-17T02:52:23.767Z","event_type":"PHASE_STARTED","phase":"CREATED"}
+{"event_id":"evt_1781664743768_xs620y","run_id":"run_2026-06-17T02-52-23-764Z","timestamp":"2026-06-17T02:52:23.768Z","event_type":"PHASE_STARTED","phase":"INSPECTED"}
+{"event_id":"evt_1781664749435_jl7x9w","run_id":"run_2026-06-17T02-52-23-764Z","timestamp":"2026-06-17T02:52:29.435Z","event_type":"ARTIFACT_CREATED","phase":"INSPECTED","payload":{"artifact":"docx_inspect_output"}}
+{"event_id":"evt_1781664749435_bawhm4","run_id":"run_2026-06-17T02-52-23-764Z","timestamp":"2026-06-17T02:52:29.435Z","event_type":"PHASE_COMPLETED","phase":"INSPECTED"}
+{"event_id":"evt_1781664749435_lagof5","run_id":"run_2026-06-17T02-52-23-764Z","timestamp":"2026-06-17T02:52:29.435Z","event_type":"PHASE_STARTED","phase":"SOURCE_PARSED"}
+{"event_id":"evt_1781664749439_mvi8me","run_id":"run_2026-06-17T02-52-23-764Z","timestamp":"2026-06-17T02:52:29.439Z","event_type":"ARTIFACT_CREATED","phase":"SOURCE_PARSED","payload":{"artifact":"source_packet"}}
+{"event_id":"evt_1781664749440_l3sjql","run_id":"run_2026-06-17T02-52-23-764Z","timestamp":"2026-06-17T02:52:29.440Z","event_type":"PHASE_COMPLETED","phase":"SOURCE_PARSED"}
+{"event_id":"evt_1781664749441_1am76s","run_id":"run_2026-06-17T02-52-23-764Z","timestamp":"2026-06-17T02:52:29.441Z","event_type":"PHASE_STARTED","phase":"MAPPED"}
+{"event_id":"evt_1781664749445_utbyzu","run_id":"run_2026-06-17T02-52-23-764Z","timestamp":"2026-06-17T02:52:29.445Z","event_type":"ARTIFACT_CREATED","phase":"MAPPED","payload":{"artifact":"section_mapping"}}
+{"event_id":"evt_1781664749445_wq0ez8","run_id":"run_2026-06-17T02-52-23-764Z","timestamp":"2026-06-17T02:52:29.445Z","event_type":"PHASE_COMPLETED","phase":"MAPPED"}
+{"event_id":"evt_1781664749446_mkxbsh","run_id":"run_2026-06-17T02-52-23-764Z","timestamp":"2026-06-17T02:52:29.446Z","event_type":"PHASE_STARTED","phase":"COMPILED"}
+{"event_id":"evt_1781664749450_0vf4b5","run_id":"run_2026-06-17T02-52-23-764Z","timestamp":"2026-06-17T02:52:29.450Z","event_type":"ARTIFACT_CREATED","phase":"COMPILED","payload":{"artifacts":["execution_ops","strict_validation"]}}
+{"event_id":"evt_1781664749450_bsib48","run_id":"run_2026-06-17T02-52-23-764Z","timestamp":"2026-06-17T02:52:29.450Z","event_type":"PHASE_COMPLETED","phase":"COMPILED"}
+{"event_id":"evt_1781664749451_cfuuv5","run_id":"run_2026-06-17T02-52-23-764Z","timestamp":"2026-06-17T02:52:29.451Z","event_type":"PHASE_STARTED","phase":"VALIDATED"}
+{"event_id":"evt_1781664749451_os4gl7","run_id":"run_2026-06-17T02-52-23-764Z","timestamp":"2026-06-17T02:52:29.451Z","event_type":"PHASE_COMPLETED","phase":"VALIDATED"}
+{"event_id":"evt_1781664749451_a9hl7t","run_id":"run_2026-06-17T02-52-23-764Z","timestamp":"2026-06-17T02:52:29.451Z","event_type":"PHASE_STARTED","phase":"APPLIED"}
+{"event_id":"evt_1781664756463_en1rik","run_id":"run_2026-06-17T02-52-23-764Z","timestamp":"2026-06-17T02:52:36.463Z","event_type":"ARTIFACT_CREATED","phase":"APPLIED","payload":{"artifact":"execute_ops_report"}}
+{"event_id":"evt_1781664757374_i7fjzm","run_id":"run_2026-06-17T02-52-23-764Z","timestamp":"2026-06-17T02:52:37.374Z","event_type":"PHASE_FAILED","phase":"APPLIED","payload":{"errors":["op[6]: officecli batch failed:  (path: /body/p[@paraId=4C9C80FE])"],"lastError":{"index":6,"path":"/body/p[@paraId=4C9C80FE]","error":"officecli batch failed: "}}}

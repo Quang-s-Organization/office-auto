@@ -168,6 +168,9 @@ function runStdin(args: string[], input: string): string {
 const CODE_REPAIR_CODES = new Set([
   "PIPELINE_CRASH",
   "SECTION_MAPPING_INVALID",
+  "OFFICECLI_BATCH_FAILED",
+  "OFFICECLI_OP_FAILED",
+  "BATCH_ERRORS",
 ])
 
 function buildError(
@@ -559,14 +562,6 @@ async function phaseApply(runId: string, state: RunState): Promise<PhaseResult> 
   mkdirSync(dirname(state.target_file), { recursive: true })
   copyFileSync(state.template_file, state.target_file)
 
-  const batch = executionOps.ops.map((op: any) => {
-    const { op_id, intent, ...rest } = op
-    return rest
-  })
-
-  let batchSuccess = false
-  let applyErrors: string[] = []
-
   try {
     run(["open", state.target_file])
   } catch {
@@ -583,59 +578,80 @@ async function phaseApply(runId: string, state: RunState): Promise<PhaseResult> 
     }
   }
 
+  // Apply ops sequentially so one failure doesn't kill all progress
+  // and we know exactly which op/path failed.
+  let successCount = 0
+  let lastError: { index: number; path?: string; error: string } | null = null
+  const errors: string[] = []
+
+  for (let i = 0; i < executionOps.ops.length; i++) {
+    const op = executionOps.ops[i]
+    const { op_id, intent, ...cleanOp } = op as any
+    const opPath = (cleanOp as any).path ?? (cleanOp as any).after
+
+    try {
+      const singleResultRaw = runStdin(
+        ["batch", state.target_file, "--json"],
+        JSON.stringify([cleanOp]),
+      )
+      const singleResult = JSON.parse(singleResultRaw)
+      const results = Array.isArray(singleResult) ? singleResult : singleResult?.results ?? []
+      const firstResult = results[0]
+
+      if (firstResult?.error) {
+        const errMsg = `op[${i}]: ${firstResult.error}${firstResult.path ? ` (path: ${firstResult.path})` : opPath ? ` (path: ${opPath})` : ""}`
+        errors.push(errMsg)
+        lastError = { index: i, path: firstResult.path ?? opPath, error: firstResult.error }
+        break
+      }
+
+      if (firstResult?.status && firstResult.status !== "ok" && firstResult.status !== "success") {
+        const errMsg = `op[${i}]: status=${firstResult.status} (path: ${opPath ?? "unknown"})`
+        errors.push(errMsg)
+        lastError = { index: i, path: opPath, error: `status=${firstResult.status}` }
+        break
+      }
+
+      successCount++
+    } catch (err: any) {
+      const errMsg = `op[${i}]: ${err.message} (path: ${opPath ?? "unknown"})`
+      errors.push(errMsg)
+      lastError = { index: i, path: opPath, error: err.message }
+      break
+    }
+  }
+
   try {
-    const batchResultRaw = runStdin(["batch", state.target_file, "--json"], JSON.stringify(batch))
     if (executionOps.toc_refresh) {
       run(["refresh", state.target_file])
     }
-
-    const batchResult = JSON.parse(batchResultRaw)
-    const items = Array.isArray(batchResult) ? batchResult : batchResult?.results ?? []
-
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i]
-      if (item?.error) {
-        applyErrors.push(`op[${i}]: ${item.error}${item.path ? ` (path: ${item.path})` : ""}`)
-      } else if (item?.status && item.status !== "ok" && item.status !== "success") {
-        applyErrors.push(`op[${i}]: status=${item.status}`)
-      }
-    }
-
-    batchSuccess = applyErrors.length === 0
-
-    const result = {
-      output_path: state.target_file,
-      ops_applied: executionOps.ops.length,
-      success: batchSuccess,
-      errors: applyErrors,
-      toc_refreshed: executionOps.toc_refresh,
-    }
-    writeArtifact(runId, "execute_ops_report", result)
-    emitEvent(runId, "ARTIFACT_CREATED", "APPLIED", { artifact: "execute_ops_report" })
-  } catch (err: any) {
-    if (fexists(state.target_file)) {
-      try { unlinkSync(state.target_file) } catch { /* ignore */ }
-    }
-    emitEvent(runId, "PHASE_FAILED", "APPLIED", { error: err.message })
-    return {
-      ok: false,
-      error: {
-        error_code: "OFFICECLI_BATCH_FAILED",
-        message: err.message,
-        retryable: false,
-      },
-    }
-  } finally {
-    try { run(["close", state.target_file]) } catch { /* ignore */ }
+  } catch {
+    // TOC refresh is best-effort; non-fatal
   }
 
-  if (!batchSuccess) {
-    emitEvent(runId, "PHASE_FAILED", "APPLIED", { errors: applyErrors })
+  const allSucceeded = successCount === executionOps.ops.length
+  const result = {
+    output_path: state.target_file,
+    ops_total: executionOps.ops.length,
+    ops_applied: successCount,
+    success: allSucceeded,
+    errors,
+    last_failed_op_index: lastError?.index ?? null,
+    last_failed_op_path: lastError?.path ?? null,
+    toc_refreshed: executionOps.toc_refresh && successCount > 0,
+  }
+  writeArtifact(runId, "execute_ops_report", result)
+  emitEvent(runId, "ARTIFACT_CREATED", "APPLIED", { artifact: "execute_ops_report" })
+
+  try { run(["close", state.target_file]) } catch { /* ignore */ }
+
+  if (!allSucceeded) {
+    emitEvent(runId, "PHASE_FAILED", "APPLIED", { errors, lastError })
     return {
       ok: false,
       error: {
-        error_code: "BATCH_ERRORS",
-        message: applyErrors.join("; "),
+        error_code: "OFFICECLI_OP_FAILED",
+        message: `Op ${lastError?.index} failed: ${lastError?.error} (path: ${lastError?.path ?? "unknown"})${errors.length > 1 ? `; ${errors.length} total errors` : ""}`,
         retryable: false,
       },
     }

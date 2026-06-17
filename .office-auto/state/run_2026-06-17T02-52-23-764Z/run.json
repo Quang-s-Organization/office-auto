@@ -1,0 +1,16 @@
+{
+  "run_id": "run_2026-06-17T02-52-23-764Z",
+  "status": "failed",
+  "current_phase": "FAILED",
+  "template_file": "/home/minhquang/office-auto/format_template.docx",
+  "source_file": "/home/minhquang/office-auto/noidung.md",
+  "target_file": "/home/minhquang/office-auto/report.docx",
+  "created_at": "2026-06-17T02:52:23.764Z",
+  "updated_at": "2026-06-17T02:52:37.375Z",
+  "error": {
+    "phase": "APPLIED",
+    "error_code": "OFFICECLI_OP_FAILED",
+    "message": "Op 6 failed: officecli batch failed:  (path: /body/p[@paraId=4C9C80FE])",
+    "retryable": false
+  }
+}
