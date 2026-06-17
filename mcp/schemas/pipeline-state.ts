@@ -11,6 +11,14 @@ export const PipelinePhaseZ = z.enum([
   "VERIFIED",
   "COMPLETED",
   "FAILED",
+  // v4-AD phases
+  "INSPECT_TEMPLATE",
+  "BIND_FIELDS",
+  "PARSE_SOURCE",
+  "BUILD_PLAN",
+  "COMPILE_REGIONS",
+  "APPLY_REGIONS",
+  "COMPLIANCE_GATE",
 ])
 
 export type PipelinePhase = z.infer<typeof PipelinePhaseZ>

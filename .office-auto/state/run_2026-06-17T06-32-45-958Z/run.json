@@ -1,10 +1,10 @@
 {
-  "run_id": "run_2026-06-17T04-59-37-465Z",
+  "run_id": "run_2026-06-17T06-32-45-958Z",
   "status": "completed",
   "current_phase": "COMPLETED",
   "template_file": "/home/minhquang/office-auto/format_template.docx",
   "source_file": "/home/minhquang/office-auto/noidung.md",
   "target_file": "/home/minhquang/office-auto/report.docx",
-  "created_at": "2026-06-17T04:59:37.465Z",
-  "updated_at": "2026-06-17T04:59:51.764Z"
+  "created_at": "2026-06-17T06:32:45.958Z",
+  "updated_at": "2026-06-17T06:32:58.093Z"
 }
