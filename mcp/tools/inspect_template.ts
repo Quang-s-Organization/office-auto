@@ -1,6 +1,8 @@
 import { spawnSync } from "child_process"
 import { BodyMapZ, type BodyMap, type ParagraphEntry, type HeadingEntry } from "../schemas/body-map"
 import { canonicalHeadingKey } from "../lib/heading-normalize"
+import { extractStyleMap, extractChromeFromTemplate } from "./extract_styles"
+import type { StyleMap, Chrome } from "../schemas/style-map"
 
 function run(args: string[]): string {
   const r = spawnSync("officecli", args, { encoding: "utf-8" })
@@ -163,6 +165,8 @@ export function inspectTemplate(template_path: string): unknown {
   return {
     ok: true,
     body_map: validated.bodyMap,
+    style_map: extractStyleMap(template_path),
+    chrome: extractChromeFromTemplate(template_path),
   }
 }
 

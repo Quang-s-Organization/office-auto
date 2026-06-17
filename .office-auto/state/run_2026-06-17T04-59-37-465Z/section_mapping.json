@@ -2,57 +2,27 @@
   "schema_version": "section_mapping.v1",
   "template_path": "/home/minhquang/office-auto/format_template.docx",
   "source_file": "/home/minhquang/office-auto/noidung.md",
-  "created_at": "2026-06-17T02:52:29.443Z",
+  "created_at": "2026-06-17T04:59:41.086Z",
   "decisions": [
     {
-      "template_heading_id": "h_0001",
-      "template_heading_text": "GIỚI THIỆU",
-      "canonical_key": "giới thiệu",
-      "action": "keep",
-      "reason_code": "missing_in_source"
-    },
-    {
-      "template_heading_id": "h_0002",
+      "template_heading_id": "",
       "template_heading_text": "CƠ SỞ LÝ THUYẾT",
       "canonical_key": "cơ sở lý thuyết",
-      "action": "update",
+      "action": "add",
       "source_heading_text": "CƠ SỞ LÝ THUYẾT",
       "source_heading_block_id": "md_0001",
-      "reason_code": "matched"
+      "level": 1,
+      "reason_code": "new_source_section"
     },
     {
-      "template_heading_id": "h_0003",
-      "template_heading_text": "Tầm quan trọng dữ liệu ảnh huấn luyện trong thị giác máy tính ",
+      "template_heading_id": "",
+      "template_heading_text": "Tầm quan trọng dữ liệu ảnh huấn luyện trong thị giác máy tính",
       "canonical_key": "tầm quan trọng dữ liệu ảnh huấn luyện trong thị giác máy tính",
-      "action": "update",
+      "action": "add",
       "source_heading_text": "Tầm quan trọng dữ liệu ảnh huấn luyện trong thị giác máy tính",
       "source_heading_block_id": "md_0002",
-      "reason_code": "matched"
-    },
-    {
-      "template_heading_id": "h_0004",
-      "template_heading_text": "Thu thập dữ liệu ảnh thủ công",
-      "canonical_key": "thu thập dữ liệu ảnh thủ công",
-      "action": "update",
-      "source_heading_text": "Thu thập dữ liệu ảnh thủ công",
-      "source_heading_block_id": "md_0019",
-      "reason_code": "matched"
-    },
-    {
-      "template_heading_id": "h_0005",
-      "template_heading_text": "KẾT LUẬN",
-      "canonical_key": "kết luận",
-      "action": "keep",
-      "reason_code": "missing_in_source"
-    },
-    {
-      "template_heading_id": "h_0006",
-      "template_heading_text": "TÀI LIỆU THAM KHẢO",
-      "canonical_key": "tài liệu tham khảo",
-      "action": "update",
-      "source_heading_text": "TÀI LIỆU THAM KHẢO",
-      "source_heading_block_id": "md_0050",
-      "reason_code": "matched"
+      "level": 2,
+      "reason_code": "new_source_section"
     },
     {
       "template_heading_id": "",
@@ -61,7 +31,6 @@
       "action": "add",
       "source_heading_text": "Các thách thức phổ biến liên quan đến dữ liệu",
       "source_heading_block_id": "md_0007",
-      "insert_after_template_heading_id": "h_0003",
       "level": 2,
       "reason_code": "new_source_section"
     },
@@ -72,7 +41,6 @@
       "action": "add",
       "source_heading_text": "Các lĩnh vực ứng dụng chính",
       "source_heading_block_id": "md_0012",
-      "insert_after_template_heading_id": "h_0003",
       "level": 2,
       "reason_code": "new_source_section"
     },
@@ -83,8 +51,17 @@
       "action": "add",
       "source_heading_text": "Các phương pháp sinh dữ liệu ảnh truyền thống",
       "source_heading_block_id": "md_0017",
-      "insert_after_template_heading_id": "h_0003",
       "level": 2,
+      "reason_code": "new_source_section"
+    },
+    {
+      "template_heading_id": "",
+      "template_heading_text": "Thu thập dữ liệu ảnh thủ công",
+      "canonical_key": "thu thập dữ liệu ảnh thủ công",
+      "action": "add",
+      "source_heading_text": "Thu thập dữ liệu ảnh thủ công",
+      "source_heading_block_id": "md_0019",
+      "level": 3,
       "reason_code": "new_source_section"
     },
     {
@@ -94,7 +71,6 @@
       "action": "add",
       "source_heading_text": "Tăng cường dữ liệu ảnh",
       "source_heading_block_id": "md_0023",
-      "insert_after_template_heading_id": "h_0004",
       "level": 3,
       "reason_code": "new_source_section"
     },
@@ -105,7 +81,6 @@
       "action": "add",
       "source_heading_text": "ỨNG DỤNG VÀ ĐỊNH HƯỚNG PHÁT TRIỂN AI",
       "source_heading_block_id": "md_0027",
-      "insert_after_template_heading_id": "h_0004",
       "level": 1,
       "reason_code": "new_source_section"
     },
@@ -116,7 +91,6 @@
       "action": "add",
       "source_heading_text": "Tối ưu hóa hiệu năng và trí tuệ nhân tạo trên thiết bị biên",
       "source_heading_block_id": "md_0028",
-      "insert_after_template_heading_id": "h_0004",
       "level": 2,
       "reason_code": "new_source_section"
     },
@@ -127,13 +101,22 @@
       "action": "add",
       "source_heading_text": "Retrieval-Augmented Generation, quản lý tri thức và trách nhiệm AI",
       "source_heading_block_id": "md_0040",
-      "insert_after_template_heading_id": "h_0004",
       "level": 2,
+      "reason_code": "new_source_section"
+    },
+    {
+      "template_heading_id": "",
+      "template_heading_text": "TÀI LIỆU THAM KHẢO",
+      "canonical_key": "tài liệu tham khảo",
+      "action": "add",
+      "source_heading_text": "TÀI LIỆU THAM KHẢO",
+      "source_heading_block_id": "md_0050",
+      "level": 1,
       "reason_code": "new_source_section"
     }
   ],
   "coverage": {
-    "source_blocks_consumed": 4,
-    "source_blocks_total": 11
+    "source_blocks_consumed": 63,
+    "source_blocks_total": 63
   }
 }

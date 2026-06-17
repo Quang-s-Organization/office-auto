@@ -14,10 +14,12 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "adm-zip": "^0.5.17",
     "tsx": "^4.19.4",
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.8",
     "@types/node": "^22.15.3",
     "typescript": "^5.8.3",
     "vitest": "^2.1.0"

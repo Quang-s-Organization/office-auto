@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "output_exists": true,
+  "output_size": 262425,
+  "coverage_pass": true,
+  "coverage_pct": 100,
+  "structure_pass": true,
+  "quality_pass": true,
+  "issues": [],
+  "created_at": "2026-06-17T04:59:51.761Z"
+}

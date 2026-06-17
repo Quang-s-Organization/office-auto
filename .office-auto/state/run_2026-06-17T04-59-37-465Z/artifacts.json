@@ -1,0 +1,83 @@
+{
+  "run_id": "run_2026-06-17T04-59-37-465Z",
+  "artifacts": [
+    {
+      "name": "docx_inspect_output",
+      "path": "docx_inspect_output.json",
+      "sha256": "6dcdc917947c70de0205bf8ae806a0209466761a7c893c2a1eed4df00f32d24a",
+      "created_at": "2026-06-17T04:59:41.074Z",
+      "schema_version": "body_map.v1"
+    },
+    {
+      "name": "style_map",
+      "path": "style_map.json",
+      "sha256": "0b1947065141137715fe1eab8fff03114e1df2ca5f537cece7c250d59de0d3c9",
+      "created_at": "2026-06-17T04:59:41.075Z",
+      "schema_version": "style_map.v1"
+    },
+    {
+      "name": "chrome",
+      "path": "chrome.json",
+      "sha256": "dcce3aab37f5941982b28c35b14606aeee92d73d23471419d6a7b92902140828",
+      "created_at": "2026-06-17T04:59:41.076Z"
+    },
+    {
+      "name": "source_packet",
+      "path": "source_packet.json",
+      "sha256": "f1f5e98af669a91aa240381c5909af55f0b6c00b9f163485b6edabc7525a4e7a",
+      "created_at": "2026-06-17T04:59:41.081Z",
+      "schema_version": "source_packet.v1"
+    },
+    {
+      "name": "render_list",
+      "path": "render_list.json",
+      "sha256": "ca1153382c3d9e15e90023d6ac79a9f4dad0b452ddf44c5eb4be3a8f7cd53d3e",
+      "created_at": "2026-06-17T04:59:41.086Z",
+      "schema_version": "render_list.v1"
+    },
+    {
+      "name": "section_mapping",
+      "path": "section_mapping.json",
+      "sha256": "6ee4f493ad5ffb316f1020960645e9a85f23fa1e90d55c5ad73bcec15f01c95e",
+      "created_at": "2026-06-17T04:59:41.088Z",
+      "schema_version": "section_mapping.v1"
+    },
+    {
+      "name": "body_xml",
+      "path": "body_xml.json",
+      "sha256": "8be6c641bbd81be57f3dbe45a0864d1f008a8f5c03e82edfded5da5e3ea36e77",
+      "created_at": "2026-06-17T04:59:41.092Z"
+    },
+    {
+      "name": "strict_validation",
+      "path": "strict_validation.json",
+      "sha256": "9cadf4e8184424df705c7b6be52f7c0c390ec619e2eb9ee9213d163d0bc5b304",
+      "created_at": "2026-06-17T04:59:41.092Z",
+      "schema_version": "strict_validation.v1"
+    },
+    {
+      "name": "splice_report",
+      "path": "splice_report.json",
+      "sha256": "88759c333dc43b46b1e8c857fb5a50f6983311d7336d903fb0aaa7e6873f7701",
+      "created_at": "2026-06-17T04:59:44.169Z"
+    },
+    {
+      "name": "coverage_report",
+      "path": "coverage_report.json",
+      "sha256": "2375eb739f29f02c9a6631be941afefdc88cfedfb32706d1dfc1ce7889bdf792",
+      "created_at": "2026-06-17T04:59:44.173Z"
+    },
+    {
+      "name": "result_readback",
+      "path": "result_readback.json",
+      "sha256": "64f998c6fd60c52c43f5874aefc56132d4771f03f150ca444b8af28e70b3fb16",
+      "created_at": "2026-06-17T04:59:45.827Z"
+    },
+    {
+      "name": "final_gate",
+      "path": "final_gate.json",
+      "sha256": "d4228115418115d130b766315eeae7f8e01bd85172100f13b651f919b5c3f29b",
+      "created_at": "2026-06-17T04:59:51.761Z"
+    }
+  ]
+}

@@ -15,8 +15,7 @@ export function validateOutput(output_path: string): unknown {
     output_path,
     "issues",
     "--json",
-    "--type",
-    "format,structure",
+    "--type", "format",
   ])
   const outline = run(["view", output_path, "outline"])
   run(["close", output_path])

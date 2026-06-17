@@ -132,6 +132,14 @@ export function readArtifact<T>(runId: string, name: string): T {
   return JSON.parse(content) as T
 }
 
+export function readArtifactSafely<T>(runId: string, name: string): T | null {
+  try {
+    return readArtifact<T>(runId, name)
+  } catch {
+    return null
+  }
+}
+
 export function transitionPhase(
   runId: string,
   newPhase: PipelinePhase,
@@ -148,7 +156,7 @@ export function transitionPhase(
     }
   } else {
     state.current_phase = newPhase
-    state.status = newPhase === "COMPLETED" ? "completed" : "running"
+    state.status = "running"
   }
 
   writeRunState(runId, state)
