@@ -25,7 +25,8 @@ export async function runPipeline(req: PipelineRequest): Promise<PipelineResult>
   if (!manifest) {
     return {
       success: false,
-      error: `Manifest not found for template "${req.templateId}". Run audit first.`,
+      error: `Manifest not found for "${req.templateId}". ` +
+        `ACTION REQUIRED: Call audit_template first with path: templates/${req.templateId}.docx`,
     };
   }
 

@@ -10,14 +10,36 @@ function inferType(sdt: any): "scalar" | "date" {
   return "scalar";
 }
 
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "")
+    .slice(0, 40);
+}
+
+function isHeading(style: string | undefined): boolean {
+  if (!style) return false;
+  return /^heading\s*\d/i.test(style);
+}
+
+function isPlaceholder(text: string | undefined): boolean {
+  if (!text) return false;
+  const t = text.trim();
+  if (/^Nội\s*dung/i.test(t)) return true;
+  if (/^…+$/.test(t) || /^\.{3,}$/.test(t)) return true;
+  return false;
+}
+
 export async function auditTemplate(docxPath: string): Promise<Manifest> {
   const absPath = path.resolve(docxPath);
   const baseName = path.basename(absPath, ".docx");
 
   const sdts = officecli(["query", absPath, "sdt"]);
-  const outline = officecli(["view", absPath, "outline"]);
-
   const fields: Record<string, any> = {};
+  let hasSDT = false;
 
   if (sdts.success && Array.isArray(sdts.data?.results)) {
     for (const sdt of sdts.data.results) {
@@ -29,6 +51,30 @@ export async function auditTemplate(docxPath: string): Promise<Manifest> {
           resolved_path: sdtPath,
           type: inferType(sdt),
         };
+        hasSDT = true;
+      }
+    }
+  }
+
+  // Legacy-anchor mode: scan headings → placeholder mapping
+  if (!hasSDT) {
+    const allParas = officecli(["query", absPath, "p"]);
+    if (allParas.success && Array.isArray(allParas.data?.results)) {
+      const results = allParas.data.results;
+      for (let i = 0; i < results.length - 1; i++) {
+        const curr = results[i];
+        const next = results[i + 1];
+        if (isHeading(curr.style) && curr.text?.trim() && isPlaceholder(next.text)) {
+          const key = slugify(curr.text.trim());
+          const uniqueKey = fields[key] ? `${key}_${i}` : key;
+          fields[uniqueKey] = {
+            sdt_tag: uniqueKey,
+            resolved_path: next.path,
+            type: "scalar" as const,
+            heading: curr.text.trim(),
+            heading_path: curr.path,
+          };
+        }
       }
     }
   }

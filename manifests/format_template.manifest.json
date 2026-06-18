@@ -1,8 +1,37 @@
 {
   "template_id": "format_template",
-  "mode": "legacy-anchor",
+  "mode": "strict-sdt",
   "locale": "vi-VN",
-  "fields": {},
+  "fields": {
+    "gioi_thieu": {
+      "sdt_tag": "gioi_thieu",
+      "resolved_path": "/body/p[@paraId=47DD4FDA]",
+      "type": "scalar",
+      "heading": "GIỚI THIỆU",
+      "heading_path": "/body/p[@paraId=04C2E2D0]"
+    },
+    "tam_quan_trong_du_lieu_anh_huan_luyen_tr": {
+      "sdt_tag": "tam_quan_trong_du_lieu_anh_huan_luyen_tr",
+      "resolved_path": "/body/p[@paraId=3B91656F]",
+      "type": "scalar",
+      "heading": "Tầm quan trọng dữ liệu ảnh huấn luyện trong thị giác máy tính",
+      "heading_path": "/body/p[@paraId=05E2D782]"
+    },
+    "thu_thap_du_lieu_anh_thu_cong": {
+      "sdt_tag": "thu_thap_du_lieu_anh_thu_cong",
+      "resolved_path": "/body/p[@paraId=4C9C80FE]",
+      "type": "scalar",
+      "heading": "Thu thập dữ liệu ảnh thủ công",
+      "heading_path": "/body/p[@paraId=15D7D3CD]"
+    },
+    "ket_luan": {
+      "sdt_tag": "ket_luan",
+      "resolved_path": "/body/p[@paraId=7AFAB967]",
+      "type": "scalar",
+      "heading": "KẾT LUẬN",
+      "heading_path": "/body/p[@paraId=37D21BE6]"
+    }
+  },
   "repeaters": {},
   "tables": {},
   "structural_invariants": {}

@@ -5,7 +5,15 @@ import { toJSONSchema as zodToJsonSchema } from "zod/v4";
 
 function buildPrompt(request: string, manifest: Manifest): string {
   const fieldDescs = Object.entries(manifest.fields)
-    .map(([name, spec]) => `  - ${name}: ${spec.type}${spec.max_len ? ` (max ${spec.max_len} chars)` : ""}${spec.pattern ? ` (pattern: ${spec.pattern})` : ""}`)
+    .map(([name, spec]: [string, any]) => {
+      const headingHint = spec.heading ? ` (heading: "${spec.heading}")` : "";
+      const limits = [
+        spec.max_len ? `max ${spec.max_len} chars` : "",
+        spec.pattern ? `pattern: ${spec.pattern}` : "",
+      ].filter(Boolean).join(", ");
+      const extras = [headingHint, limits].filter(Boolean).join(", ");
+      return `  - ${name}: ${spec.type}${extras ? ` — ${extras}` : ""}`;
+    })
     .join("\n");
 
   return [

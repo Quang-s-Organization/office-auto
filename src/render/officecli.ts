@@ -39,7 +39,7 @@ export function officecliBatch(
   opts: { stopOnError?: boolean } = {}
 ): OfficeCLIResult {
   const input = JSON.stringify(batchInput);
-  const args = ["batch", file, "--stop-on-error"];
+  const args = ["batch", file];
   if (opts.stopOnError !== false) args.push("--stop-on-error");
   args.push("--json");
 

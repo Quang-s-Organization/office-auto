@@ -50,16 +50,6 @@
       },
       "permission": {
         "edit": "allow",
-        "bash": "allow"
-      }
-    },
-    "content-normalizer": {
-      "mode": "subagent",
-      "model": "sglang/Qwen3.6-35B-A3B-GGUF",
-      "description": "Debug only: converts natural language to content.json. Production path goes through pipeline-core.",
-      "temperature": 0.2,
-      "permission": {
-        "edit": "deny",
         "bash": "deny"
       }
     }

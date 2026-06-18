@@ -11,6 +11,8 @@ export const FieldSpecSchema = z.object({
   type: FieldTypeSchema,
   max_len: z.number().int().positive().optional(),
   pattern: z.string().optional(),
+  heading: z.string().optional(),
+  heading_path: z.string().optional(),
 });
 
 export type FieldSpec = z.infer<typeof FieldSpecSchema>;
