@@ -1,5 +1,7 @@
+import { spawn } from "node:child_process";
 import type { Manifest } from "../manifest/schema.js";
-import { officecli } from "../render/officecli.js";
+import { officecli, parseOfficeCLIOutput } from "../render/officecli.js";
+import type { OfficeCLIResult } from "../render/officecli.js";
 
 export interface ValidationResult {
   ok: boolean;
@@ -7,6 +9,22 @@ export interface ValidationResult {
   issues: any[];
   leftover: any[];
   invariants: { ok: boolean; missing?: string[] };
+}
+
+function officecliAsync(args: string[]): Promise<OfficeCLIResult> {
+  return new Promise((resolve) => {
+    const proc = spawn("officecli", args.concat("--json"), {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    proc.stdout?.on("data", (d: Buffer) => (stdout += d.toString()));
+    proc.stderr?.on("data", (d: Buffer) => (stderr += d.toString()));
+    proc.on("close", (code) => {
+      resolve(parseOfficeCLIOutput(stdout, stderr, code ?? -1));
+    });
+    proc.on("error", (err) => resolve({ success: false, data: null, error: err.message }));
+  });
 }
 
 export function checkInvariants(
@@ -29,24 +47,19 @@ export function checkInvariants(
 }
 
 export async function validate(file: string, manifest: Manifest): Promise<ValidationResult> {
-  const schema = officecli(["validate", file]);
-  const issues = officecli(["view", file, "issues"]);
+  // Run validate, view issues, and combined placeholder query in parallel
+  const [schema, issues, leftoverQuery] = await Promise.all([
+    officecliAsync(["validate", file]),
+    officecliAsync(["view", file, "issues"]),
+    officecliAsync([
+      "query", file,
+      ':contains("{{") or :contains("__") or :contains("Nội dung")',
+    ]),
+  ]);
 
-  const placeholderPatterns = [
-    "{{",
-    "__",
-    "Nội dung...",
-    "Nội dung …",
-    "Nội dung",
-  ];
-
-  const allLeftover: any[] = [];
-  for (const pattern of placeholderPatterns) {
-    const r = officecli(["query", file, `:contains("${pattern}")`]);
-    if (r.success && Array.isArray(r.data?.results)) {
-      allLeftover.push(...r.data.results);
-    }
-  }
+  const allLeftover = leftoverQuery.success && Array.isArray(leftoverQuery.data?.results)
+    ? leftoverQuery.data.results
+    : [];
 
   // Deduplicate by path
   const seen = new Set<string>();
@@ -58,7 +71,9 @@ export async function validate(file: string, manifest: Manifest): Promise<Valida
 
   const invariants = checkInvariants(file, manifest.structural_invariants);
 
-  const issuesList = issues.success && Array.isArray(issues.data?.results) ? issues.data.results : [];
+  const issuesList = issues.success && Array.isArray(issues.data?.results)
+    ? issues.data.results
+    : [];
 
   return {
     ok: schema.success && issuesList.length === 0 && deduped.length === 0 && invariants.ok,

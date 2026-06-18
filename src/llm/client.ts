@@ -81,6 +81,7 @@ async function fetchOpenAICompletion(endpoint: string, params: {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      model: process.env.LLAMA_MODEL || "sglang/Qwen3.6-35B-A3B-GGUF",
       messages: [
         { role: "system", content: params.prompt.split("\n").find(l => l.startsWith("Bạn là")) || params.prompt.split("\n")[0] },
         { role: "user", content: params.prompt },

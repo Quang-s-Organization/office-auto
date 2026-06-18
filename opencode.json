@@ -1,26 +1,5 @@
 {
-  "provider": {
-    "sglang": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "sglang",
-      "options": {
-        "baseURL": "https://appresearchpublic83.aiplatform.vcntt.tech/v1"
-      },
-      "models": {
-        "Qwen3.6-35B-A3B-GGUF": {
-          "name": "Qwen3.6-35B-A3B-GGUF"
-        }
-      }
-    }
-  },
-  "model": "sglang/Qwen3.6-35B-A3B-GGUF",
-  "models": {
-    "sglang/Qwen3.6-35B-A3B-GGUF": {
-      "temperature": 0.6,
-      "top_p": 0.95,
-      "top_k": 20
-    }
-  },
+  "$schema": "https://opencode.ai/config.json",
   "mcp": {
     "officecli": {
       "type": "local",
@@ -36,15 +15,16 @@
       "enabled": true,
       "environment": {
         "LLAMA_BASE_URL": "https://appresearchpublic83.aiplatform.vcntt.tech",
-        "LLAMA_USE_OPENAI": "0"
+        "LLAMA_USE_OPENAI": "1"
       }
     }
   },
+  "default_agent": "docgen-orchestrator",
   "agent": {
     "docgen-orchestrator": {
       "mode": "primary",
       "model": "sglang/Qwen3.6-35B-A3B-GGUF",
-      "description": "Orchestrates document generation pipeline. Coordinates template audit, content normalization, docx rendering, and validation.",
+      "description": "Orchestrates document generation pipeline.",
       "tools": {
         "office-auto*": true,
         "officecli*": true
@@ -54,6 +34,5 @@
         "bash": "deny"
       }
     }
-  },
-  "default_agent": "docgen-orchestrator"
+  }
 }

@@ -72,6 +72,19 @@ server.tool(
   }
 );
 
+server.tool(
+  "list_document_types",
+  "List all available document types with their capabilities and descriptions.",
+  {},
+  async () => {
+    const { listDocumentTypes } = await import("../registry/loader.js");
+    const types = listDocumentTypes();
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify(types, null, 2) }],
+    };
+  }
+);
+
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);

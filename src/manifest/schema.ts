@@ -17,19 +17,6 @@ export const FieldSpecSchema = z.object({
 
 export type FieldSpec = z.infer<typeof FieldSpecSchema>;
 
-// ── Repeater specification ───────────────────────────────────────
-
-export const RepeaterSpecSchema = z.object({
-  clone_from: z.string().min(1),
-  insert_anchor: z.object({
-    mode: z.enum(["after", "before"]),
-    path: z.string().min(1),
-  }),
-  item_fields: z.record(z.string(), z.string()),
-});
-
-export type RepeaterSpec = z.infer<typeof RepeaterSpecSchema>;
-
 // ── Table specification ──────────────────────────────────────────
 
 export const TableSpecSchema = z.object({
@@ -39,6 +26,27 @@ export const TableSpecSchema = z.object({
 });
 
 export type TableSpec = z.infer<typeof TableSpecSchema>;
+
+// ── Repeater specification ───────────────────────────────────────
+
+export interface RepeaterSpec {
+  clone_from: string;
+  insert_anchor: { mode: "after" | "before"; path: string };
+  item_fields: Record<string, string>;
+  nested_repeaters?: Record<string, RepeaterSpec>;
+  nested_tables?: Record<string, TableSpec>;
+}
+
+export const RepeaterSpecSchema: z.ZodType<RepeaterSpec> = z.lazy(() => z.object({
+  clone_from: z.string().min(1),
+  insert_anchor: z.object({
+    mode: z.enum(["after", "before"]),
+    path: z.string().min(1),
+  }),
+  item_fields: z.record(z.string(), z.string()),
+  nested_repeaters: z.record(z.string(), RepeaterSpecSchema).optional(),
+  nested_tables: z.record(z.string(), TableSpecSchema).optional(),
+}));
 
 // ── Structural invariants ────────────────────────────────────────
 
@@ -62,6 +70,10 @@ export const ManifestSchema = z.object({
   repeaters: z.record(z.string(), RepeaterSpecSchema).optional().default({}),
   tables: z.record(z.string(), TableSpecSchema).optional().default({}),
   structural_invariants: StructuralInvariantsSchema.optional().default({}),
+  template_sha: z.string().optional(),
+  audited_at: z.string().optional(),
+  capabilities: z.array(z.string()).optional(),
+  merge_fields: z.record(z.string(), z.string()).optional(),
 });
 
 export type Manifest = z.infer<typeof ManifestSchema>;
@@ -100,11 +112,31 @@ export function deriveContentSchema(manifest: Manifest) {
     fieldShape[name] = field;
   }
 
+  // Build per-repeater item schemas from manifest.item_fields
+  const blockShape: Record<string, z.ZodTypeAny> = {};
+  for (const [repeaterName, repeaterSpec] of Object.entries(manifest.repeaters ?? {})) {
+    const itemShape: Record<string, z.ZodTypeAny> = {};
+    for (const fieldName of Object.keys(repeaterSpec.item_fields)) {
+      itemShape[fieldName] = z.string();
+    }
+    blockShape[repeaterName] = z.array(z.object(itemShape));
+  }
+
+  // Build per-table row schemas from manifest.columns
+  const tableShape: Record<string, z.ZodTypeAny> = {};
+  for (const [tableName, tableSpec] of Object.entries(manifest.tables ?? {})) {
+    const rowShape: Record<string, z.ZodTypeAny> = {};
+    for (const col of tableSpec.columns) {
+      rowShape[col] = z.union([z.string(), z.number()]);
+    }
+    tableShape[tableName] = z.array(z.object(rowShape));
+  }
+
   return z.object({
     template_id: z.literal(manifest.template_id),
     locale: z.literal(manifest.locale),
     fields: z.object(fieldShape as any),
-    blocks: z.record(z.string(), z.array(z.any())).optional().default({}),
-    tables: z.record(z.string(), z.array(z.any())).optional().default({}),
+    blocks: z.object(blockShape).optional().default({}),
+    tables: z.object(tableShape).optional().default({}),
   });
 }

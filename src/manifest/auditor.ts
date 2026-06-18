@@ -1,9 +1,15 @@
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import { ManifestSchema, type Manifest } from "./schema.js";
 import { officecli } from "../render/officecli.js";
 
 const MANIFEST_DIR = path.resolve(process.cwd(), "manifests");
+
+function sha256(filePath: string): string {
+  const buf = fs.readFileSync(filePath);
+  return crypto.createHash("sha256").update(buf).digest("hex");
+}
 
 function inferType(sdt: any): "scalar" | "date" {
   if (sdt.format?.type === "date" || sdt.type === "date") return "date";
@@ -87,6 +93,8 @@ export async function auditTemplate(docxPath: string): Promise<Manifest> {
     repeaters: {},
     tables: {},
     structural_invariants: {},
+    template_sha: sha256(absPath),
+    audited_at: new Date().toISOString(),
   };
 
   const parsed = ManifestSchema.parse(manifest);
@@ -106,18 +114,32 @@ export function loadManifest(templateId: string): Manifest | null {
   const p = path.join(MANIFEST_DIR, `${templateId}.manifest.json`);
   if (!fs.existsSync(p)) return null;
   const raw = JSON.parse(fs.readFileSync(p, "utf-8"));
-  return ManifestSchema.parse(raw);
+  const manifest = ManifestSchema.parse(raw);
+
+  // Staleness check: compare template SHA with cached manifest
+  const templatePath = path.resolve(process.cwd(), "templates", `${templateId}.docx`);
+  if (fs.existsSync(templatePath)) {
+    const currentSha = sha256(templatePath);
+    if ((manifest as any).template_sha && currentSha !== (manifest as any).template_sha) {
+      console.error(`WARNING: Manifest for "${templateId}" is stale. Template has changed. Re-audit recommended.`);
+    }
+  }
+
+  return manifest;
 }
 
-// CLI entry
-const docxPath = process.argv[2];
-if (docxPath) {
-  auditTemplate(docxPath)
-    .then((m) => {
-      console.log(JSON.stringify(m, null, 2));
-    })
-    .catch((err) => {
-      console.error("Audit failed:", err);
-      process.exit(1);
-    });
+// CLI entry — only runs when executed directly, not on import
+const runningAsScript = process.argv[1]?.includes("auditor") ?? false;
+if (runningAsScript) {
+  const docxPath = process.argv[2];
+  if (docxPath) {
+    auditTemplate(docxPath)
+      .then((m) => {
+        console.log(JSON.stringify(m, null, 2));
+      })
+      .catch((err) => {
+        console.error("Audit failed:", err);
+        process.exit(1);
+      });
+  }
 }

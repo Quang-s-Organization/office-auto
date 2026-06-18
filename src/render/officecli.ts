@@ -1,9 +1,40 @@
-import { execSync, spawnSync } from "node:child_process";
+import { execSync, spawnSync, type SpawnSyncReturns } from "node:child_process";
 
 export interface OfficeCLIResult {
   success: boolean;
   data: any;
   error?: string;
+}
+
+export function parseOfficeCLI(result: SpawnSyncReturns<string>): OfficeCLIResult {
+  return parseOfficeCLIOutput(result.stdout ?? "", result.stderr ?? "", result.status ?? -1);
+}
+
+export function parseOfficeCLIOutput(stdout: string, stderr: string, status: number): OfficeCLIResult {
+  if (status !== 0 && !stdout) {
+    return {
+      success: false,
+      data: null,
+      error: stderr.slice(0, 500) || "officecli command failed with no output",
+    };
+  }
+  try {
+    const raw = JSON.parse(stdout || "{}");
+    // Normalize: different commands return different top-level shapes
+    // validate → { ok, issues }, query → { data/results }, batch → { success, results }
+    const success = raw.ok ?? raw.success ?? (status === 0);
+    return {
+      success,
+      data: raw.data ?? raw,
+      error: raw.error,
+    };
+  } catch {
+    return {
+      success: false,
+      data: null,
+      error: `Parse error: ${stdout.slice(0, 200) || stderr.slice(0, 200)}`,
+    };
+  }
 }
 
 export function officecli(args: string[]): OfficeCLIResult {
@@ -12,17 +43,7 @@ export function officecli(args: string[]): OfficeCLIResult {
     maxBuffer: 50 * 1024 * 1024,
     timeout: 120_000,
   });
-
-  try {
-    const parsed = JSON.parse(result.stdout || "{}");
-    return parsed;
-  } catch {
-    return {
-      success: false,
-      data: null,
-      error: `Parse error: ${result.stdout?.slice(0, 500) || result.stderr}`,
-    };
-  }
+  return parseOfficeCLI(result);
 }
 
 export function officecliRaw(args: string[]): string {
@@ -49,14 +70,5 @@ export function officecliBatch(
     maxBuffer: 50 * 1024 * 1024,
     timeout: 300_000,
   });
-
-  try {
-    return JSON.parse(result.stdout || "{}");
-  } catch {
-    return {
-      success: false,
-      data: null,
-      error: `Batch parse error: ${result.stdout?.slice(0, 500) || result.stderr}`,
-    };
-  }
+  return parseOfficeCLI(result);
 }

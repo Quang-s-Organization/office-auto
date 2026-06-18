@@ -15,34 +15,35 @@ export function plan(content: Content, manifest: Manifest): Op[] {
     ops.push({ kind: "set", path: f.resolved_path, props: { text: String(val) } });
   }
 
-  // 2) Repeaters -> clone block
+  // 2) Repeaters -> clone block (reverse-clone strategy)
+  // Reverse-clone: process items in reverse order so each new clone slides
+  // between the anchor and the previous clone. The anchor path never moves,
+  // and the freshly inserted node is always at position [1] relative to anchor.
   for (const [repeaterName, repeaterSpec] of Object.entries(manifest.repeaters || {})) {
     const items = content.blocks?.[repeaterName];
     if (!items || !Array.isArray(items)) continue;
 
-    let lastAnchor = repeaterSpec.insert_anchor.path;
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
+    const reversedItems = [...items].reverse();
+    for (const item of reversedItems) {
       ops.push({
         kind: "clone",
         parent: "/body",
         from: repeaterSpec.clone_from,
-        after: lastAnchor,
+        after: repeaterSpec.insert_anchor.path,
       });
 
-      // Set child fields on the newly cloned node
+      // After reverse-clone, the newly inserted node is at anchor[1]
+      const clonePath = `${repeaterSpec.insert_anchor.path}[1]`;
       for (const [fieldName, childPath] of Object.entries(repeaterSpec.item_fields)) {
         const val = item[fieldName];
         if (val !== undefined) {
           ops.push({
             kind: "setCell",
-            path: `${lastAnchor}/${childPath}`,
+            path: `${clonePath}/${childPath}`,
             props: { text: String(val) },
           });
         }
       }
-
-      lastAnchor = `${repeaterSpec.clone_from}`;
     }
   }
 

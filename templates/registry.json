@@ -1,0 +1,11 @@
+[
+  {
+    "id": "format_template",
+    "displayName": "Báo cáo nghiên cứu",
+    "templateFile": "templates/format_template.docx",
+    "locale": "vi-VN",
+    "description": "Mẫu báo cáo nghiên cứu học thuật với các phần: Giới thiệu, Cơ sở lý thuyết, Kết luận, Tài liệu tham khảo",
+    "capabilities": ["scalar_merge", "repeating_blocks"],
+    "manifestPath": "manifests/format_template.manifest.json"
+  }
+]

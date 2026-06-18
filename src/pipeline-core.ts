@@ -46,8 +46,7 @@ export async function runPipeline(req: PipelineRequest): Promise<PipelineResult>
 
   // L3b: Render to docx
   const templatePath = `${process.cwd()}/templates/${req.templateId}.docx`;
-  const outputPath = req.outputPath || templatePath.replace(/\.docx$/, ".out.docx");
-  const rendered = await render(ops, templatePath, outputPath);
+  const rendered = await render(ops, templatePath, req.outputPath, manifest);
 
   // L4: Validate
   const validation = await validate(rendered, manifest);

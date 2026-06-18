@@ -10,37 +10,45 @@ import type { Manifest, Content } from "../src/manifest/schema.js";
 
 const TEMPLATE = "templates/format_template.docx";
 
-// Manual manifest matching the real format_template.docx
+// Manual manifest matching the real format_template.docx from its manifest
 const manifest: Manifest = {
   template_id: "format_template",
   mode: "legacy-anchor",
   locale: "vi-VN",
   fields: {
-    gioi_thieu_title: {
-      sdt_tag: "title_gioi_thieu",
-      resolved_path: "/body/p[@paraId=04C2E2D0]",
+    gioi_thieu: {
+      sdt_tag: "gioi_thieu",
+      resolved_path: "/body/p[@paraId=47DD4FDA]",
       type: "scalar",
+      heading: "GIỚI THIỆU",
+      heading_path: "/body/p[@paraId=04C2E2D0]",
     },
-    co_so_ly_thuyet_title: {
-      sdt_tag: "title_co_so",
-      resolved_path: "/body/p[@paraId=051169A1]",
+    tam_quan_trong: {
+      sdt_tag: "tam_quan_trong_du_lieu_anh_huan_luyen_tr",
+      resolved_path: "/body/p[@paraId=3B91656F]",
       type: "scalar",
+      heading: "Tầm quan trọng dữ liệu ảnh huấn luyện trong thị giác máy tính",
+      heading_path: "/body/p[@paraId=05E2D782]",
     },
-    ket_luan_title: {
-      sdt_tag: "title_ket_luan",
-      resolved_path: "/body/p[@paraId=37D21BE6]",
+    thu_thap: {
+      sdt_tag: "thu_thap_du_lieu_anh_thu_cong",
+      resolved_path: "/body/p[@paraId=4C9C80FE]",
       type: "scalar",
+      heading: "Thu thập dữ liệu ảnh thủ công",
+      heading_path: "/body/p[@paraId=15D7D3CD]",
     },
-    tai_lieu_title: {
-      sdt_tag: "title_tai_lieu",
-      resolved_path: "/body/p[@paraId=7FA7A178]",
+    ket_luan: {
+      sdt_tag: "ket_luan",
+      resolved_path: "/body/p[@paraId=7AFAB967]",
       type: "scalar",
+      heading: "KẾT LUẬN",
+      heading_path: "/body/p[@paraId=37D21BE6]",
     },
   },
   repeaters: {},
   tables: {},
   structural_invariants: {
-    required_sections: ["GIỚI THIỆU", "KẾT LUẬN", "TÀI LIỆU THAM KHẢO"],
+    required_sections: ["GIỚI THIỆU", "KẾT LUẬN"],
   },
 };
 
@@ -48,10 +56,10 @@ const content: Content = {
   template_id: "format_template",
   locale: "vi-VN",
   fields: {
-    gioi_thieu_title: "MỞ ĐẦU",
-    co_so_ly_thuyet_title: "NỀN TẢNG LÝ THUYẾT",
-    ket_luan_title: "TỔNG KẾT",
-    tai_lieu_title: "NGUỒN THAM KHẢO",
+    gioi_thieu: "MỞ ĐẦU",
+    tam_quan_trong: "NỀN TẢNG LÝ THUYẾT",
+    thu_thap: "THU THẬP DỮ LIỆU",
+    ket_luan: "TỔNG KẾT",
   },
   blocks: {},
   tables: {},
@@ -67,7 +75,7 @@ async function main() {
 
   // Step 2: Render
   console.log("2. Rendering to output.docx...");
-  const outPath = await render(ops, TEMPLATE, "out/test_output.docx");
+  const outPath = await render(ops, TEMPLATE, "out/test_output.docx", manifest);
   console.log(`   Output: ${outPath}`);
 
   // Step 3: Verify output exists and is valid docx
@@ -76,13 +84,13 @@ async function main() {
   console.log(`   Validate: ${verify.success ? "OK" : "FAILED"}`);
 
   // Step 4: Check content was written
-  const gioiThieu = officecli(["query", outPath, 'p[@paraId=04C2E2D0]']);
+  const gioiThieu = officecli(["query", outPath, 'p[@paraId=47DD4FDA]']);
   const newTitle = gioiThieu.success ? gioiThieu.data?.results?.[0]?.text : "N/A";
-  console.log(`   Title at paraId=04C2E2D0: "${newTitle}" (expected "MỞ ĐẦU")`);
+  console.log(`   Title at paraId=47DD4FDA: "${newTitle}" (expected "MỞ ĐẦU")`);
 
-  const ketLuan = officecli(["query", outPath, 'p[@paraId=37D21BE6]']);
+  const ketLuan = officecli(["query", outPath, 'p[@paraId=7AFAB967]']);
   const ketLuanTitle = ketLuan.success ? ketLuan.data?.results?.[0]?.text : "N/A";
-  console.log(`   Title at paraId=37D21BE6: "${ketLuanTitle}" (expected "TỔNG KẾT")`);
+  console.log(`   Title at paraId=7AFAB967: "${ketLuanTitle}" (expected "TỔNG KẾT")`);
 
   // Step 5: Validation
   console.log("4. Running L4 validation...");
@@ -92,11 +100,12 @@ async function main() {
   console.log(`   Leftover placeholders: ${validation.leftover.length}`);
   console.log(`   Invariants OK: ${validation.invariants.ok}`);
 
-  // Step 6: Check batch.json was logged
+  // Step 6: Check batch log was written with timestamp
   console.log("5. Audit log...");
-  const { existsSync, readFileSync } = await import("node:fs");
-  const batchLog = existsSync("out/batch.json");
-  console.log(`   out/batch.json logged: ${batchLog}`);
+  const { existsSync, readdirSync } = await import("node:fs");
+  const outFiles = readdirSync("out").filter(f => f.startsWith("batch-"));
+  const batchLog = outFiles.length > 0;
+  console.log(`   Batch log files found: ${outFiles.length}`);
 
   // Final verdict
   const allPass =
