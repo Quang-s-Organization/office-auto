@@ -36,6 +36,9 @@ function isPlaceholder(text: string | undefined): boolean {
   const t = text.trim();
   if (/^Nội\s*dung/i.test(t)) return true;
   if (/^…+$/.test(t) || /^\.{3,}$/.test(t)) return true;
+  if (/^{{[^}]+}}$/.test(t)) return true;
+  if (/^__\w+__$/.test(t)) return true;
+  if (t === "" || t === "[...]" || t === "<...>") return true;
   return false;
 }
 

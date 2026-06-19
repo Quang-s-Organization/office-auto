@@ -6,11 +6,10 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/mcp/office-auto-server.js",
-    "dev": "tsx src/mcp/office-auto-server.ts",
+    "start": "node dist/mcp/manifest-server.js",
+    "dev": "tsx src/mcp/manifest-server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "pipeline": "tsx src/pipeline-core.ts",
     "audit": "tsx src/manifest/auditor.ts"
   },
   "dependencies": {

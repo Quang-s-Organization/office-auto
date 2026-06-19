@@ -2,5 +2,10 @@
 __pycache__/
 .github
 
+# Build output
+dist/
+out/
+.office-auto/
+
 # Node dependencies
 node_modules/

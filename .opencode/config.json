@@ -30,24 +30,20 @@
         "OFFICECLI_NO_AUTO_RESIDENT": "0"
       }
     },
-    "office-auto": {
+    "manifest-server": {
       "type": "local",
-      "command": ["npx", "tsx", "src/mcp/office-auto-server.ts"],
-      "enabled": true,
-      "environment": {
-        "LLAMA_BASE_URL": "https://appresearchpublic83.aiplatform.vcntt.tech",
-        "LLAMA_USE_OPENAI": "0"
-      }
+      "command": ["npx", "tsx", "src/mcp/manifest-server.ts"],
+      "enabled": true
     }
   },
   "agent": {
     "docgen-orchestrator": {
       "mode": "primary",
       "model": "sglang/Qwen3.6-35B-A3B-GGUF",
-      "description": "Orchestrates document generation pipeline. Coordinates template audit, content normalization, docx rendering, and validation.",
+      "description": "Orchestrates DOCX generation pipeline using officecli MCP and manifest-based field mapping.",
       "tools": {
-        "office-auto*": true,
-        "officecli*": true
+        "officecli*": true,
+        "manifest-server*": true
       },
       "permission": {
         "edit": "allow",

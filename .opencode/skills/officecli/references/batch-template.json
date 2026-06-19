@@ -1,0 +1,22 @@
+[
+  {
+    "command": "set",
+    "path": "/body/sdt[@tag=\"field_name\"]",
+    "props": {
+      "text": "Giá trị cần điền"
+    }
+  },
+  {
+    "command": "add",
+    "parent": "/body",
+    "from": "/body/p[@style='RowStyle'][1]",
+    "after": "/body/p[@style='RowStyle'][last()]"
+  },
+  {
+    "command": "set",
+    "path": "/body/p[@style='RowStyle'][2]/run[1]",
+    "props": {
+      "text": "Nội dung ô đầu tiên của dòng mới"
+    }
+  }
+]

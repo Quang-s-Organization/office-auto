@@ -4,9 +4,9 @@
       "command": "officecli",
       "args": ["mcp"]
     },
-    "office-auto": {
+    "manifest-server": {
       "command": "npx",
-      "args": ["tsx", "src/mcp/office-auto-server.ts"]
+      "args": ["tsx", "src/mcp/manifest-server.ts"]
     }
   }
 }

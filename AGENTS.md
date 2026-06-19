@@ -1,18 +1,23 @@
 # office-auto — Agent Rules
 
 ## Determinism Boundary (MANDATORY)
-- NEVER generate raw OOXML, document paths (e.g. `/body/p[3]`), or `batch.json`.
-- When creating/modifying .docx: ALWAYS call tool `office-auto_generate_document` (goes through pipeline-core).
-- LLM generates `content.json` only, matching the schema. All field→path mapping is code.
+- NEVER generate raw OOXML, document paths (e.g. `/body/p[3]`), or `batch.json` without querying document structure first.
+- When creating/modifying .docx: follow the `docgen-workflow` skill step by step.
+- All field→path mapping comes from manifest (audited via `write_manifest` tool).
 
 ## Docx Document Discovery
-- Need a prop/enum: use `officecli` MCP `help docx <element>` or `load_skill docx`.
+- Need a prop/enum: use `officecli` MCP `help docx <element>` or load `officecli` skill.
 - NEVER load raw XML template into context. Only read `manifest.fields`.
 
 ## Render
-- Always use `batch` (1 open/save), lowercase fields, log `out/batch.json`.
+- Always use `batch` (1 open/save), lowercase fields.
 - After render: run validate + view issues + query placeholder leftovers.
 
+## Skills Required
+Before any document generation task, load these skills:
+- `docgen-workflow` — step-by-step pipeline
+- `officecli` — syntax reference for all DOCX operations
+- `manifest` — manifest schema and field types
+
 ## Setup
-- Start llama-server first (port 8080).
 - Install deps: `npm install`.
