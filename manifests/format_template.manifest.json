@@ -1,11 +1,85 @@
 {
   "template_id": "format_template",
-  "mode": "legacy-anchor",
+  "mode": "strict-sdt",
   "locale": "vi-VN",
-  "fields": {},
-  "repeaters": {},
-  "tables": {},
-  "structural_invariants": {},
-  "template_sha": "5f4461d77d94622798c3d657b46138c83790dcb2349877dd8dbe5c2b1d5887ea",
-  "audited_at": "2026-06-18T17:14:05.049Z"
+  "fields": {
+    "gioi_thieu": {
+      "sdt_tag": "gioi_thieu",
+      "resolved_path": "/body/sdt[@tag=\"gioi_thieu\"]",
+      "type": "scalar",
+      "required": false
+    },
+    "cs_ly_thuyet": {
+      "sdt_tag": "cs_ly_thuyet",
+      "resolved_path": "/body/sdt[@tag=\"cs_ly_thuyet\"]",
+      "type": "scalar",
+      "required": false
+    },
+    "tam_trong": {
+      "sdt_tag": "tam_trong",
+      "resolved_path": "/body/sdt[@tag=\"tam_trong\"]",
+      "type": "scalar",
+      "required": false
+    },
+    "thach_thuc": {
+      "sdt_tag": "thach_thuc",
+      "resolved_path": "/body/sdt[@tag=\"thach_thuc\"]",
+      "type": "scalar",
+      "required": false
+    },
+    "lich_vuc_ung_dung": {
+      "sdt_tag": "lich_vuc_ung_dung",
+      "resolved_path": "/body/sdt[@tag=\"lich_vuc_ung_dung\"]",
+      "type": "scalar",
+      "required": false
+    },
+    "phuong_phap_truyen_thong": {
+      "sdt_tag": "phuong_phap_truyen_thong",
+      "resolved_path": "/body/sdt[@tag=\"phuong_phap_truyen_thong\"]",
+      "type": "scalar",
+      "required": false
+    },
+    "thu_thac_thu_cong": {
+      "sdt_tag": "thu_thac_thu_cong",
+      "resolved_path": "/body/sdt[@tag=\"thu_thac_thu_cong\"]",
+      "type": "scalar",
+      "required": false
+    },
+    "tang_cuong_dl": {
+      "sdt_tag": "tang_cuong_dl",
+      "resolved_path": "/body/sdt[@tag=\"tang_cuong_dl\"]",
+      "type": "scalar",
+      "required": false
+    },
+    "ung_dung_ai": {
+      "sdt_tag": "ung_dung_ai",
+      "resolved_path": "/body/sdt[@tag=\"ung_dung_ai\"]",
+      "type": "scalar",
+      "required": false
+    },
+    "edge_ai": {
+      "sdt_tag": "edge_ai",
+      "resolved_path": "/body/sdt[@tag=\"edge_ai\"]",
+      "type": "scalar",
+      "required": false
+    },
+    "rag": {
+      "sdt_tag": "rag",
+      "resolved_path": "/body/sdt[@tag=\"rag\"]",
+      "type": "scalar",
+      "required": false
+    },
+    "ket_luan": {
+      "sdt_tag": "ket_luan",
+      "resolved_path": "/body/sdt[@tag=\"ket_luan\"]",
+      "type": "scalar",
+      "required": false
+    },
+    "tai_lieu_tham_khao": {
+      "sdt_tag": "tai_lieu_tham_khao",
+      "resolved_path": "/body/sdt[@tag=\"tai_lieu_tham_khao\"]",
+      "type": "scalar",
+      "required": false
+    }
+  }
 }

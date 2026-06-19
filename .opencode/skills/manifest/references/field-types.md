@@ -11,7 +11,7 @@ A single-value text field mapped to one document location.
   "type": "scalar",
   "max_len": 120,
   "pattern": "^[0-9]+/[A-ZĐ-]+$",
-  "heading": "Tên section chứa field",
+  "heading": "Section heading containing this field",
   "heading_path": "/body/p[@paraId=ABC123]"
 }
 ```

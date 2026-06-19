@@ -17,7 +17,7 @@ The tag becomes the field key in the manifest.
 How to insert in Word:
 1. Developer tab → Insert → Plain Text Content Control
 2. Properties → Tag: `field_name` (lowercase, underscores)
-3. Placeholder text: tên field mô tả dễ hiểu
+3. Placeholder text: a clear description of the field
 
 ### legacy-anchor (deprecated)
 Uses paragraph text as anchors. Fragile, not recommended for new templates.
@@ -30,11 +30,14 @@ Convert to strict-sdt: see migration guide below.
 - Repeater row anchor tag: `row_<table_name>`, e.g., `row_education`
 - Table header: never tagged (static content)
 
-## Manifest Auto-generation
+## Manifest Creation
 
-After creating template with proper SDT tags, call `write_manifest` tool.
-It will query all SDT tags and generate manifest automatically.
-Review generated manifest: confirm field descriptions and required flags.
+After creating template with proper SDT tags, audit with:
+```bash
+officecli query <template> sdt --props tag,path,type
+```
+Build manifest JSON from the output and write to `manifests/<template_id>.manifest.json`.
+Confirm field descriptions and required flags are correct.
 
 ## Section Structure
 

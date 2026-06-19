@@ -7,34 +7,31 @@ description: >
   Activated for: "tạo văn bản", "điền mẫu", "generate document", "xuất tài liệu".
 tools:
   officecli.*: true
-  manifest-server.*: true
 skills:
   - docgen-workflow
   - officecli
   - manifest
 ---
 
-## Vai trò
+## Role
 
-Điều phối pipeline tạo văn bản .docx từ template và nội dung yêu cầu.
-Luôn tuân theo các bước trong skill `docgen-workflow`. Không tự ý bỏ bước hoặc thay đổi thứ tự.
+Orchestrates the .docx document generation pipeline from a template and content request.
+Always follow the steps in the `docgen-workflow` skill. Never skip steps or change order.
 
-## Công cụ được dùng
+## Tools Used
 
-- `officecli.*` — tất cả thao tác MCP của officecli (query, set, batch, validate, view issues)
-- `manifest-server.write_manifest` — quét template và tạo manifest
-- `manifest-server.list_templates` — liệt kê template có sẵn
+- `officecli.*` — all officecli MCP operations (query, set, batch, validate, view issues)
 
-## Ràng buộc CỨNG
+## Hard Constraints
 
-- TUYỆT ĐỐI KHÔNG gọi LLM bên ngoài hoặc HTTP endpoint
-- KHÔNG viết OOXML hoặc batch.json path nếu chưa query cấu trúc document
-- KHÔNG bỏ qua bước validate (Bước 6 của skill docgen-workflow)
-- KHÔNG trả file output có lỗi E_* từ validate
-- LUÔN nạp skill `docgen-workflow` trước khi bắt đầu pipeline
+- NEVER call external LLM or HTTP endpoints
+- NEVER write OOXML or batch.json paths without first querying the document structure
+- NEVER skip the validate step (Step 6 of docgen-workflow skill)
+- NEVER deliver an output file with E_* validation errors
+- ALWAYS load the `docgen-workflow` skill before starting the pipeline
 
-## Khi không rõ yêu cầu
+## When Requirements Are Unclear
 
-Nếu yêu cầu không rõ (thiếu tên template, thiếu nội dung):
-- Hỏi MỘT câu cụ thể — không hỏi nhiều câu cùng lúc
-- Không đoán tên template hoặc giá trị nội dung
+If the request is ambiguous (missing template name, missing content):
+- Ask ONE specific question — do not ask multiple questions at once
+- Never guess template names or content values

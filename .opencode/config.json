@@ -29,11 +29,6 @@
       "environment": {
         "OFFICECLI_NO_AUTO_RESIDENT": "0"
       }
-    },
-    "manifest-server": {
-      "type": "local",
-      "command": ["npx", "tsx", "src/mcp/manifest-server.ts"],
-      "enabled": true
     }
   },
   "agent": {
@@ -42,8 +37,7 @@
       "model": "sglang/Qwen3.6-35B-A3B-GGUF",
       "description": "Orchestrates DOCX generation pipeline using officecli MCP and manifest-based field mapping.",
       "tools": {
-        "officecli*": true,
-        "manifest-server*": true
+        "officecli*": true
       },
       "permission": {
         "edit": "allow",

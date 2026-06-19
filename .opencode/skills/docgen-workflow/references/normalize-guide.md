@@ -9,7 +9,7 @@ Extract structured field values from the user's natural language request and map
 ### 1. Field Matching
 
 Match user request content to manifest fields by:
-- **Field key**: If the key appears in the request text (e.g., key `full_name` matches text "Họ và tên: Nguyễn Văn A")
+- **Field key**: If the key appears in the request text (e.g., key `full_name` matches text "Ho va ten: Nguyen Van A")
 - **Heading/context**: In legacy-anchor mode, the `heading` property maps to section titles. Match content under that heading.
 - **Description**: The field description in manifest provides semantic hints
 
@@ -50,17 +50,17 @@ Convert input dates (any format) to the locale-appropriate format.
 When the user provides a markdown table as content, convert it to repeater/table data:
 
 ```
-| Năm  | Bằng cấp     | Trường            |
+| Year | Degree       | Institution       |
 |------|--------------|-------------------|
-| 2020 | Cử nhân      | ĐH Bách Khoa      |
-| 2023 | Thạc sĩ      | ĐH Quốc Gia       |
+| 2020 | Bachelor     | Bach Khoa Univ.   |
+| 2023 | Master       | Quoc Gia Univ.    |
 ```
 
 →
 ```json
 [
-  { "year": "2020", "degree": "Cử nhân", "institution": "ĐH Bách Khoa" },
-  { "year": "2023", "degree": "Thạc sĩ", "institution": "ĐH Quốc Gia" }
+  { "year": "2020", "degree": "Bachelor", "institution": "Bach Khoa Univ." },
+  { "year": "2023", "degree": "Master", "institution": "Quoc Gia Univ." }
 ]
 ```
 

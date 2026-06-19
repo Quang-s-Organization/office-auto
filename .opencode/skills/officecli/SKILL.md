@@ -34,7 +34,7 @@ Inspect before every write. Confirm paths exist before constructing batch.
 
 ### Set — write single field
 ```json
-{ "op": "set", "path": "/body/sdt[@tag=\"full_name\"]", "props": { "text": "Nguyễn Văn A" } }
+{ "op": "set", "path": "/body/sdt[@tag=\"full_name\"]", "props": { "text": "Nguyen Van A" } }
 ```
 
 ### Batch — atomic multi-op
@@ -48,6 +48,38 @@ Always run after batch. If `issues` is non-empty, do NOT deliver the file.
 ### View issues — human-readable problems
 ```
 officecli view issues <file>
+```
+
+## DOM Restructuring (v1.0.114+)
+
+### Create SDT container
+```bash
+officecli add <file> /body --type sdt \
+  --prop type=richtext \
+  --prop tag=<field_name>
+```
+Returns path: `/body/sdt[@sdtId=N]`
+
+### Re-parent paragraph into SDT
+```bash
+officecli move <file> /body/p[@paraId=<id>] \
+  --to /body/sdt[@tag=<field_name>]
+```
+Result: the paragraph becomes a child of the SDT.
+New path: `/body/sdt[@tag=field_name]/p[0]`
+
+### Multi-paragraph block SDT
+Move multiple paragraphs into the same SDT — childCount will increase.
+```bash
+officecli move <file> /body/p[@paraId=AAA] --to /body/sdt[@tag=block1]
+officecli move <file> /body/p[@paraId=BBB] --to /body/sdt[@tag=block1]
+```
+Query: `{ "childCount": 2 }`
+
+### Stable path after re-parent
+```
+/body/sdt[@tag=clause_1]/p[0]   ← first paragraph in SDT
+/body/sdt[@tag=clause_1]/p      ← second paragraph
 ```
 
 ## Error Handling

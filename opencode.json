@@ -8,11 +8,6 @@
       "environment": {
         "OFFICECLI_NO_AUTO_RESIDENT": "0"
       }
-    },
-    "manifest-server": {
-      "type": "local",
-      "command": ["npx", "tsx", "src/mcp/manifest-server.ts"],
-      "enabled": true
     }
   },
   "default_agent": "docgen-orchestrator",
@@ -22,7 +17,6 @@
       "model": "sglang/Qwen3.6-35B-A3B-GGUF",
       "description": "Orchestrates document generation pipeline.",
       "tools": {
-        "manifest-server*": true,
         "officecli*": true
       },
       "permission": {

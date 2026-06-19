@@ -3,10 +3,6 @@
     "officecli": {
       "command": "officecli",
       "args": ["mcp"]
-    },
-    "manifest-server": {
-      "command": "npx",
-      "args": ["tsx", "src/mcp/manifest-server.ts"]
     }
   }
 }
