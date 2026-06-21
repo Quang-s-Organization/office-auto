@@ -59,10 +59,39 @@ A path in batch.json does not exist in the document.
 2. Update the batch op with the correct path
 3. Re-execute batch
 
+## Structural Invariant Checks (academic documents)
+
+After basic validation passes, run heading order check:
+
+```bash
+officecli query <output> "paragraph[style=Heading1]" --json
+```
+
+Expected order for format_template:
+1. Heading 1: GIỚI THIỆU
+2. Heading 1: CƠ SỞ LÝ THUYẾT
+3. Heading 1: ỨNG DỤNG VÀ ĐỊNH HƯỚNG PHÁT TRIỂN AI
+4. Heading 1: KẾT LUẬN
+5. Heading 1: TÀI LIỆU THAM KHẢO
+
+**FAIL if**: any Heading 1 is missing, out of order, or appears after TÀI LIỆU THAM KHẢO.
+
+Content deduplication check:
+```bash
+officecli query <output> "paragraph[style=Normal]" --json
+```
+If body paragraphs exist OUTSIDE SDTs: flag as `W_DUPLICATE`. Do not deliver.
+
+Caption safety check:
+```bash
+officecli query <output> 'paragraph:contains("[Hình")' --json
+```
+If any paragraph starting with "[Hình" or "[Bảng" has Heading style → FAIL.
+
 ## Pass Criteria
 
 A document is ready for delivery when:
 - `validate` returns `ok: true` (or `success: true`)
 - `view issues` returns empty array
 - Leftover placeholder query returns empty array
-- Structural invariants check passes (if applicable)
+- Structural invariants check passes (S1-S4)

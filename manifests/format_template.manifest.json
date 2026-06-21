@@ -1,0 +1,144 @@
+{
+  "template_id": "format_template",
+  "template_file": "templates/format_template.docx",
+  "generated_at": "2026-06-21T00:00:00Z",
+  "version": "2.0",
+  "mode": "strict-sdt",
+  "locale": "vi-VN",
+  "fields": {
+    "gioi_thieu_body": {
+      "tag": "gioi_thieu_body",
+      "sdt_id": 1804722773,
+      "resolved_path": "/body/sdt[@sdtId=1804722773]",
+      "type": "body_text",
+      "word_style": "Normal",
+      "required": true,
+      "source_section": "GIỚI THIỆU",
+      "expected_content": "Introduction paragraph",
+      "min_words": 100,
+      "verbatim": true
+    },
+    "chuong1_heading": {
+      "tag": "chuong1_heading",
+      "sdt_id": 1804722774,
+      "resolved_path": "/body/sdt[@sdtId=1804722774]",
+      "type": "heading1",
+      "word_style": "Heading 1",
+      "required": true,
+      "source_section": "# CƠ SỞ LÝ THUYẾT",
+      "expected_content": "CƠ SỞ LÝ THUYẾT",
+      "min_words": 2,
+      "verbatim": true,
+      "set_style": true,
+      "style_path": "/body/sdt[@sdtId=1804722774]/p[1]"
+    },
+    "chuong1_tamquantrong_body": {
+      "tag": "chuong1_tamquantrong_body",
+      "sdt_id": 1804722775,
+      "resolved_path": "/body/sdt[@sdtId=1804722775]",
+      "type": "body_text",
+      "word_style": "Normal",
+      "required": true,
+      "source_section": "## Tầm quan trọng dữ liệu ảnh huấn luyện trong thị giác máy tính",
+      "expected_content": "Detailed explanation of data importance in ML",
+      "min_words": 150,
+      "verbatim": true
+    },
+    "chuong1_thuchap_body": {
+      "tag": "chuong1_thuchap_body",
+      "sdt_id": 1804722776,
+      "resolved_path": "/body/sdt[@sdtId=1804722776]",
+      "type": "body_text",
+      "word_style": "Normal",
+      "required": true,
+      "source_section": "## Thu thập dữ liệu ảnh thủ công",
+      "expected_content": "Details on manual data collection methods",
+      "min_words": 150,
+      "verbatim": true
+    },
+    "chuong2_heading": {
+      "tag": "chuong2_heading",
+      "sdt_id": 1804722777,
+      "resolved_path": "/body/sdt[@sdtId=1804722777]",
+      "type": "heading1",
+      "word_style": "Heading 1",
+      "required": true,
+      "source_section": "# ỨNG DỤNG VÀ ĐỊNH HƯỚNG PHÁT TRIỂN AI",
+      "expected_content": "ỨNG DỤNG VÀ ĐỊNH HƯỚNG PHÁT TRIỂN AI",
+      "min_words": 2,
+      "verbatim": true,
+      "set_style": true,
+      "style_path": "/body/sdt[@sdtId=1804722777]/p[1]"
+    },
+    "chuong2_slm_body": {
+      "tag": "chuong2_slm_body",
+      "sdt_id": 1804722778,
+      "resolved_path": "/body/sdt[@sdtId=1804722778]",
+      "type": "body_text",
+      "word_style": "Normal",
+      "required": true,
+      "source_section": "## Small Language Models / Edge AI",
+      "expected_content": "SLM definition, use cases, comparison with LLM",
+      "min_words": 200,
+      "verbatim": true
+    },
+    "chuong2_rag_body": {
+      "tag": "chuong2_rag_body",
+      "sdt_id": 1804722779,
+      "resolved_path": "/body/sdt[@sdtId=1804722779]",
+      "type": "body_text",
+      "word_style": "Normal",
+      "required": true,
+      "source_section": "## RAG + Knowledge Management",
+      "expected_content": "RAG architecture, retrieval pipeline, knowledge graphs",
+      "min_words": 200,
+      "verbatim": true
+    },
+    "chuong2_responsibleai_body": {
+      "tag": "chuong2_responsibleai_body",
+      "sdt_id": 1804722780,
+      "resolved_path": "/body/sdt[@sdtId=1804722780]",
+      "type": "body_text",
+      "word_style": "Normal",
+      "required": true,
+      "source_section": "## Responsible AI",
+      "expected_content": "Ethics, bias, governance frameworks",
+      "min_words": 150,
+      "verbatim": true
+    },
+    "ketluan_body": {
+      "tag": "ketluan_body",
+      "sdt_id": 1804722781,
+      "resolved_path": "/body/sdt[@sdtId=1804722781]",
+      "type": "body_text",
+      "word_style": "Normal",
+      "required": true,
+      "source_section": "KẾT LUẬN",
+      "expected_content": "Conclusion",
+      "min_words": 50,
+      "verbatim": true
+    },
+    "tlthamkhao_list": {
+      "tag": "tlthamkhao_list",
+      "sdt_id": 1804722782,
+      "resolved_path": "/body/sdt[@sdtId=1804722782]",
+      "type": "body_text",
+      "word_style": "Normal",
+      "required": false,
+      "source_section": "TÀI LIỆU THAM KHẢO",
+      "expected_content": "Reference list",
+      "min_words": 10,
+      "verbatim": true
+    }
+  },
+  "batch_conventions": {
+    "command_key": "command",
+    "path_format": "@sdtId (not @tag)",
+    "style_instructions": "For type=heading1: set text on SDT path, then set style=Heading1 on SDT/p[1]"
+  },
+  "cache_policy": {
+    "reuse_if_template_unchanged": true,
+    "hash_field": "template_hash",
+    "invalidation_trigger": "template file hash mismatch"
+  }
+}

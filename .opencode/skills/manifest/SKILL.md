@@ -35,7 +35,7 @@ Key top-level fields:
 }
 ```
 
-### Repeater **(not used in current templates)**
+### Repeater (NOT USED in current templates — architecture reference only)
 ```json
 {
   "education_rows": {
@@ -46,7 +46,7 @@ Key top-level fields:
 }
 ```
 
-### Table fill **(not used in current templates)**
+### Table fill (NOT USED in current templates — architecture reference only)
 Similar to repeater but fixed row count. See `references/field-types.md`.
 
 ## Workflow Integration
