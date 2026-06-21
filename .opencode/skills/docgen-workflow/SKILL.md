@@ -23,16 +23,30 @@ STEP 7: Report result
 
 ## Step 0 — Template Preparation (run once)
 
-Read the manifest at `manifests/<template_id>.manifest.json`.
+Check for manifest at `manifests/<template_id>.manifest.json`.
 
-If `manifest.mode == "legacy-anchor"` AND `manifest.fields` is empty:
-- **STOP — do not continue the pipeline.**
-- Load the `sdt-migration` skill and convert the template in place.
-- After migration, re-audit the template using `officecli query sdt`.
-- Write the new manifest using the file write tool.
-- Only proceed to Step 1 when `manifest.fields` is non-empty.
+**CASE A: Manifest EXISTS + `fields` non-empty**
+→ Manifest ready. Skip to Step 1.
 
-If the manifest already has fields → skip Step 0, continue to Step 1.
+**CASE B: Manifest EXISTS + `fields` empty (or `mode == "legacy-anchor"`)**
+→ **STOP — do not continue the pipeline.**
+→ Load `sdt-migration` skill and convert template in place.
+→ After migration, re-audit with `officecli query sdt`.
+→ Write new manifest (see sdt-migration Phase 4).
+→ Go back to Step 0 (will now hit CASE A).
+
+**CASE C: Manifest DOES NOT EXIST**
+→ Run audit directly:
+```bash
+officecli query <template> sdt --json
+```
+→ **If SDT tags found** (non-empty result):
+  - Build manifest from query output (see Step 1 format).
+  - Write `manifests/<template_id>.manifest.json`.
+  - Skip to Step 1.
+→ **If no SDT tags found** (template is legacy-anchor):
+  - Load `sdt-migration` skill, run full migration.
+  - After migration, go back to Step 0 (will now hit CASE A).
 
 ## Step 1 — Audit Template
 
@@ -41,7 +55,7 @@ If a manifest file already exists at `manifests/<id>.manifest.json` AND `fields`
 Otherwise, run the audit directly with officecli:
 
 ```bash
-officecli query <template> sdt --props tag,path,type
+officecli query <template> sdt --json
 ```
 
 If the result contains SDT tags: build the manifest from the output and write the file.
@@ -92,8 +106,8 @@ Build an array of ops, one per field value.
 
 ```json
 [
-  { "command": "set", "path": "/body/sdt[@tag=\"full_name\"]", "props": { "text": "Nguyen Van A" } },
-  { "command": "set", "path": "/body/sdt[@tag=\"date\"]", "props": { "text": "18/06/2026" } }
+  { "op": "set", "path": "/body/sdt[@tag=\"full_name\"]", "props": { "text": "Nguyen Van A" } },
+  { "op": "set", "path": "/body/sdt[@tag=\"date\"]", "props": { "text": "18/06/2026" } }
 ]
 ```
 

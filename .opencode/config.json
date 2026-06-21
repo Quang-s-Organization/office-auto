@@ -41,7 +41,7 @@
       },
       "permission": {
         "edit": "allow",
-        "bash": "deny"
+        "bash": "allow"
       }
     }
   },

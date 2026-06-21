@@ -34,7 +34,7 @@ Convert to strict-sdt: see migration guide below.
 
 After creating template with proper SDT tags, audit with:
 ```bash
-officecli query <template> sdt --props tag,path,type
+officecli query <template> sdt --json
 ```
 Build manifest JSON from the output and write to `manifests/<template_id>.manifest.json`.
 Confirm field descriptions and required flags are correct.

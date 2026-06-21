@@ -11,7 +11,7 @@ description: >
 
 ### Phase 1: Audit Current Structure
 ```bash
-officecli query <file> /body/p --props paraId,text,style
+officecli query <file> paragraph --json
 ```
 Note: identify all heading paragraphs (style=Heading1/2/3)
 and the empty/placeholder paragraphs immediately after them.
@@ -40,10 +40,41 @@ Expect: `{ "childCount": 1, "text": "<placeholder text>" }`
 
 ### Phase 3: Re-audit
 ```bash
-officecli query <file> sdt --props tag,path
+officecli query <file> sdt --json
 ```
-Write all tag → path mappings into the manifest JSON.
-Write file: `manifests/<template_id>.manifest.json`
+
+### Phase 4: Write Manifest File
+
+After Phase 3 re-audit, get all tags with their resolved paths:
+
+```bash
+officecli query <file> sdt --json
+```
+
+Write the manifest using the file write tool. Format:
+
+```json
+{
+  "template_id": "<template_id>",
+  "mode": "strict-sdt",
+  "locale": "vi-VN",
+  "fields": {
+    "<tag>": {
+      "sdt_tag": "<tag>",
+      "resolved_path": "/body/sdt[@tag=\"<tag>\"]",
+      "type": "scalar",
+      "required": false
+    }
+  }
+}
+```
+
+Rules:
+- `template_id` = filename without `.docx` extension
+- One entry per tag from the Phase 3 query output
+- DO NOT invent tags not found in the query
+- All fields default to `type: "scalar"` and `required: false`
+- Verify after write: read back `manifests/<template_id>.manifest.json` and confirm all tags are present
 
 ### Tag Naming Convention
 - Section heading → slugify: "Giới thiệu" → `gioi_thieu`

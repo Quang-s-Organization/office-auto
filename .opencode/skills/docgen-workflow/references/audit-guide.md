@@ -43,6 +43,6 @@ Load the `sdt-migration` skill and run the migration procedure:
 ## Converting Legacy-Anchor to Strict-SDT
 
 Use the `sdt-migration` skill, which provides a complete officecli-only procedure:
-1. Audit structure: `officecli query <file> /body/p --props paraId,text,style`
+1. Audit structure: `officecli query <file> paragraph --json`
 2. For each heading→placeholder pair: `add sdt`, `set text`, `remove placeholder`
 3. Re-audit, write manifest, validate: `officecli validate <file>`
