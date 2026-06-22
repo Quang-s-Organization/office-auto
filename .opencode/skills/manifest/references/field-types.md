@@ -1,81 +1,38 @@
-# Manifest Field Types — Detailed Reference
+# Manifest Section Metadata — Reference
 
-## Scalar (`type: "scalar"`)
+## Section Entry
 
-A single-value text field mapped to one document location.
+A section in `manifest.sections` defines content metadata for one document section.
 
 ```json
 {
-  "sdt_tag": "field_key",
-  "resolved_path": "/body/sdt[@tag=\"field_key\"]",
-  "type": "scalar",
-  "max_len": 120,
-  "pattern": "^[0-9]+/[A-ZĐ-]+$",
-  "heading": "Section heading containing this field",
-  "heading_path": "/body/p[@paraId=ABC123]"
+  "gioi_thieu_body": {
+    "tag": "gioi_thieu_body",
+    "type": "body_text",
+    "required": true,
+    "source_section": "GIỚI THIỆU",
+    "paragraph_count": 2,
+    "min_words": 100,
+    "verbatim": false,
+    "generation_hint": "Viết 1-2 đoạn GIỚI THIỆU..."
+  }
 }
 ```
 
 | Property | Required | Description |
 |----------|----------|-------------|
-| `sdt_tag` | Yes | Tag of the SDT content control |
-| `resolved_path` | Yes | Full officecli path to the field |
-| `type` | Yes | Always `"scalar"` for single-value fields |
-| `max_len` | No | Maximum character length |
-| `pattern` | No | Regex pattern the value must match |
-| `heading` | No | Section heading text (legacy-anchor mode) |
-| `heading_path` | No | Path to heading paragraph (legacy-anchor mode) |
+| `tag` | Yes | Section identifier key |
+| `type` | Yes | `"body_text"`, `"heading1"`, `"heading2"`, `"heading3"` |
+| `required` | Yes | Whether section must be filled |
+| `source_section` | Yes | Matching heading text in source markdown |
+| `paragraph_count` | No | Expected number of paragraphs (from `\n\n` count + 1) |
+| `min_words` | No | Minimum word count for body content |
+| `verbatim` | Yes | `true` = copy verbatim from source, `false` = LLM generates |
+| `generation_hint` | No | Prompt for LLM when generating content (`verbatim: false`) |
+| `split_at` | No | Text marker to split a source section into two |
+| `split_from` | No | Second half of a split starts from this text |
 
-## Date (`type: "date"`)
-
-Special scalar for date values. Format depends on manifest locale.
+## Date formatting
 
 - `vi-VN`: `DD/MM/YYYY` (e.g., `18/06/2026`)
 - `en-US`: `MM/DD/YYYY` (e.g., `06/18/2026`)
-
-```json
-{
-  "sdt_tag": "issue_date",
-  "resolved_path": "/body/sdt[@tag=\"issue_date\"]",
-  "type": "date"
-}
-```
-
-## Repeater (in `manifest.repeaters`)
-
-Clones a template row for each data item. Uses reverse-clone strategy.
-
-```json
-{
-  "clone_from": "Path to the anchor row to clone",
-  "insert_anchor": {
-    "mode": "after",
-    "path": "Path to insert point"
-  },
-  "item_fields": {
-    "field_name": "relative_path_within_cloned_row"
-  }
-}
-```
-
-**Reverse-clone strategy**: Process items in reverse order. Each clone is inserted between the anchor and previous clone. The anchor path never moves. The freshly inserted node is always at position `[1]` relative to anchor.
-
-## Table (in `manifest.tables`)
-
-Fixed-structure tables with defined columns and header rows.
-
-```json
-{
-  "path": "/body/tbl[0]",
-  "header_rows": 1,
-  "columns": ["col1", "col2", "col3"]
-}
-```
-
-Data rows start at index `header_rows + 1`. Cell paths: `<table_path>/tr[<row_idx>]/tc[<col_idx + 1>]`.
-
-## Legacy-Anchor Fields
-
-When `mode: "legacy-anchor"`, fields were detected by heading→placeholder heuristics.
-These fields use `paraId`-based paths and have `heading` + `heading_path` properties.
-Always query the document before using legacy-anchor paths — they may have shifted.

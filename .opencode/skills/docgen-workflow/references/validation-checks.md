@@ -1,4 +1,4 @@
-# Validation Checks (S1-S8)
+# Validation Checks (S1-S7)
 
 Run these AFTER content insertion and `officecli refresh`.
 
@@ -21,10 +21,13 @@ No paragraph starting with "[Hình" or "[Bảng" should have Heading style.
 Violation → FAIL.
 
 ## CHECK-S5 — Content Length
-Each body field must have ≥ 50 words. If < 50 → WARN.
+Each body paragraph must have ≥ 50 words. If < 50 → WARN.
 
-## CHECK-S6 — No Leftover Placeholders
-`W_LEFTOVER` from `officecli validate` must be 0.
+## CHECK-S6 — Clone Positioning (NEW)
+Verify cloned paragraphs appear in correct order relative to their headings:
+1. `officecli query <file> "p[style=Normal]" --json`
+2. Check each Normal paragraph's position relative to surrounding headings
+3. If any body paragraph appears BEFORE its section heading → FAIL
 
 ## CHECK-S7 — PRESERVE Section Integrity
 Verify PRESERVE sections were not modified (per struct-spec.json):
@@ -33,10 +36,4 @@ Verify PRESERVE sections were not modified (per struct-spec.json):
 - Cover page content intact
 Violation → FAIL.
 
-## CHECK-S8 — Content Presence (NEW)
-For sections inserted via Strategy B (paragraph insert):
-1. `officecli query <file> "p[style=Normal]" --json`
-2. Verify paragraphs exist after the anchor heading
-3. Count total words → should be close to source section word count
-If no paragraphs found after anchor → FAIL.
-If word count < 50% of source → WARN.
+---

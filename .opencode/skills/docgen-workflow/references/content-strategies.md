@@ -1,6 +1,8 @@
-# Content Strategy Selection
+# Content Strategy — Clone + Set (UNIFIED)
 
-For each source section in noidung.md, pick exactly one strategy.
+**Every** source section uses the same strategy: Clone a style prototype, then set its text.
+
+---
 
 ## Mechanical Rules (GHI ĐÈ mọi hành vi semantic mặc định)
 
@@ -14,49 +16,74 @@ For each source section in noidung.md, pick exactly one strategy.
 - `\n\n` (double newline / 1 dòng trống) = 1 paragraph boundary
 - `\n` đơn (single newline) trong cùng 1 paragraph KHÔNG phải boundary
 - 1 section có N dấu `\n\n` → có N+1 paragraphs
-- Không cần đọc hiểu nội dung để xác định paragraph
+- Mỗi paragraph sẽ là 1 lần clone + set riêng biệt
 
-### Heading Match Rule (cơ học)
-- So sánh CHUỖI: `source_section` trong manifest vs heading text trong markdown
-- Case-insensitive, trim whitespace
-- **KHÔNG dùng semantic matching**. Nếu text không match → không phải strategy A
-- Không suy luận "cái này gần nghĩa với cái kia"
+---
 
-## Strategy A: SDT Batch Fill
-**Use when**: `source_section` text trong manifest **exactly matches** (case-insensitive, trimmed)
-một heading trong markdown.
+## Style Prototype Resolution
 
-**Steps**:
-1. Query SDT paths: `officecli query <file> sdt --json`
-2. Build batch.json entry with the matching `sdtId`
-3. Add to batch array
+Mỗi section gồm heading + body paragraphs. Xác định prototype cho từng phần:
 
-## Strategy B: Paragraph Insert
-**Use when**: No matching SDT exists, but a heading in the template has matching text (case-insensitive contains).
+| Source Element | Clone Prototype | Cách tìm |
+|---------------|----------------|----------|
+| `# H1` heading | Heading1 | `officecli query <file> "p[style=Heading1]" --json` |
+| `## H2` heading | Heading2 | `officecli query <file> "p[style=Heading2]" --json` |
+| `### H3` heading | Heading3 | `officecli query <file> "p[style=Heading3]" --json` |
+| Body paragraph | Normal | `officecli query <file> "p[style=Normal and text!='']" --json` |
 
-**Steps**:
-1. Find the heading: `officecli query <file> "p[style=Heading2]" --json` (or Heading1/Heading3)
-2. Match by text content (case-insensitive contains)
-3. Insert content after it:
-   ```
-   officecli add <file> /body --type paragraph --after /body/p[<index>] --prop text="<content>"
-   ```
-4. For multi-paragraph content: repeat for each paragraph, inserting each after the previous one.
-5. Dùng `\n\n` để tách paragraphs — mỗi block = 1 paragraph riêng.
+**Quy tắc**: Luôn lấy **result đầu tiên** làm prototype (nó có style đầy đủ).
+**KHÔNG dùng generative text matching** — chỉ dùng style query.
 
-## Strategy C: Skip
-**Use when**: `source_section` text không match bất kỳ heading nào trong markdown.
-**Rationale**: Empty SDT is better than hallucinated content. The template author can fill it manually.
+---
 
-## Decision Flow (CHỈ DÙNG TEXT MATCH, không semantic)
+## Anchor Resolution
 
-1. Đọc `manifests/<id>.manifest.json` → lấy tất cả SDT tags + `source_section`
-2. Đọc noidung.md → list tất cả H1/H2/H3 headings + text của chúng
-3. Với mỗi SDT tag: so sánh `source_section` text với từng heading text
-   - Nếu text match (case-insensitive, trimmed) → **Strategy A**
-   - Nếu không match → **Strategy C** (skip)
-4. Với mỗi heading trong markdown chưa được map:
-   - So sánh text với heading text trong template
-   - Nếu match (case-insensitive contains) → **Strategy B**
-   - Không match → WARNING: "nội dung không có chỗ trong template"
-5. **KHÔNG dùng semantic matching ở bất kỳ bước nào**
+Mỗi cloned paragraph được chèn **sau** anchor paragraph:
+
+| Context | Anchor |
+|---------|--------|
+| Section heading đầu tiên | Sau preserved element cuối cùng (TOC/cover) |
+| Body paragraph đầu tiên của section | Sau cloned heading của section đó |
+| Body paragraph thứ N (N>1) | Sau body paragraph thứ N-1 |
+| Section heading tiếp theo | Sau body paragraph cuối cùng của section trước |
+
+**Công cụ**: `officecli add <file> /body --from <prototype> --after /body/p[@paraId=<anchor_id>]`
+
+**Important**: Dùng `@paraId` cho anchor, không dùng positional index.
+Sau mỗi lần clone, dùng `p[last()]` để reference paragraph vừa tạo.
+
+---
+
+## Workflow Cho Mỗi Section
+
+```bash
+# Bước 1: Clone heading prototype
+officecli add <file> /body --from /body/p[@paraId=<h_proto>] --after /body/p[@paraId=<anchor>]
+# → Returns path to cloned heading
+
+# Bước 2: Set heading text
+officecli set <file> /body/p[last()] --prop text="<heading text>"
+# → Style (bold, font, alignment) tự động preserved
+
+# Bước 3: Clone body prototype cho paragraph 1
+officecli add <file> /body --from /body/p[@paraId=<n_proto>] --after /body/p[last()]
+# Bước 4: Set body text
+officecli set <file> /body/p[last()] --prop text="<paragraph 1>"
+
+# Bước 5-6: Lặp lại cho mỗi paragraph tiếp theo
+officecli add <file> /body --from <normal_proto> --after /body/p[last()]
+officecli set <file> /body/p[last()] --prop text="<paragraph N>"
+```
+
+---
+
+## Edge Cases
+
+- **Section không có heading trong source**: Clone Normal prototype, content do LLM generate (dùng `generation_hint` từ manifest)
+- **Section có split marker** (`split_at` trong struct-spec): Clone Normal prototype 2 lần, nội dung chia tại marker
+- **Section không có body paragraphs**: Chỉ clone heading prototype, không clone body
+- **Nhiều heading liên tiếp không có body giữa**: Clone heading → clone heading tiếp theo (không clone body)
+
+---
+
+✅ Chỉ dùng: `add --from` + `set --prop text=` trên cloned paragraph

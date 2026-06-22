@@ -10,7 +10,7 @@ Extract structured field values from the user's natural language request and map
 
 Match user request content to manifest fields by:
 - **Field key**: If the key appears in the request text (e.g., key `full_name` matches text "Ho va ten: Nguyen Van A")
-- **Heading/context**: In legacy-anchor mode, the `heading` property maps to section titles. Match content under that heading.
+- **Heading/context**: Match content under that heading.
 - **Description**: The field description in manifest provides semantic hints
 
 ### 2. Required vs Optional

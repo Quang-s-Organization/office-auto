@@ -8,7 +8,8 @@ They OVERRIDE default LLM behavior.
 - Mỗi block text cách nhau bởi `\n\n` là 1 paragraph riêng biệt
 - `\n` đơn (xuống dòng trong cùng 1 paragraph) KHÔNG tách paragraph
 - Đếm số `\n\n` trong section = số paragraphs - 1
-- Khi fill vào DOCX: mỗi paragraph = 1 `<w:p>` element riêng biệt trong SDT
+- Khi fill vào DOCX: mỗi paragraph = 1 clone operation riêng biệt (`add --from` + `set`)
+- Mỗi paragraph là 1 `<w:p>` element độc lập ở cấp `/body`
 
 ## Verbatim Rule (HIGHEST PRIORITY)
 - Source text >= 80 words → copy VERBATIM. No exceptions.
@@ -22,7 +23,7 @@ They OVERRIDE default LLM behavior.
 - Equations → copied with exact formatting
 
 ## Completeness Over Brevity
-- If source section has 4 paragraphs → output has 4 paragraphs
+- If source section has 4 paragraphs → output has 4 clone operations
 - Never merge paragraphs unless source explicitly does so
 - Never drop examples, subsections, or bullet points from source
 
@@ -34,9 +35,9 @@ They OVERRIDE default LLM behavior.
 
 ## Verbatim Self-Check (MANDATORY)
 
-After every content write (SDT batch or paragraph insert), verify your own work:
+After every content write (clone + set), verify your own work:
 
-1. **Read back**: `officecli get <file> <path> --json`
+1. **Read back**: `officecli get <file> /body/p[last()] --json`
 2. **Compare start**: The first 80 characters of the stored text must match the source exactly (case-sensitive). If they don't match → you summarized. Delete and retry.
 3. **Compare word count**: Count words in stored text. Count words in source section. If stored < 90% of source → you dropped content. Delete and retry.
 4. Only proceed when BOTH checks pass.

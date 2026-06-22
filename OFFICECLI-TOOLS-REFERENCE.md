@@ -1,7 +1,8 @@
 # OfficeCLI Tools Reference — Pipeline Debugging Guide
 
-> Generated for debugging SDT interaction, style preservation, and tool output verification.
-> All tools are exposed via MCP at `officecli mcp`. Calls are JSON objects piped through MCP.
+> Generated for debugging OfficeCLI tool behavior.
+> **Updated for Clone DOM Builder pipeline (v4)** — primary approach is `add --from` + `set`.
+> SDT batch fill is deprecated; kept here for legacy reference only.
 
 ---
 
@@ -53,21 +54,25 @@ officecli set template.docx /body/sdt[@sdtId=1804722774]/p[1] --prop Style="Head
 **Output**: Updates the document in-place. Returns success/failure path.
 
 **Pipeline usage**:
-- Step 6 (fallback): Used when `batch` is not available
-- Step 6 (batch internals): Each batch op is a `set` under the hood
+- Step 3: **Primary** — set text on cloned paragraphs (style preserved)
+- Legacy: Setting text on SDT paths (deprecated — causes style loss)
 
-**⚠️ CRITICAL — Style preservation**:
+**✅ Safe usage (Clone DOM Builder)**:
+- `set --prop text=` on a **cloned** paragraph changes ONLY the text
+- Heading1 style, bold runs, alignment, font, numbering are all **preserved automatically**
+- No manual style restoration needed
+
+**⚠️ LEGACY — SDT path set causes style loss**:
 - `set --prop text=` on an SDT path **replaces the text run content only**
-- For heading SDTs: after setting text, must ALSO set `Style` on the paragraph child:
-  ```json
-  { "op": "set", "path": "/body/sdt[@sdtId=N]/p[1]", "props": { "Style": "Heading 1" } }
-  ```
-- **Prop name mismatch**: batch-template.json uses lowercase `"style"` but actual batch.json uses capital `"Style"` — this is inconsistent and may cause style loss
-- Setting `text` on an SDT that contains multiple paragraphs (multiple `<w:p>` elements) may merge them into one text run, collapsing paragraph structure
+- For heading SDTs: after setting text, must ALSO set `Style` on the paragraph child
+- Setting `text` on an SDT with multiple paragraphs may merge them into one run
 
 ---
 
-### 3. batch — Atomic Multi-Operation
+### 3. batch — Atomic Multi-Operation (DEPRECATED)
+
+> **⚠️ DO NOT USE in new pipeline.** Replaced by `add --from` + `set` (Clone DOM Builder).
+> Kept for legacy reference only.
 
 **MCP call**:
 ```json
@@ -88,8 +93,7 @@ officecli batch <file> --input batch.json
 **Output**: All-or-nothing atomic execution. Rolls back on any failure.
 
 **Pipeline usage**:
-- Step 6: Main execution for Strategy A (SDT batch fill)
-- Called with the constructed `batch.json` (87 ops in current pipeline)
+- Legacy: SDT batch fill (replaced by clone + set per section)
 
 **Actual batch.json uses key `"op"`**, but reference template uses `"command"` — potential desync.
 
@@ -98,24 +102,18 @@ officecli batch <file> --input batch.json
 - `E_BATCH` error → check which op caused it, fix, retry
 - `E_PATH` error → re-query document, paths may have changed
 - Performance: batch is atomic but can be slow for 80+ ops
-- **Batch preserves existing paragraph boundaries within SDT** because each `set` targets the parent SDT path, not individual `<w:p>` elements
 
 ---
 
-### 4. add — Insert New Paragraph
+### 4. add — Clone or Insert
 
-**MCP call**:
-```json
-{
-  "op": "add",
-  "path": "/body",
-  "type": "paragraph",
-  "after": "/body/p[@paraId=7FB28FCB]",
-  "props": { "text": "Content here", "style": "Normal" }
-}
+**PRIMARY — Clone paragraph with full style**:
+```bash
+officecli add <file> /body --from /body/p[@paraId=<prototype>] --after /body/p[@paraId=<anchor>]
 ```
+Clones style, bold, font, alignment, numbering, bookmarks. Returns new path.
 
-**officecli equivalent**:
+**LEGACY — Create empty paragraph (no inherited style)**:
 ```bash
 officecli add <file> /body --type paragraph --after /body/p[N] --prop text="<content>"
 officecli add <file> /body --type sdt --prop type=richtext --prop tag=<field_name>
@@ -124,15 +122,15 @@ officecli add <file> /body --type sdt --prop type=richtext --prop tag=<field_nam
 **Output**: New paragraph inserted into document. Returns the new path.
 
 **Pipeline usage**:
-- Step 7: Insert Strategy B sections (paragraph insert after heading)
-- DOM restructuring: create new SDT containers (`--type sdt`)
+- Step 3: **Primary** — clone style prototypes via `--from` for every section
+- Legacy: DOM restructuring, old Strategy B inserts
 
 **Debug notes**:
-- **Style of new paragraph**: the `style` prop determines if it's Normal, Heading2, etc.
+- **`--from` is preferred**: style is fully preserved after clone
 - `--after` uses `paraId` for precision (not positional index)
 - Each `add` returns a new paraId — subsequent inserts in the same section use this as anchor
-- **Style preservation concern**: A new paragraph added via `add` inherits the default style of the document. If you set `style: "Heading 2"`, you must ensure the style name exactly matches what's defined in the template
-- `\n\n` in text content does NOT split into multiple paragraphs — each `add` = one `<w:p>` element. To insert multiple paragraphs in a section, you need multiple `add` calls
+- After clone, use `set --prop text=` to change content (style survives)
+- `\n\n` in text content does NOT split into multiple paragraphs — clone once per paragraph
 
 ---
 
@@ -305,9 +303,27 @@ officecli remove <file> <path>
 
 ---
 
-## SDT Interaction & Style Preservation — Debug Brainstorm
+## Style Preservation with Clone DOM Builder
 
-### What can go wrong when setting text on an SDT?
+**The clone approach eliminates style loss entirely.** Since `add --from` clones the paragraph
+with all its properties (style, font, bold, alignment, numbering), and `set --prop text=`
+changes only text content, both operations are style-safe.
+
+### Verified behavior
+1. Clone Heading1 paragraph → Heading1 style preserved
+2. `set --prop text="CHƯƠNG 2"` → text changed, style still Heading1 (bold, center, 14pt, Times New Roman)
+3. Bookmarks cloned with unique auto-generated IDs
+4. No manual style restoration needed
+
+### Clone checklist
+- ✅ Query prototype paraId via `query p[style=Heading1]`
+- ✅ `add --from /body/p[@paraId=<id>] --after <anchor>` — clone with full style
+- ✅ `set --prop text="<content>"` — text changed, style safe
+- ✅ `/body/p[last()]` for same-session sequential inserts
+
+## SDT Interaction & Style Preservation — Legacy Debug
+
+### What can go wrong when setting text on an SDT? (old approach, kept for reference)
 
 | Issue | Symptom | Root Cause | Detection |
 |-------|---------|------------|-----------|
@@ -356,7 +372,7 @@ officecli validate filled.docx
 officecli view filled.docx issues
 ```
 
-### Strategy B insertion — additional concerns
+### Clone + Set insertion — concerns (replaces old Strategy B)
 
 | Issue | Symptom | Root Cause |
 |-------|---------|------------|
@@ -371,24 +387,26 @@ officecli view filled.docx issues
 
 | MCP Tool | Pipeline Steps | Purpose |
 |----------|---------------|---------|
-| `query` | 0, 3, 7, 10 | Discover structure, find anchors, verify |
-| `set` | 6 (batch), 5 (build) | Write single SDT field |
-| `batch` | 6 | Atomic multi-SDT fill |
-| `add` | 7 | Insert Strategy B paragraphs |
-| `get` | 8 | Verbatim self-check |
-| `validate` | 10 | OOXML schema validation |
-| `view` | 10 | Heading order check, human-readable issues |
-| `refresh` | 9 | Update TOC/field codes |
-| `move` | DOM restructure | Re-parent paragraphs into SDT |
-| `dump` | Debug | Raw XML inspection |
+| `query` | 0, 7 | Discover style prototypes, anchors, verify |
+| `set` | 3 | Set text on cloned paragraphs (style preserved) |
+| `add --from` | 3 | **Primary** — clone style prototype with full formatting |
+| `get` | 5 | Verbatim self-check (first 80 chars + word count) |
+| `validate` | 7 | OOXML schema validation |
+| `view` | 7 | Heading order check, human-readable issues |
+| `refresh` | 6 | Update TOC/field codes |
+| `add --type paragraph` | Legacy | Old insert (deprecated) |
+| `batch` | Legacy | SDT batch fill (deprecated) |
+| `move` | Legacy | Re-parent into SDT (deprecated) |
+| `dump` | Debug | Raw XML inspection, prototype extraction |
 | `merge` | Unused | — |
 | `remove` | Cleanup | Remove orphan headings |
 
 ---
 
-## Known Command/Prop Inconsistencies in This Codebase
+## Notes
 
-1. **`op` vs `command`**: batch.json uses `"op"` but batch-template.json uses `"command"`
-2. **`Style` vs `style`**: actual batch ops use `"Style"` (capital S) for heading style, but skill docs show lowercase
-3. **`Style` vs `Heading 1`**: The style prop value in batch.json is `"Heading 1"` (with space) which is the display name — the internal `styleId` might be `"Heading1"` (no space)
-4. **`@sdtId` vs `@tag`**: Pipeline enforces `@sdtId` but skill reference shows `@tag` in path examples
+- The old SDT batch approach (batch.json with `command: "set"` on `/body/sdt[@sdtId=N]` paths)
+  is **deprecated**. The Clone DOM Builder (`add --from` + `set`) replaces it entirely.
+- The inconsistencies listed in earlier versions (`op` vs `command`, `Style` vs `style`,
+  `@sdtId` vs `@tag`) are all SDT-batch-specific and no longer relevant.
+- For the new pipeline: use `add --from <prototype> --after <anchor>` with `@paraId` anchoring.
