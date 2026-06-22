@@ -1,0 +1,132 @@
+[
+  {
+    "op": "add",
+    "path": "/body",
+    "type": "paragraph",
+    "after": "/body/p[@paraId=7FB28FCB]",
+    "props": {
+      "text": "1.5. Tối ưu hóa hiệu năng và trí tuệ nhân tạo trên thiết bị biên",
+      "style": "Heading 2"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/body",
+    "type": "paragraph",
+    "after": "/body/p[@paraId=7FB28FCB]",
+    "props": {
+      "text": "AutoAugment và các biến thể như RandAugment, TrivialAugment đánh dấu bước chuyển quan trọng từ tăng cường được thiết kế thủ công sang tăng cường được tìm kiếm tự động hoặc ngẫu nhiên hóa có nguyên tắc. AutoAugment sử dụng học tăng cường để tìm kiếm chính sách tăng cường tối ưu trong không gian tổ hợp các phép biến đổi và xác suất áp dụng của chúng, đạt được cải thiện đáng kể trên CIFAR-10, CIFAR-100 và ImageNet so với tăng cường thủ công tốt nhất, nhưng với chi phí tính toán tìm kiếm rất lớn tương đương với huấn luyện năm nghìn mô hình [8]. RandAugment thay thế quá trình tìm kiếm bằng cách chọn ngẫu nhiên từ tập 14 phép biến đổi với cường độ đồng nhất, giữ nguyên hiệu năng của AutoAugment trong khi giảm thiểu đáng kể chi phí tính toán. Mặc dù tăng cường dữ liệu là công cụ mạnh mẽ và được áp dụng phổ biến, nó có giới hạn cơ bản không thể vượt qua: mọi biến thể được tạo ra đều phải bắt đầu từ ảnh gốc thực, và kỹ thuật này không thể tạo ra các đối tượng, bối cảnh hay điều kiện hoàn toàn mới không có trong tập dữ liệu gốc, từ đó tạo nên nhu cầu cho các phương pháp sinh dữ liệu ảnh tiên tiến hơn dựa trên mô hình sinh tổng quát [7]."
+    }
+  },
+  {
+    "op": "add",
+    "path": "/body",
+    "type": "paragraph",
+    "after": "/body/p[@paraId=7FB28FCB]",
+    "props": {
+      "text": "Các kỹ thuật tăng cường hình học bao gồm lật ảnh theo chiều ngang và dọc, xoay ảnh một góc tùy ý, cắt ngẫu nhiên (random crop), biến dạng phi tuyến (elastic deformation) và phối cảnh (perspective transform). Các kỹ thuật tăng cường quang học bao gồm thay đổi độ sáng (brightness), độ tương phản (contrast), bão hòa màu (saturation), cân bằng màu (hue shift), thêm nhiễu Gaussian và làm mờ ảnh (blur). Phương pháp Mixup đề xuất bởi Zhang và cộng sự năm 2018 tạo ra ảnh tổng hợp bằng cách nội suy tuyến tính cả ảnh lẫn nhãn của hai mẫu gốc, cải thiện độ chính xác phân loại từ 0.3 đến 2.5 phần trăm trên nhiều benchmark và tăng đáng kể độ bền vững (robustness) trước các ví dụ đối nghịch (adversarial examples) [8]. CutMix kết hợp các vùng ảnh từ nhiều ảnh khác nhau trong khi CutOut che khuất một vùng ngẫu nhiên của ảnh, cả hai đều khuyến khích mô hình học phân biệt đặc trưng từ nhiều vùng không gian của ảnh thay vì phụ thuộc quá mức vào một vùng cục bộ."
+    }
+  },
+  {
+    "op": "add",
+    "path": "/body",
+    "type": "paragraph",
+    "after": "/body/p[@paraId=7FB28FCB]",
+    "props": {
+      "text": "Tăng cường dữ liệu ảnh (data augmentation) là nhóm kỹ thuật áp dụng các biến đổi có kiểm soát lên ảnh gốc để tạo ra các biến thể mới, qua đó mở rộng hiệu quả quy mô của tập dữ liệu mà không cần thu thập thêm dữ liệu thực và đồng thời cải thiện khả năng tổng quát hóa của mô hình bằng cách mô phỏng sự biến thiên tự nhiên của dữ liệu thực [8]. Về mặt lý thuyết, tăng cường dữ liệu có thể được hiểu là một dạng regularization ngầm ẩn, áp đặt tiên nghiệm về tính bất biến mong muốn của mô hình (invariance prior) lên không gian biểu diễn học được. Khi chúng ta áp dụng phép lật ngang ảnh (horizontal flip) trong huấn luyện, chúng ta ngầm yêu cầu mô hình học biểu diễn bất biến với phản xạ gương, một tiên nghiệm hợp lý cho nhiều tác vụ nhận dạng đối tượng nhưng hoàn toàn không phù hợp cho tác vụ nhận dạng ký tự chữ viết tay hay phân biệt trái-phải trong chẩn đoán y khoa [8]."
+    }
+  },
+  {
+    "op": "add",
+    "path": "/body",
+    "type": "paragraph",
+    "after": "/body/p[@paraId=7FB28FCB]",
+    "props": {
+      "text": "1.4.2. Tăng cường dữ liệu ảnh",
+      "style": "Heading 3"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/body",
+    "type": "paragraph",
+    "after": "/body/p[@paraId=7FB28FCB]",
+    "props": {
+      "text": "Chi phí và thời gian là rào cản lớn nhất của phương pháp thu thập thủ công khi mở rộng quy mô. Ước tính của Cordts và cộng sự trong dự án Cityscapes cho biết chi phí trung bình để chú thích một ảnh đường phố ở mức semantic segmentation với mask pixel-level là 1.5 giờ lao động chuyên môn, tức là hàng nghìn giờ người cho một tập dữ liệu cỡ vừa, chưa kể chi phí thiết bị, logistics và kiểm soát chất lượng [7]. Bên cạnh đó, nhiều ứng dụng có yêu cầu chụp ảnh trong điều kiện khó tiếp cận hoặc nguy hiểm như bên trong lò phản ứng hạt nhân, dưới nước sâu hoặc trong vùng thảm họa tự nhiên, khiến việc thu thập dữ liệu thực tế trở nên không khả thi hoặc cực kỳ tốn kém. Những hạn chế cốt lõi này, kết hợp với nhu cầu dữ liệu ngày càng tăng của các kiến trúc học sâu hiện đại, chính là động lực thúc đẩy sự phát triển mạnh mẽ của các phương pháp tăng cường và sinh dữ liệu tổng hợp."
+    }
+  },
+  {
+    "op": "add",
+    "path": "/body",
+    "type": "paragraph",
+    "after": "/body/p[@paraId=7FB28FCB]",
+    "props": {
+      "text": "Quy trình chú thích (annotation pipeline) là yếu tố quyết định chất lượng của tập dữ liệu thu thập thủ công, đặc biệt với các tác vụ cần chú thích chi tiết như phát hiện đối tượng với bounding box, phân đoạn instance với mask ở mức pixel và ước lượng pose với keypoint. Tập dữ liệu COCO (Common Objects in Context) do Microsoft phát triển đã đặt ra chuẩn mực cho quy trình chú thích đa tác vụ, với 330,000 ảnh được chú thích bởi hơn năm mươi nghìn người, trong đó mỗi ảnh trung bình chứa 7.7 đối tượng được chú thích với bounding box, mask phân đoạn và 80 loại nhãn phân cấp [2]. Công cụ chú thích hiện đại như CVAT (Computer Vision Annotation Tool), Label Studio và Scale AI cung cấp hạ tầng quản lý tác vụ, kiểm soát chất lượng nhiều lớp và tích hợp dự đoán trợ giúp từ mô hình pre-trained để tăng tốc quá trình chú thích từ hai đến năm lần so với chú thích thuần thủ công. Các hệ thống Inter-Annotator Agreement (IAA) như Cohen's Kappa và Fleiss' Kappa được sử dụng để đo lường mức độ đồng thuận giữa các người chú thích, với ngưỡng chấp nhận thường được đặt ở kappa lớn hơn 0.7 cho tác vụ phân loại và lớn hơn 0.6 cho tác vụ phân đoạn [7]."
+    }
+  },
+  {
+    "op": "add",
+    "path": "/body",
+    "type": "paragraph",
+    "after": "/body/p[@paraId=7FB28FCB]",
+    "props": {
+      "text": "Thu thập dữ liệu ảnh thủ công là phương pháp xây dựng tập dữ liệu nguyên thủy nhất và vẫn là nguồn dữ liệu có tính xác thực cao nhất khi được thực hiện đúng cách, bao gồm quy trình lập kế hoạch thu thập, chụp ảnh thực địa có kiểm soát và chú thích chuyên môn bởi con người. Quy trình thu thập hiệu quả bắt đầu từ việc xác định rõ phân phối đích của tập dữ liệu thông qua phân tích ontology đối tượng, sau đó thiết kế giao thức thu thập đảm bảo sự đa dạng theo các chiều quan trọng như góc nhìn, điều kiện ánh sáng, nền và kích thước đối tượng trong ảnh [7]. Tập dữ liệu ImageNet, được xây dựng bởi nhóm nghiên cứu của Fei-Fei Li tại Stanford từ năm 2007 đến 2009, đã huy động hơn ba mươi nghìn người chú thích qua nền tảng Amazon Mechanical Turk để tạo ra 14 triệu ảnh thuộc 21,841 nhóm đối tượng theo WordNet hierarchy, thiết lập chuẩn vàng cho phương pháp thu thập dữ liệu ảnh quy mô lớn [1]."
+    }
+  },
+  {
+    "op": "add",
+    "path": "/body",
+    "type": "paragraph",
+    "after": "/body/p[@paraId=7FB28FCB]",
+    "props": {
+      "text": "1.4.1. Thu thập dữ liệu ảnh thủ công",
+      "style": "Heading 3"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/body",
+    "type": "paragraph",
+    "after": "/body/p[@paraId=7FB28FCB]",
+    "props": {
+      "text": "Trước sự phát triển của các phương pháp sinh tổng hợp dựa trên học sâu, cộng đồng nghiên cứu và phát triển ứng dụng thị giác máy tính chủ yếu dựa vào hai nhóm phương pháp truyền thống để xây dựng và mở rộng tập dữ liệu ảnh: thu thập thủ công kết hợp chú thích của con người và tăng cường dữ liệu thông qua các biến đổi hình học và quang học xác định. Hai nhóm phương pháp này đã tạo ra nền tảng cho nhiều đột phá quan trọng trong lịch sử thị giác máy tính, từ ImageNet đến COCO, và tiếp tục đóng vai trò quan trọng như nguồn dữ liệu gốc cho các hệ thống huấn luyện hiện đại ngay cả khi được kết hợp với dữ liệu tổng hợp [7]."
+    }
+  },
+  {
+    "op": "add",
+    "path": "/body",
+    "type": "paragraph",
+    "after": "/body/p[@paraId=7FB28FCB]",
+    "props": {
+      "text": "1.4. Các phương pháp sinh dữ liệu ảnh truyền thống",
+      "style": "Heading 2"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/body",
+    "type": "paragraph",
+    "after": "/body/p[@paraId=7FB28FCB]",
+    "props": {
+      "text": "Nông nghiệp thông minh và giám sát môi trường là lĩnh vực ứng dụng đang thu hút đầu tư mạnh mẽ, đặc biệt trong bối cảnh biến đổi khí hậu và áp lực an ninh lương thực toàn cầu. Các hệ thống phân tích ảnh chụp từ UAV (drone) và vệ tinh viễn thám được ứng dụng để phát hiện sâu bệnh, đánh giá tình trạng sức khỏe cây trồng qua chỉ số thực vật NDVI (Normalized Difference Vegetation Index), ước lượng năng suất thu hoạch và giám sát diện tích rừng. Thách thức dữ liệu đặc trưng của lĩnh vực này bao gồm sự biến đổi theo mùa vụ và địa lý, nhu cầu chú thích chuyên môn từ các nhà nông học và sinh thái học, cùng với độ phân giải không gian và phổ ảnh đa dạng phụ thuộc vào loại cảm biến thu thập [5]."
+    }
+  },
+  {
+    "op": "add",
+    "path": "/body",
+    "type": "paragraph",
+    "after": "/body/p[@paraId=7FB28FCB]",
+    "props": {
+      "text": "Phương tiện tự lái và hệ thống hỗ trợ lái xe nâng cao (Advanced Driver Assistance Systems - ADAS) là một trong những ứng dụng đòi hỏi tập dữ liệu ảnh đa dạng và phong phú nhất hiện nay, với yêu cầu bao phủ đầy đủ mọi điều kiện thời tiết, thời gian trong ngày, loại đường, mật độ giao thông và tình huống biên hiếm gặp nhưng an toàn tới hạn [6]. Bộ dữ liệu Waymo Open Dataset với hơn ba nghìn phút lái xe được ghi lại bởi 32 cảm biến LiDAR và 5 camera, tập dữ liệu KITTI của Viện Công nghệ Karlsruhe và nuScenes của Motional đã trở thành nền tảng chuẩn cho nghiên cứu phát hiện đối tượng 3D và ước lượng độ sâu. Đáng chú ý là các tình huống long-tail, tức là các trường hợp hiếm gặp như người đi bộ ở điều kiện tầm nhìn thấp, phương tiện bị che khuất một phần hoặc điều kiện thời tiết cực đoan, chiếm lượng không đáng kể trong dữ liệu tự nhiên nhưng lại chính xác là những trường hợp quyết định sự an toàn trong thực tế, và đây là một trong những động lực mạnh mẽ nhất thúc đẩy nghiên cứu sinh dữ liệu ảnh tổng hợp."
+    }
+  },
+  {
+    "op": "add",
+    "path": "/body",
+    "type": "paragraph",
+    "after": "/body/p[@paraId=7FB28FCB]",
+    "props": {
+      "text": "Sản xuất công nghiệp và kiểm soát chất lượng tự động là lĩnh vực thứ hai hưởng lợi đáng kể từ sự tiến bộ trong dữ liệu ảnh và mô hình thị giác máy tính. Hệ thống phát hiện lỗi bề mặt (surface defect detection) trong dây chuyền sản xuất điện tử, ô tô và dệt may có thể vận hành liên tục với tốc độ vượt xa khả năng kiểm tra thủ công của con người, xử lý hàng nghìn sản phẩm mỗi giờ trong điều kiện ánh sáng và góc chụp kiểm soát chặt chẽ [6]. Tuy nhiên, một trong những thách thức đặc thù của lĩnh vực này là sự hiếm gặp cực kỳ của các mẫu lỗi trong sản xuất thực tế, khi tỷ lệ sản phẩm lỗi chỉ ở mức phần nghìn đến phần triệu, dẫn đến vấn đề mất cân bằng phân lớp nghiêm trọng và đòi hỏi các kỹ thuật sinh dữ liệu lỗi tổng hợp để đảm bảo mô hình được huấn luyện trên đủ mẫu dương tính. Nghiên cứu của MVTec Anomaly Detection dataset đã cung cấp chuẩn so sánh được chấp nhận rộng rãi trong cộng đồng, gồm 5,354 ảnh độ phân giải cao thuộc mười lăm loại vật liệu và đối tượng khác nhau với tổng cộng 70 loại lỗi được chú thích ở mức pixel."
+    }
+  }
+]
