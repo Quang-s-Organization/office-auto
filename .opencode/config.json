@@ -35,7 +35,7 @@
     "docgen-orchestrator": {
       "mode": "primary",
       "model": "sglang/Qwen3.6-35B-A3B-GGUF",
-      "description": "Orchestrates DOCX generation pipeline using officecli MCP and manifest-based field mapping.",
+      "description": "Orchestrates DOCX generation from noidung.md + template.docx via IR-based document synthesis.",
       "tools": {
         "officecli*": true
       },

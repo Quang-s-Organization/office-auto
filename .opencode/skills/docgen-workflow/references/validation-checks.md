@@ -3,14 +3,14 @@
 Run these AFTER content insertion and `officecli refresh`.
 
 ## CHECK-S1 — Heading Order
-Query document outline. Verify chapters appear in the expected order from `manifests/<id>.struct-spec.json`.
+Query document outline. Verify chapters appear in the expected order from `content.ir.json`.
 ```
 officecli view <file> outline
 ```
 If order is wrong → FAIL with specific location.
 
 ## CHECK-S2 — Chapter Count
-Count H1 headings. Expected count = N from struct-spec.json invariants.
+Count H1 headings. Expected count = section count from `content.ir.json`.
 If count != N → FAIL. "Missing chapters detected."
 
 ## CHECK-S3 — No Duplicate Headings
@@ -30,10 +30,12 @@ Verify cloned paragraphs appear in correct order relative to their headings:
 3. If any body paragraph appears BEFORE its section heading → FAIL
 
 ## CHECK-S7 — PRESERVE Section Integrity
-Verify PRESERVE sections were not modified (per struct-spec.json):
-- TOC field codes still exist
-- Headers/footers unchanged
+Verify PRESERVE sections were not modified:
+- Query template via `officecli query <file> sdt` — TOC field codes must still exist
+- Headers/footers unchanged (verify via visual inspection or metadata check)
 - Cover page content intact
+- Reference: use `officecli view <file> outline` to check first heading position
+  (anything before the first H1 is preserved front matter — must not be modified)
 Violation → FAIL.
 
 ---

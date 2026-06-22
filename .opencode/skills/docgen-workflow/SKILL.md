@@ -1,142 +1,127 @@
 ---
 name: docgen-workflow
-version: 4
+version: 6
 description: >
-  Clone-based DOM Builder pipeline for DOCX generation.
-  Uses add --from to clone style prototypes, then set text.
+  v2 refined — Document synthesis pipeline. Takes noidung.md + template.docx,
+  generates content IR, then discovers template LIVE via officecli query.
+  Builds document via clone DOM Builder (add --from + set text).
   Always load 'officecli' and 'manifest' skills alongside this one.
 ---
 
 ## Pipeline Overview
 
 ```
-STEP -1: Pre-flight — read struct-spec for section map + paragraph count
-STEP 0:  Query template for style prototypes (Heading1/2/3/Normal paraIds)
-STEP 1:  Extract content verbatim from noidung.md (read content-rules.md)
-STEP 2:  Build clone-and-insert plan (section → prototype style → anchor)
-STEP 3:  Execute: for each section → add --from <prototype> --after <anchor> → set text
-STEP 4:  Handle AI-generated sections (sections marked `verbatim: false` in manifest)
-STEP 5:  Verbatim self-check (read back first 80 chars + word count)
-STEP 6:  Post-processing: officecli refresh
-STEP 7:  Validation (read references/validation-checks.md)
-STEP 8:  Copy to output: cp <file> report.docx
-STEP 9:  Report result
+STEP -1: Load content.ir.json — generate from noidung.md if missing
+STEP  0: Live Template Discovery — officecli query + view outline
+STEP  1: Build clone plan (content sections → template prototypes → anchors)
+STEP  2: Execute: for each section → add --from <prototype> --after <anchor> → set text
+STEP  3: Handle AI-generated sections (verbatim: false)
+STEP  4: Verbatim self-check (read back first 80 chars + word count)
+STEP  5: Post-processing: officecli refresh
+STEP  6: Validation (read references/validation-checks.md)
+STEP  7: Copy to output
+STEP  8: Report result
 ```
 
-## Step -1 — Pre-Flight: Read Section Map
+---
 
-Read `manifests/<id>.struct-spec.json` to understand:
-- How many sections, their source headings, and types
-- Which style prototype each section needs (heading → Heading1/2/3, body → Normal)
-- Preserved sections that must NOT be touched
-- Expected H1 order for validation
+## Step -1 — Load Content IR
 
-Also read `noidung.md` to count paragraphs per section (count `\n\n` + 1).
-
-## Step 0 — Query Template for Style Prototypes
-
-Find ONE representative paragraph per style to use as clone source.
+Generate content.ir.json from noidung.md (required, deterministic):
 
 ```bash
-# Get Heading1 prototype (first result)
-officecli query <file> "p[style=Heading1]" --json
-# → Extract paraId from first result
-
-# Get Heading2 prototype
-officecli query <file> "p[style=Heading2]" --json
-
-# Get Heading3 prototype
-officecli query <file> "p[style=Heading3]" --json
-
-# Get Normal body prototype (prefer one with text content)
-officecli query <file> "p[style=Normal and text!='']" --json
+python3 tools/markdown-parser.py noidung.md --out content.ir.json
 ```
 
-Store prototype paraIds in working memory. These are stable for the session.
+This is **100% deterministic** — no LLM needed. Parser extracts:
+- Heading hierarchy (H1/H2/H3) from `#` `##` `###`
+- Paragraph count from `\n\n` boundaries
+- Verbatim paragraphs (full text, not summarized)
+- Auto-generated tags (`h1_1`, `h2_1_1`, `h2_1_2`, ...)
 
-## Step 1 — Extract Content
+---
 
-Read `references/content-rules.md`. All rules there are mandatory.
-Split noidung.md into sections by heading level.
-For each section, note:
-- Heading text (for H1/H2/H3)
-- Body paragraphs (split by `\n\n`)
-- Paragraph count
+## Step 0 — Live Template Discovery
 
-## Step 2 — Build Clone Plan
+Discover template structure at runtime via officecli. **No template.ir.json required.**
 
-For each section in document order (from struct-spec), determine:
+### Query style prototypes
 
-| Field | Determined From |
-|-------|----------------|
-| Prototype style | Section type (heading1 → Heading1, body_text → Normal) |
-| Number of clones | 1 for heading, N for body (N = paragraph count) |
-| First anchor | Previous section's last paragraph, or last preserved element |
-| Content | From noidung.md (verbatim) or LLM generation_hint |
+```bash
+officecli query <template> "p[style=Heading1]" --json   # → capture paraId for --from
+officecli query <template> "p[style=Heading2]" --json   # → Heading2 prototype
+officecli query <template> "p[style=Heading3]" --json   # → Heading3 prototype
+officecli query <template> "p[style=Normal]" --json      # → Normal body prototype
+```
 
-Build plan in working memory as ordered list of operations.
+### Get document outline
 
-## Step 3 — Execute Clone + Set
+```bash
+officecli view <template> outline
+```
 
-For each section, in document order:
 
-### 3a. Clone heading (if section has a heading)
+
+---
+
+## Step 1 — Build Clone Plan
+
+For EACH section in `content.ir.json` (document order):
+
+| Field | Source |
+|-------|--------|
+| **Prototype selector** | Map `section.type` to style: `heading1` → `p[style=Heading1]`, `body_text` → `p[style=Normal]` |
+| **Prototype paraId** | From Step 0 query result (live, always correct) |
+| **Anchor** | Previous section's last paragraph, or last preserved element |
+| **Heading text** | `section.title` (for heading types) |
+| **Body paragraphs** | `section.body_paragraphs[]` (each becomes one clone) |
+| **Verbatim flag** | `section.verbatim` — if false, use LLM generation |
+
+Store plan in working memory.
+
+---
+
+## Step 2 — Execute Clone + Set
+
+For each operation in the plan:
+
 ```bash
 officecli add <file> /body --from /body/p[@paraId=<prototype_id>] --after /body/p[@paraId=<anchor_id>]
-officecli set <file> /body/p[last()] --prop text="<heading text>"
-```
-The cloned heading has **full style preserved** (bold, font, alignment, numbering).
-No manual style restoration needed.
-
-### 3b. Clone body paragraphs
-For each paragraph in the section (1 to N):
-```bash
-# Clone body prototype after previous paragraph
-officecli add <file> /body --from /body/p[@paraId=<normal_proto>] --after /body/p[last()]
-# Set text
-officecli set <file> /body/p[last()] --prop text="<paragraph N content>"
+officecli set <file> /body/p[last()] --prop text="<content>"
 ```
 
-### 3c. Track new positions
-After each clone, the new paragraph is at `/body/p[last()]`.
-This becomes the anchor for the next clone.
+Rules:
+- Use `@paraId` for `--from` and `--after` — these come from live query (Step 0)
+- After each clone, reference the new paragraph via `/body/p[last()]`
+- Clone in document order — each new paragraph is the next anchor
 
-## Step 4 — Handle AI-Generated Sections
+---
 
-For sections where `source_section` in manifest has no matching heading in noidung.md
-(marked as `verbatim: false`):
+## Step 3 — Handle AI-Generated Sections
 
+For sections where `verbatim: false` (no matching heading in noidung.md):
+- Giới thiệu, Kết luận, or any section without source content
 1. Clone Normal prototype at the appropriate position
-2. Set text using LLM generation (follow `generation_hint` from manifest)
-3. Apply verbatim self-check (first 80 chars + word count) against generated content
+2. Generate content via LLM (use section title as context)
+3. Apply verbatim self-check against generated content
 
-## Step 5 — Verbatim Self-Check
+---
 
-For every paragraph that was cloned and set:
-1. Read it back: `officecli get <file> /body/p[last()] --json`
-2. Compare first 80 characters against source → must match exactly
-3. Word count check: stored words >= 90% of source words
-4. If either fails → delete content and retry (do NOT proceed with summarized content)
+## Step 4 — Verbatim Self-Check
 
-## Step 6 — Post-Processing
+For every cloned paragraph:
+1. `officecli get <file> /body/p[last()] --json` → read back
+2. First 80 chars must match source EXACTLY (case-sensitive)
+3. Word count >= 90% of source paragraph
+4. If either fails → delete and retry
 
-`officecli refresh <file>` — updates TOC, figure lists, cross-references.
+---
 
-## Step 7 — Validation
+## Step 5-8 — Post-Processing, Validation, Output
 
-Read `references/validation-checks.md` and run all S1–S7 checks.
-Pipeline only completes if S1–S4 = PASS. S5 warnings acceptable.
+Same as v1: `officecli refresh`, S1-S7 checks, `cp` to `report.docx`, report.
 
-## Step 8 — Copy to Output
-
-```bash
-cp <file> report.docx
-```
-
-## Step 9 — Report Result
-
-On success: output path + list of sections filled with clone counts.
-On failure: which step failed + exact error. Do not deliver partial output.
+---
 
 ## Constraints (NEVER violate)
 
@@ -145,5 +130,5 @@ On failure: which step failed + exact error. Do not deliver partial output.
 - NEVER skip validation
 - NEVER call inner LLM or external API
 - NEVER deliver a file with `E_*` validation errors
-API
-- NEVER deliver a file with `E_*` validation errors
+- NEVER edit content.ir.json manually — regenerate instead
+- NEVER treat `.cache/template.ir.json` as source of truth — always prefer live query

@@ -1,10 +1,12 @@
 ---
 name: docgen-orchestrator
-version: 5
+version: 7
 description: >
-  Primary agent for document generation. Orchestrates DOCX generation using
-  Clone DOM Builder (add --from + set text), skill-based workflows, and
-  struct-spec-driven section mapping.
+  v2 refined — Document synthesis agent. Orchestrates DOCX generation from
+  noidung.md + template.docx using Intermediate Representation (IR) approach.
+  Generates content IR deterministically, then discovers template LIVE via
+  officecli query (no template IR prerequisite). Builds document via
+  clone DOM Builder (add --from + set text).
   Activated for: "tạo văn bản", "điền mẫu", "generate document", "xuất tài liệu".
 tools:
   officecli.*: true
@@ -17,45 +19,38 @@ skills:
 
 ## Role
 
-Orchestrates .docx document generation from template + `noidung.md` using Clone DOM Builder approach:
-query style prototypes → clone via `add --from` → set text (style auto-preserved).
+Synthesizes .docx documents from `noidung.md` + `template.docx` using intermediate representations (IR).
+Content IR is generated automatically from markdown. Template is discovered LIVE via officecli query.
+No template IR file required — template.ir.json is optional cache only.
 
-## Pipeline Overview (via docgen-workflow SKILL.md v4)
+## Pipeline (via docgen-workflow SKILL.md v6)
 
 | Step | Action |
 |------|--------|
-| **-1** | Pre-flight: read `struct-spec.json` for section map + paragraph counts |
-| **0** | Query template for style prototypes — `query p[style=Heading1/2/3/Normal]` |
-| **1** | Extract content **verbatim** from `noidung.md` (read content-rules.md) |
-| **2** | Build clone-and-insert plan (section → prototype style → anchor) |
-| **3** | Execute: `add --from <prototype> --after <anchor>` + `set --prop text=` for each section |
-| **4** | Handle AI-generated sections (sections with `verbatim: false`, use `generation_hint`) |
-| **5** | **Verbatim self-check** — read back, compare first 80 chars, check word count |
-| **6** | Post-processing: `officecli refresh` |
-| **7** | Validation (S1-S7 checks from validation-checks.md) |
-| **8** | Copy output to `out/report.docx` |
-| **9** | Report result with stats |
+| **-1** | Load `content.ir.json` or generate via `python3 tools/markdown-parser.py` |
+| **0** | Live Template Discovery: `officecli query` for Heading1/2/3/Normal prototypes + outline |
+| **1** | Build clone plan: map content sections → style selectors → anchors |
+| **2** | Execute: `add --from <prototype> --after <anchor>` + `set --prop text=` |
+| **3** | Handle AI-generated sections (`verbatim: false` — Giới thiệu, Kết luận, etc.) |
+| **4** | Verbatim self-check (first 80 chars + word count) |
+| **5** | Post-processing: `officecli refresh` |
+| **6** | Validation (S1-S7 from validation-checks.md) |
+| **7** | Copy output to `out/report.docx` |
+| **8** | Report result with stats |
 
-## Section Mapping (noidung.md → Document)
+## Key Design Decisions (v2 Refined)
 
-Refer to the template's `struct-spec.json` for section registry:
-- Each section defines `mode: "clone"` + `prototype` (Heading1/2/3/Normal)
+1. **content.ir.json is the only required IR** — generated deterministically from noidung.md via markdown-parser.py. No LLM involvement.
 
-## Key Fixes (learned from experience)
+2. **Template discovery is LIVE** — no template.ir.json required. Agent queries template directly via `officecli query` and `officecli view outline` at runtime. This guarantees correctness even when template changes.
 
-1. **Clone anchor stability**: Use `@paraId` for `--from` and `--after` — never positional indices.
-   After cloning, reference the new paragraph via `/body/p[last()]` within the same session.
+3. **Use prototype_selector (style-based), not prototype_path (paraId-based)** — `p[style=Heading1]` is stable across template edits. paraId changes when user edits the template.
 
-2. **OfficeCLI resident cache**: After `cp` to overwrite output, always close resident:
-   ```bash
-   officecli close out/report.docx
-   ```
+4. **template.ir.json is optional cache** — stored in `.cache/`. Exists only for debugging or speed. Deleting it never breaks the pipeline.
 
-3. **Orphan removal**: Template may have orphan paragraphs (e.g., stale headings).
-   Check struct-spec `orphan_removals` and remove if present:
-   ```bash
-   officecli remove <file> <orphan_path>
-   ```
+5. **No SDT** — Content sections use clone DOM Builder (`add --from` + `set`). No SDT migration, no batch ops.
+
+6. **Markdown parser is deterministic** — `tools/markdown-parser.py` extracts heading hierarchy and paragraph count from `\n\n` boundaries. No LLM involvement.
 
 ## Hard Constraints
 
@@ -63,5 +58,6 @@ Refer to the template's `struct-spec.json` for section registry:
 - NEVER construct paths without querying first
 - NEVER skip validation
 - NEVER deliver file with E_* errors
-- ALWAYS follow skill-defined workflow (not ad-hoc commands)
+- NEVER edit IR files manually — regenerate instead
+- ALWAYS follow workflow-defined pipeline (not ad-hoc commands)
 - ALWAYS extract content verbatim — NO summarization

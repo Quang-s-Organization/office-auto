@@ -5,30 +5,35 @@ AI-powered DOCX generation using **skills**, **agents**, and **MCP tools** — n
 ## Architecture
 
 ```
-noidung.md (source)  →  Agent (docgen-orchestrator)  →  officecli MCP  →  report.docx
-                            ├── skills/         (workflow, strategies, validation)
-                            ├── manifests/      (field mapping, section registry)
-                            └── templates/      (format_template.docx with SDTs)
+noidung.md (source)  ──►  tools/markdown-parser.py  ──►  content.ir.json  ──►  Agent  ──►  report.docx
+template.docx (template)  ──►  live officecli query  ───────────────────────────┘
+                                  ├── .opencode/skills/    (workflow, strategies)
+                                  ├── .cache/              (optional cache artifacts)
+                                  └── templates/           (format_template.docx)
 ```
 
 ## Core Components
 
-- **Agent**: `.opencode/agents/docgen-orchestrator.md` — orchestrates the 12-step pipeline
+- **Agent**: `.opencode/agents/docgen-orchestrator.md` — orchestrates the document synthesis pipeline
 - **Skills**: `.opencode/skills/` — `docgen-workflow`, `officecli`, `manifest`, `docx-template`
-- **Manifests**: `manifests/` — template metadata (`manifest.json`) + section registry (`struct-spec.json`)
-- **Template**: `templates/format_template.docx` — SDT-based DOCX template
-- **Source**: `noidung.md` — input content (extracted verbatim, never summarized)
+- **Source**: `noidung.md` — input markdown content
+- **Template**: `templates/format_template.docx` — DOCX template with heading styles
+- **Parser**: `tools/markdown-parser.py` — deterministic markdown → content.ir.json (required)
 
-## Usage
 
-```bash
-# Run via OpenCode/CommandCode agent:
-# The docgen-orchestrator agent handles everything through skills + MCP tools.
-```
+## Pipeline (v2 Refined)
+
+| Step | Action |
+|------|--------|
+| -1 | Generate `content.ir.json` from `noidung.md` via `markdown-parser.py` |
+| 0 | Live template discovery via `officecli query` + `officecli view outline` |
+| 1 | Build clone plan (sections → style prototypes → anchors) |
+| 2 | Execute `add --from <proto> --after <anchor>` + `set --prop text=` |
+| 3-8 | AI sections, self-check, refresh, validation, copy, report |
 
 ## Key Rules
 
 - **Verbatim extraction** — LLM copies source text exactly, never rewrites
-- **SDT-based** — Content Controls with tags, not placeholders
-- **Stable IDs** — always use `@sdtId`, `@paraId` (never positional indices)
-- **Zero custom scripts** — all pipeline logic lives in skills
+- **Clone DOM Builder** — `add --from` + `set --prop text=`, not SDT batch
+- **Live discovery** — template is queried at runtime, not pre-cached
+- **No manifests required** — content.ir.json replaces manifest.json + struct-spec.json

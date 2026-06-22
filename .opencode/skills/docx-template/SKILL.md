@@ -1,47 +1,37 @@
 ---
 name: docx-template
-version: 1
+version: 2
 description: >
   Guide for authoring DOCX templates compatible with the office-auto pipeline.
-  Load when creating a new template, diagnosing audit failures, or converting
-  legacy-anchor templates to strict-sdt mode.
+  Load when creating a new template, diagnosing audit failures, or understanding
+  template structure. NOTE: The active pipeline (v2 refined) uses Clone DOM Builder
+  (add --from + set), not SDT batch fill. SDT guidance below is for legacy templates.
 ---
 
-## Template Modes
+## Template Compatibility
 
-### strict-sdt (preferred)
-Uses Word Content Controls with explicit tags.
-Each placeholder is a `Plain Text Content Control` with a unique `tag` value.
-The tag becomes the field key in the manifest.
+The v2 refined pipeline uses **Clone DOM Builder** — it clones paragraphs by style
+(Heading1, Heading2, Heading3, Normal) and preserves all formatting. Any DOCX with
+proper Word heading styles works. No SDT tags required.
 
-How to insert in Word:
-1. Developer tab → Insert → Plain Text Content Control
-2. Properties → Tag: `field_name` (lowercase, underscores)
-3. Placeholder text: a clear description of the field
+### Recommended: Style-Based Template
+- Use Word heading styles (Heading 1, Heading 2, Heading 3, Normal)
+- First paragraph of each style serves as the clone prototype
+- No content controls or SDT tags needed
+- Works with: `officecli add --from <prototype> --after <anchor>`
 
-### legacy-anchor (deprecated)
-Uses paragraph text as anchors. Fragile, not recommended for new templates.
-If a template returns empty manifest, it is likely legacy-anchor.
-Convert to strict-sdt: see migration guide below.
+### Legacy: SDT-Based Template (deprecated)
+Uses Word Content Controls with explicit tags. Still supported for backwards
+compatibility but no longer the primary approach. See `section-registry.md` for
+the old section classification system.
 
-## SDT Tag Naming Convention
+---
 
-- Lowercase, underscore separated: `full_name`, `issue_date`, `total_amount`
-- Repeater row anchor tag: `row_<table_name>`, e.g., `row_education`
-- Table header: never tagged (static content)
+## Style Naming Convention
 
-## Manifest Creation
+- Heading 1 → chapter/section titles
+- Heading 2 → subsection titles  
+- Heading 3 → sub-subsection titles
+- Normal → body text paragraphs
 
-After creating template with proper SDT tags, audit with:
-```bash
-officecli query <template> sdt --json
-```
-Build manifest JSON from the output and write to `manifests/<template_id>.manifest.json`.
-Confirm field descriptions and required flags are correct.
-
-## Section Structure
-
-For academic/formal documents with fixed sections:
-- Section headings should use Word heading styles (Heading 1, Heading 2)
-- Content placeholders follow immediately after headings
-- Structural invariants (e.g., required sections) are declared in manifest
+All styles must be consistently applied in the template.

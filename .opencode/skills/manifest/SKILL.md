@@ -1,57 +1,118 @@
 ---
 name: manifest
-version: 1
+version: 3
 description: >
-  Schema guide for document manifests. Load when reading, writing, or
-  interpreting a manifest JSON file. Covers field types (scalar, repeater,
-  table), locale rules, and merge_fields configuration.
-  Load alongside 'officecli' skill for rendering tasks.
+  Schema reference for Intermediate Representation (IR) files used in the
+  v2 refined document synthesis pipeline. Covers content.ir.json (required)
+  and template.ir.json (optional cache).
+  Load when interpreting or generating IR files.
+  Load alongside 'officecli' and 'docgen-workflow' skills.
 ---
 
-## Manifest Structure
+## Overview
 
-Every document template has a companion manifest at:
-`manifests/<template_id>.manifest.json`
+In v2 refined pipeline, the only required IR file is `content.ir.json`.
+`template.ir.json` is **optional cache** — the pipeline discovers template structure
+LIVE via `officecli query` at runtime, making template IR a pure speed optimization.
 
-Key top-level fields:
-- `template_id` — unique identifier matching the DOCX filename
-- `locale` — `"vi-VN"` or `"en-US"` (affects number/date formatting)
-- `sections` — section metadata (clone prototype, verbatim flag, paragraph count)
-- `preserve` — sections that must NOT be modified
+| File | Source | Generator | Required? |
+|------|--------|-----------|-----------|
+| `content.ir.json` | `noidung.md` | `tools/markdown-parser.py` | **Yes** |
+| `template.ir.json` | `template.docx` | (manual cache, not generated) | **No** (optional cache) |
 
-## Field Types
+---
 
-### Section entry
+## content.ir.json Schema
+
 ```json
 {
-  "gioi_thieu_body": {
-    "tag": "gioi_thieu_body",
-    "type": "body_text",
-    "required": true,
-    "source_section": "GIỚI THIỆU",
-    "min_words": 100,
-    "verbatim": false
-  }
+  "source_file": "noidung.md",
+  "generated_at": "2026-06-22",
+  "sections": [
+    {
+      "tag": "h1_1",
+      "type": "heading1",
+      "title": "CƠ SỞ LÝ THUYẾT",
+      "level": 1,
+      "body_paragraphs": [],
+      "paragraph_count": 0,
+      "verbatim": true,
+      "source_anchor": "co-so-ly-thuyet"
+    }
+  ],
+  "section_count": 11
 }
 ```
 
-### Repeater (NOT USED in current templates — architecture reference only)
+### Field Reference
+
+| Field | Always present | Description |
+|-------|:-------------:|-------------|
+| `tag` | ✅ | Auto-generated from heading level + index (`h1_1`, `h2_1_1`, `h3_1_4_1`) |
+| `type` | ✅ | `heading1` / `heading2` / `heading3` / `body_text` |
+| `title` | ✅ | Verbatim heading text |
+| `level` | ✅ | Heading level (1/2/3) |
+| `body_paragraphs` | ✅ | Array of paragraph strings (verbatim content). Empty `[]` for headings with no body |
+| `paragraph_count` | ✅ | `len(body_paragraphs)`. 0 for pure heading sections |
+| `verbatim` | ✅ | `true` if content exists in source, `false` for AI-generated sections |
+| `source_anchor` | ✅ | Slugified heading text for matching |
+| `generation_hint` | ❌ | Only present when `verbatim: false`. LLM prompt for content generation |
+| `split_at` | ❌ | Only present when a section should be split. Text marker for the split point |
+
+### Tag Naming Convention
+
+Tags encode hierarchy position:
+- `h1_<n>` — nth H1 heading in document
+- `h2_<h1_n>_<n>` — nth H2 under H1 #n
+- `h3_<h1_n>_<h2_n>_<n>` — nth H3 under H2 #n
+
+---
+
+## template.ir.json Schema (OPTIONAL CACHE)
+
 ```json
 {
-  "education_rows": {
-    "clone_from": "/body/p[@style='RowStyle'][1]",
-    "insert_anchor": { "mode": "after", "path": "/body/p[@style='RowStyle'][last()]" },
-    "item_fields": { "year": "run[1]", "degree": "run[2]", "institution": "run[3]" }
-  }
+  "template_file": "format_template.docx",
+  "generated_at": "",
+  "note": "OPTIONAL CACHE — source of truth is live officecli query",
+  "h1_count": 4,
+  "prototypes": {
+    "heading1": {
+      "prototype_selector": "p[style=Heading1]",
+      "path": "/body/p[@paraId=04C2E2D0]",
+      "style": "heading 1",
+      "paraId": "04C2E2D0"
+    }
+  },
+  "outline": [...],
+  "preserve_sections": ["header", "footer"],
+  "source_map": {}
 }
 ```
 
-### Table fill (NOT USED in current templates — architecture reference only)
-Similar to repeater but fixed row count. See `references/field-types.md`.
+### Field Reference
 
-## Workflow Integration
+| Field | Always present | Description |
+|-------|:-------------:|-------------|
+| `prototypes.*.prototype_selector` | ✅ | Style-based selector (stable across template edits): `p[style=Heading1]` |
+| `prototypes.*.path` | ✅ | Exact paraId path (may go stale if template edited) |
+| `prototypes.*.paraId` | ✅ | Runtime identifier — always verify before use |
+| `outline[]` | ✅ | Document outline entries |
+| `preserve_sections` | ✅ | Sections that must NOT be modified |
 
-1. Read manifest BEFORE extracting content from request
-2. Only extract fields listed in manifest.fields
-3. For repeaters: count rows in source data, clone anchor row N times
-4. Never invent sections not in manifest
+### Using template.ir.json in Pipeline
+
+1. **Verify before using**: Always run `officecli query <template> "p[style=Heading1]" --json` to confirm the cache is not stale
+2. **If paraId matches cache**: Cache is valid, proceed
+3. **If paraId differs or query fails**: Ignore cache, query all prototypes fresh
+4. **Cache location**: Always under `.cache/`, never at project root
+
+---
+
+## Deprecated: manifests/ files
+
+Files in `manifests/` (format_template.manifest.json, format_template.struct-spec.json)
+are **obsolete**. They were used by the v1 SDT-based pipeline. In v2 refined,
+content IR + live template discovery replace them entirely.
+
+Keep them only as historical reference. Do NOT rely on them for pipeline execution.
