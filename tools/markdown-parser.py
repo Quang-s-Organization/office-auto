@@ -10,11 +10,52 @@ Output: Content Intermediate Representation (IR) with:
   - Heading level → type mapping
   - Paragraph count via \n\n boundary
   - Full body text (verbatim)
+  - para_metadata per paragraph (images, LaTeX, bold, italic detection)
+  - Section-level aggregate flags (has_image, has_math, has_bold, has_italic)
   - verbatim: false for sections missing from source
 """
 
 import sys, json, os, re, argparse
 from pathlib import Path
+
+# Regex patterns for inline format detection
+RE_IMAGE = re.compile(r'!\[([^\]]*)\]\(([^)]+)\)')           # ![alt](url)
+RE_MATH_INLINE = re.compile(r'(?<!\$)\$(?!\$)(.+?)(?<!\$)\$(?!\$)')  # $...$
+RE_MATH_BLOCK = re.compile(r'\$\$(.+?)\$\$', re.DOTALL)      # $$...$$
+RE_BOLD = re.compile(r'\*\*(.+?)\*\*')                        # **...**
+RE_ITALIC = re.compile(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)')  # *...*
+
+
+def detect_paragraph_metadata(text: str) -> dict:
+    """Detect images, LaTeX, bold, italic in a paragraph.
+    Returns a dict with boolean flags and extracted values."""
+    meta = {
+        'has_image': False,
+        'has_math': False,
+        'has_bold': False,
+        'has_italic': False,
+        'images': [],      # list of {alt, url}
+    }
+    # Images: ![alt](url)
+    for match in RE_IMAGE.finditer(text):
+        meta['has_image'] = True
+        meta['images'].append({
+            'alt': match.group(1),
+            'url': match.group(2)
+        })
+    # LaTeX: $$...$$ (block) or $...$ (inline)
+    if RE_MATH_BLOCK.search(text):
+        meta['has_math'] = True
+    if RE_MATH_INLINE.search(text):
+        meta['has_math'] = True
+    # Bold: **...**
+    if RE_BOLD.search(text):
+        meta['has_bold'] = True
+    # Italic: *...* (single asterisk)
+    if RE_ITALIC.search(text):
+        meta['has_italic'] = True
+    return meta
+
 
 def slugify(text: str) -> str:
     """Create URL-safe slug from heading text."""
@@ -124,16 +165,26 @@ def parse_markdown(filepath: str) -> dict:
         # Check for heading anchors in body (existing struct-spec convention)
         # For now, all parsed sections are verbatim
 
+        # Detect metadata on each paragraph
+        para_metadata = [detect_paragraph_metadata(p) for p in paragraphs]
+
         section = {
             'tag': tag,
             'type': sec_type,
             'title': title,
             'level': level,
             'body_paragraphs': paragraphs,
+            'para_metadata': para_metadata,
             'paragraph_count': len(paragraphs),
             'verbatim': verbatim,
             'source_anchor': slugify(title)
         }
+        # Aggregate: section-level flags (any paragraph has it)
+        if para_metadata:
+            section['has_image'] = any(m['has_image'] for m in para_metadata)
+            section['has_math'] = any(m['has_math'] for m in para_metadata)
+            section['has_bold'] = any(m['has_bold'] for m in para_metadata)
+            section['has_italic'] = any(m['has_italic'] for m in para_metadata)
 
         if generation_hint:
             section['generation_hint'] = generation_hint

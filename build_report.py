@@ -1,101 +1,129 @@
 #!/usr/bin/env python3
-"""Build report.docx from noidung.md content + format_template.docx template."""
-import subprocess
-import json
+"""Build script for report.docx"""
+import subprocess, json, shutil, time
 
-DOCX = "report.docx"
+src_template = "/home/minhquang/office-auto/templates/format_template.docx"
+output = "/home/minhquang/office-auto/report.docx"
+content_file = "/home/minhquang/office-auto/content.ir.json"
 
-# Prototype paraIds from template query
-H2_PROTOTYPE = "05E2D782"   # Heading2 prototype
-H3_PROTOTYPE = "15D7D3CD"   # Heading3 prototype
-NORMAL_PROTOTYPE = "3B91656F"  # Normal body prototype
+shutil.copy2(src_template, output)
+print(f"Copied template to {output}")
 
-# Read content from IR
-with open("content.ir.json", "r") as f:
-    ir = json.load(f)
+H1_2 = "557EE3B3"
+H1_4 = "63DE7EE1"
+H1_REF = "18DC5A4B"
+NORM_SRC = "63CF449C"
+INITIAL_ANCHOR = "074DDEE4"
+CLEANUP_IDS = [
+    "6B73A0C1","4DEAF1F1","49507EB2","30194BD4",
+    "0714B04C","3FBC18C5","2E0F0A25","1204F959"
+]
 
-# Helper functions
-def add_paragraph(prototype_paraId, after_paraId):
-    cmd = f'officecli add {DOCX} /body --from /body/p[@paraId={prototype_paraId}] --after /body/p[@paraId={after_paraId}]'
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    # Extract the new paraId from output
-    output = result.stdout.strip()
-    if "Added paragraph at" in output:
-        new_para = output.split("Added paragraph at ")[1].strip()
-        return new_para
+def run(cmd):
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    return r.stdout.strip()
+
+def all_paras():
+    out = run(["officecli","query",output,"p","--json"])
+    if not out: return set()
+    try:
+        return {x["format"]["paraId"] for x in json.loads(out)["data"]["results"]}
+    except: return set()
+
+def new_pid(before):
+    time.sleep(0.3)
+    after = all_paras()
+    diff = after - before
+    print(f"    [debug] before={len(before)} after={len(after)} diff_count={len(diff)} diff={diff}")
+    if len(diff)==1: return list(diff)[0]
+    if len(diff)>1: return sorted(diff)[-1]
     return None
 
-def set_text(path, text):
-    cmd = f'officecli set {DOCX} {path} --prop "text={text}"'
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    return result.stdout.strip()
+def add(proto, after_pid):
+    before = all_paras()
+    res = run(["officecli","add",output,"/body",
+               "--from",f"/body/p[@paraId={proto}]",
+               "--after",f"/body/p[@paraId={after_pid}]"])
+    ok = "Copied to" in res
+    print(f"  add(proto={proto}, after={after_pid}) res_ok={ok} res='{res[:50]}'")
+    if not ok: return None
+    return new_pid(before)
 
-def set_body(path, text):
-    """Set body text on a Normal paragraph (preserves style)."""
-    cmd = f'officecli set {DOCX} {path} --prop "text={text}"'
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    return result.stdout.strip()
+def stxt(pid, text):
+    run(["officecli","set",output,f"/body/p[@paraId={pid}]","--prop",f"text={text}"])
 
-def get_last_para():
-    """Get current last paragraph paraId."""
-    cmd = f'officecli get {DOCX} /body/p[last()] --json'
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    try:
-        data = json.loads(result.stdout)
-        return data.get("paraId", "")
-    except:
-        return ""
+def sprp(pid, key, val):
+    run(["officecli","set",output,f"/body/p[@paraId={pid}]","--prop",f"{key}={val}"])
 
-# H1 anchors (existing in template)
-H1_1_paraId = "04C2E2D0"  # CƠ SỞ LÝ THUYẾT (was GIỚI THỚI)
-H1_2_paraId = "051169A1"  # ỨNG DỤNG VÀ ĐỊNH HƯỚNG PHÁT TRIỂN AI (was CƠ SỞ LÝ THUYẾT)
-H1_3_paraId = "37D21BE6"  # TÀI LIỆU THAM KHẢO (was KẾT LUẬN)
-H1_4_paraId = "7FA7A178"  # KẾT LUẬN (was TÀI LIỆU THAM KHẢO)
+def remv(pid):
+    run(["officecli","remove",output,f"/body/p[@paraId={pid}]"])
 
-current_anchor = H1_1_paraId
-operations = []
+# OPEN
+print("=== Opening ===")
+run(["officecli","open",output])
 
-for section in ir["sections"]:
-    tag = section["tag"]
-    stype = section["type"]
-    title = section["title"]
-    body = section["body_paragraphs"]
+# CLONE PROTOTYPES BEFORE CLEANUP
+print("=== Cloning prototypes ===")
+H2 = add("6B73A0C1", "5DFFF610")  # after SUPERVISOR'S COMMENTS
+NORM = add(NORM_SRC, H2) if H2 else None
+print(f"  => H2={H2}, NORM={NORM}")
 
+# CLEANUP
+print("=== Cleanup ===")
+for p in CLEANUP_IDS: remv(p)
+print(f"  Removed {len(CLEANUP_IDS)}")
+
+# LOAD CONTENT
+data = json.load(open(content_file))
+sections = data["sections"]
+h1_idx = 0
+
+# BUILD
+print("=== Building ===")
+total = 0
+anchor = INITIAL_ANCHOR
+
+for i, sec in enumerate(sections):
+    if not sec.get("verbatim", True): continue
+    stype, title = sec["type"], sec["title"]
+    body = sec.get("body_paragraphs", [])
+    
     if stype == "heading1":
-        # Already replaced, find the paraId
-        if tag == "h1_1":
-            anchor = H1_1_paraId
-        elif tag == "h1_2":
-            anchor = H1_2_paraId
-        elif tag == "h1_3":
-            anchor = H1_3_paraId
-        elif tag == "h1_4":
-            anchor = H1_4_paraId
-        else:
-            anchor = current_anchor
-        current_anchor = anchor
+        if h1_idx == 0: proto = H1_2
+        elif h1_idx == 1: proto = H1_4
+        else: proto = H1_REF
+        h1_idx += 1
+    elif stype in ("heading2","heading3"):
+        proto = H2
+    else: continue
+    
+    pid = add(proto, anchor)
+    if not pid:
+        print(f"  SKIP heading: {title[:50]}")
         continue
-
-    if stype == "heading2":
-        # Clone H2 after current H1 or H2
-        new_h2 = add_paragraph(H2_PROTOTYPE, current_anchor)
-        set_text(f"/body/p[last()]", title)
-        operations.append(("H2", title, new_h2))
-        current_anchor = new_h2
-
+    
+    stxt(pid, title)
+    if stype == "heading1":
+        sprp(pid,"outlineLevel","1"); sprp(pid,"size","16pt"); sprp(pid,"font.ea","Calibri")
+    elif stype == "heading2":
+        sprp(pid,"outlineLevel","2"); sprp(pid,"size","14pt"); sprp(pid,"font.ea","Calibri")
     elif stype == "heading3":
-        # Clone H3 after current H2
-        new_h3 = add_paragraph(H3_PROTOTYPE, current_anchor)
-        set_text(f"/body/p[last()]", title)
-        operations.append(("H3", title, new_h3))
-        current_anchor = new_h3
+        sprp(pid,"outlineLevel","3"); sprp(pid,"size","14pt"); sprp(pid,"font.ea","Calibri")
+    
+    anchor = pid; total += 1
+    
+    for txt in body:
+        pid = add(NORM, anchor)
+        if not pid:
+            print(f"  SKIP body"); continue
+        stxt(pid, txt)
+        sprp(pid,"ind.firstLine","1.27cm"); sprp(pid,"lineSpacing","1.3x")
+        anchor = pid; total += 1
+    print(f"  OK: {title[:60]}")
 
-    # Add body paragraphs after current heading
-    for para_text in body:
-        new_body = add_paragraph(NORMAL_PROTOTYPE, current_anchor)
-        set_body(f"/body/p[last()]", para_text)
-        operations.append(("body", para_text[:40] + "..." if len(para_text) > 40 else para_text, new_body))
+print(f"  Total: {total}")
 
-print(f"Total operations: {len(operations)}")
-for i, (op_type, label, path) in enumerate(operations):
-    print(f"  [{i+1}] {op_type}: {label} → {path}")
+# CLOSE
+print("=== Closing ===")
+run(["officecli","close",output])
+print("Done!")

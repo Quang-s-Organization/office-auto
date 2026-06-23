@@ -53,7 +53,12 @@ LIVE via `officecli query` at runtime, making template IR a pure speed optimizat
 | `title` | ✅ | Verbatim heading text |
 | `level` | ✅ | Heading level (1/2/3) |
 | `body_paragraphs` | ✅ | Array of paragraph strings (verbatim content). Empty `[]` for headings with no body |
+| `para_metadata` | ✅ (NEW) | Array of metadata dicts, one per paragraph. Each dict: `{has_image, has_math, has_bold, has_italic, images[]}` |
 | `paragraph_count` | ✅ | `len(body_paragraphs)`. 0 for pure heading sections |
+| `has_image` | ❌ (NEW) | `true` if ANY paragraph in this section contains `![alt](url)` image reference |
+| `has_math` | ❌ (NEW) | `true` if ANY paragraph contains LaTeX `$...$` or `$$...$$` |
+| `has_bold` | ❌ (NEW) | `true` if ANY paragraph contains markdown `**bold**` |
+| `has_italic` | ❌ (NEW) | `true` if ANY paragraph contains markdown `*italic*` |
 | `verbatim` | ✅ | `true` if content exists in source, `false` for AI-generated sections |
 | `source_anchor` | ✅ | Slugified heading text for matching |
 | `generation_hint` | ❌ | Only present when `verbatim: false`. LLM prompt for content generation |

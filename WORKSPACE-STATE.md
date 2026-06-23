@@ -1,12 +1,13 @@
-# Workspace State — v2 Refined
+# Workspace State — v3
 
-> Trạng thái workspace sau khi refactor dựa trên plan.md review.
-> `discovery.py` đã xóa — agent gọi `officecli query` trực tiếp.
-> Pipeline dùng live `officecli query` để khám phá template.
+> Pipeline updated to v3 with mandatory template mapping (Step 0b), prototype
+> selection with comparison (Step 0c), explicit OOXML property application,
+> and S8-S10 validation checks. Designed to prevent the 10 critical failures
+> from previous runs.
 
 ---
 
-## Kiến trúc v2 (Refined)
+## Kiến trúc v3
 
 ```
 Required Inputs
@@ -16,35 +17,37 @@ template.docx
 
 Generated (required)
 --------------------
-tools/markdown-parser.py ──► content.ir.json  (deterministic AST)
+tools/markdown-parser.py ──► content.ir.json  (deterministic AST with metadata)
 
 Pipeline
 --------
 STEP -1:  Load content.ir.json
-STEP  0:  Live Template Discovery — officecli query p[style=Heading1] ...
-STEP  1:  Build clone plan (content sections → style selectors → anchors)
-STEP  2:  Execute: add --from <prototype> --after <anchor> → set text
+STEP  0a: Live Template Discovery — officecli view outline + query ALL prototypes
+STEP  0b: TEMPLATE MAPPING (MANDATORY) — produce content→template mapping table
+STEP  0c: Prototype Selection — compare candidates by font/size/context
+STEP  1:  Build clone plan with OOXML property requirements
+STEP  2:  Execute: add --from <prototype> --after <anchor> → set text → apply OOXML props
 STEP  3:  Handle AI-generated sections (verbatim: false)
 STEP  4:  Verbatim self-check
 STEP  5:  officecli refresh
-STEP  6:  Validation S1-S7
+STEP  6:  Validation S1-S10
 STEP  7:  Copy output
 STEP  8:  Report
 
 Source of Truth: template.docx (queried live, no cache)
 ```
 
----
+## Key Changes from v2 Refined
 
-## Key Changes from v2 Original
-
-| Before | After | Rationale |
-|--------|-------|-----------|
-| `discovery.py` là pipeline step bắt buộc | Đã xóa — agent gọi `officecli query` trực tiếp | OfficeCLI đã có `query`, không cần wrapper |
-| `template.ir.json` là prereq | Không còn — template được query live | Source of truth là template.docx, cache luôn stale |
-| Prototype path lưu `@paraId` cố định | Dùng `prototype_selector` (style-based) + runtime query | paraId không ổn định khi sửa template |
-| Pipeline step -2: chạy cả 2 tools | Pipeline step -1: chỉ load content.ir.json | Template discovery là live, không cần pre-generate |
-| `template.ir.json` ở root | Đã xóa — không còn cache file | Agent query live, không cần IR trung gian |
+| Before | After | Solves |
+|--------|-------|--------|
+| Step 0: grab first prototype of each style | Step 0a+c: query ALL candidates, compare, pick best match | Issues #4, #5 (font/size mismatch) |
+| No mapping step — content inserted at end | Step 0b: MANDATORY mapping table produced before any insert | Issue #1 (wrong placement) |
+| Clone + set only, no property application | Clone + set + outlineLevel + ind.firstLine + font overrides | Issues #2, #3 (outline, indent) |
+| S1-S7 validation | S1-S10 with S8 (outline), S9 (font), S10 (indent) checks | Catches issues before delivery |
+| Parser extracts text only | Parser detects images, LaTeX, bold/italic metadata | Issue #7 (partial fix) |
+| No explicit cleanup step | Step 0b-4: plan and execute REMOVE for placeholder elements | Issue #9 (template leftovers) |
+| No failure documentation | "Common Failures" table in SKILL.md | Prevents repeat mistakes |
 
 ---
 

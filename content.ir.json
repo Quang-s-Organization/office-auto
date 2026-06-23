@@ -8,6 +8,7 @@
       "title": "CƠ SỞ LÝ THUYẾT",
       "level": 1,
       "body_paragraphs": [],
+      "para_metadata": [],
       "paragraph_count": 0,
       "verbatim": true,
       "source_anchor": "co-so-ly-thuyet"
@@ -23,9 +24,43 @@
         "[Hình 1.1. Các bước xây dựng mô hình học máy trong thị giác máy tính]",
         "Chất lượng dữ liệu ảnh không chỉ được đo bằng số lượng mà còn bởi tính đa dạng (diversity), sự cân bằng phân lớp (class balance), độ chính xác nhãn (label accuracy) và tính đại diện cho phân phối dữ liệu triển khai thực tế. Một tập dữ liệu lớn nhưng thiếu đa dạng về góc chụp, điều kiện ánh sáng và bối cảnh nền sẽ tạo ra mô hình chỉ hoạt động tốt trong môi trường phòng thí nghiệm nhưng thất bại nghiêm trọng khi gặp điều kiện ngoài phân phối (out-of-distribution). Ngược lại, một tập dữ liệu nhỏ nhưng được curate cẩn thận với nhãn chất lượng cao và phân phối đa dạng có thể vượt trội hơn tập dữ liệu lớn được thu thập tự động không qua kiểm duyệt, đặc biệt rõ rệt trong các tác vụ phân đoạn ngữ nghĩa (semantic segmentation) và phát hiện đối tượng (object detection) nơi chú thích chi tiết ở mức pixel [2]."
       ],
+      "para_metadata": [
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        }
+      ],
       "paragraph_count": 4,
       "verbatim": true,
-      "source_anchor": "tam-quan-trong-du-lieu-anh-huan-luyen-trong-thi-giac-may-tinh"
+      "source_anchor": "tam-quan-trong-du-lieu-anh-huan-luyen-trong-thi-giac-may-tinh",
+      "has_image": false,
+      "has_math": false,
+      "has_bold": false,
+      "has_italic": false
     },
     {
       "tag": "h2_1_2",
@@ -38,9 +73,43 @@
         "Sự dịch chuyển phân phối (distribution shift) hay còn gọi là domain shift là khi phân phối dữ liệu huấn luyện khác biệt đáng kể so với phân phối dữ liệu triển khai thực tế, dẫn đến sự suy giảm hiệu năng đột ngột của mô hình khi ra ngoài môi trường phòng thí nghiệm [4]. Chẳng hạn, một mô hình nhận diện biển báo giao thông được huấn luyện hoàn toàn trên ảnh ban ngày điều kiện thời tiết tốt sẽ thất bại khi gặp ảnh chụp vào ban đêm, trong mưa hoặc dưới ánh đèn đường. Domain shift có thể xuất hiện theo nhiều dạng: covariate shift khi phân phối đầu vào thay đổi nhưng quan hệ đầu vào-đầu ra giữ nguyên, concept drift khi chính bản chất của bài toán thay đổi theo thời gian, và prior probability shift khi tỷ lệ các lớp thay đổi giữa môi trường huấn luyện và triển khai. Các phương pháp thích ứng miền (domain adaptation) như DANN (Domain-Adversarial Neural Network) và các kỹ thuật học chuyển giao (transfer learning) được thiết kế để giảm khoảng cách phân phối này, nhưng hiệu quả phụ thuộc nhiều vào mức độ tương đồng giữa hai miền và chất lượng dữ liệu miền đích [4].",
         "Thách thức về chi phí và tốc độ thu thập dữ liệu cũng đóng vai trò then chốt, đặc biệt trong các lĩnh vực chuyên sâu như y tế, tự động hóa công nghiệp và hàng không vũ trụ, nơi mỗi ảnh cần được chú thích bởi chuyên gia có trình độ cao với chi phí lên đến hàng chục đô la cho một ảnh duy nhất [3]. Vấn đề quyền riêng tư và đạo đức dữ liệu cũng ngày càng trở nên quan trọng khi dữ liệu ảnh có thể chứa thông tin nhận dạng cá nhân, đặt ra yêu cầu tuân thủ các quy định như GDPR ở Châu Âu và Luật Bảo vệ Dữ liệu Cá nhân tại Việt Nam. Sự kết hợp của các thách thức này thúc đẩy mạnh mẽ nhu cầu về các phương pháp sinh dữ liệu tổng hợp có kiểm soát, vừa giải quyết bài toán quy mô vừa bảo đảm tính đa dạng và an toàn về quyền riêng tư."
       ],
+      "para_metadata": [
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        }
+      ],
       "paragraph_count": 4,
       "verbatim": true,
-      "source_anchor": "cac-thach-thuc-pho-bien-lien-quan-den-du-lieu"
+      "source_anchor": "cac-thach-thuc-pho-bien-lien-quan-den-du-lieu",
+      "has_image": false,
+      "has_math": false,
+      "has_bold": false,
+      "has_italic": false
     },
     {
       "tag": "h2_1_3",
@@ -53,9 +122,43 @@
         "Phương tiện tự lái và hệ thống hỗ trợ lái xe nâng cao (Advanced Driver Assistance Systems - ADAS) là một trong những ứng dụng đòi hỏi tập dữ liệu ảnh đa dạng và phong phú nhất hiện nay, với yêu cầu bao phủ đầy đủ mọi điều kiện thời tiết, thời gian trong ngày, loại đường, mật độ giao thông và tình huống biên hiếm gặp nhưng an toàn tới hạn [6]. Bộ dữ liệu Waymo Open Dataset với hơn ba nghìn phút lái xe được ghi lại bởi 32 cảm biến LiDAR và 5 camera, tập dữ liệu KITTI của Viện Công nghệ Karlsruhe và nuScenes của Motional đã trở thành nền tảng chuẩn cho nghiên cứu phát hiện đối tượng 3D và ước lượng độ sâu. Đáng chú ý là các tình huống long-tail, tức là các trường hợp hiếm gặp như người đi bộ ở điều kiện tầm nhìn thấp, phương tiện bị che khuất một phần hoặc điều kiện thời tiết cực đoan, chiếm lượng không đáng kể trong dữ liệu tự nhiên nhưng lại chính xác là những trường hợp quyết định sự an toàn trong thực tế, và đây là một trong những động lực mạnh mẽ nhất thúc đẩy nghiên cứu sinh dữ liệu ảnh tổng hợp.",
         "Nông nghiệp thông minh và giám sát môi trường là lĩnh vực ứng dụng đang thu hút đầu tư mạnh mẽ, đặc biệt trong bối cảnh biến đổi khí hậu và áp lực an ninh lương thực toàn cầu. Các hệ thống phân tích ảnh chụp từ UAV (drone) và vệ tinh viễn thám được ứng dụng để phát hiện sâu bệnh, đánh giá tình trạng sức khỏe cây trồng qua chỉ số thực vật NDVI (Normalized Difference Vegetation Index), ước lượng năng suất thu hoạch và giám sát diện tích rừng. Thách thức dữ liệu đặc trưng của lĩnh vực này bao gồm sự biến đổi theo mùa vụ và địa lý, nhu cầu chú thích chuyên môn từ các nhà nông học và sinh thái học, cùng với độ phân giải không gian và phổ ảnh đa dạng phụ thuộc vào loại cảm biến thu thập [5]."
       ],
+      "para_metadata": [
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        }
+      ],
       "paragraph_count": 4,
       "verbatim": true,
-      "source_anchor": "cac-linh-vuc-ung-dung-chinh"
+      "source_anchor": "cac-linh-vuc-ung-dung-chinh",
+      "has_image": false,
+      "has_math": false,
+      "has_bold": false,
+      "has_italic": false
     },
     {
       "tag": "h2_1_4",
@@ -65,9 +168,22 @@
       "body_paragraphs": [
         "Trước sự phát triển của các phương pháp sinh tổng hợp dựa trên học sâu, cộng đồng nghiên cứu và phát triển ứng dụng thị giác máy tính chủ yếu dựa vào hai nhóm phương pháp truyền thống để xây dựng và mở rộng tập dữ liệu ảnh: thu thập thủ công kết hợp chú thích của con người và tăng cường dữ liệu thông qua các biến đổi hình học và quang học xác định. Hai nhóm phương pháp này đã tạo ra nền tảng cho nhiều đột phá quan trọng trong lịch sử thị giác máy tính, từ ImageNet đến COCO, và tiếp tục đóng vai trò quan trọng như nguồn dữ liệu gốc cho các hệ thống huấn luyện hiện đại ngay cả khi được kết hợp với dữ liệu tổng hợp [7]."
       ],
+      "para_metadata": [
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        }
+      ],
       "paragraph_count": 1,
       "verbatim": true,
-      "source_anchor": "cac-phuong-phap-sinh-du-lieu-anh-truyen-thong"
+      "source_anchor": "cac-phuong-phap-sinh-du-lieu-anh-truyen-thong",
+      "has_image": false,
+      "has_math": false,
+      "has_bold": false,
+      "has_italic": false
     },
     {
       "tag": "h3_1_4_1",
@@ -79,9 +195,36 @@
         "Quy trình chú thích (annotation pipeline) là yếu tố quyết định chất lượng của tập dữ liệu thu thập thủ công, đặc biệt với các tác vụ cần chú thích chi tiết như phát hiện đối tượng với bounding box, phân đoạn instance với mask ở mức pixel và ước lượng pose với keypoint. Tập dữ liệu COCO (Common Objects in Context) do Microsoft phát triển đã đặt ra chuẩn mực cho quy trình chú thích đa tác vụ, với 330,000 ảnh được chú thích bởi hơn năm mươi nghìn người, trong đó mỗi ảnh trung bình chứa 7.7 đối tượng được chú thích với bounding box, mask phân đoạn và 80 loại nhãn phân cấp [2]. Công cụ chú thích hiện đại như CVAT (Computer Vision Annotation Tool), Label Studio và Scale AI cung cấp hạ tầng quản lý tác vụ, kiểm soát chất lượng nhiều lớp và tích hợp dự đoán trợ giúp từ mô hình pre-trained để tăng tốc quá trình chú thích từ hai đến năm lần so với chú thích thuần thủ công. Các hệ thống Inter-Annotator Agreement (IAA) như Cohen's Kappa và Fleiss' Kappa được sử dụng để đo lường mức độ đồng thuận giữa các người chú thích, với ngưỡng chấp nhận thường được đặt ở kappa lớn hơn 0.7 cho tác vụ phân loại và lớn hơn 0.6 cho tác vụ phân đoạn [7].",
         "Chi phí và thời gian là rào cản lớn nhất của phương pháp thu thập thủ công khi mở rộng quy mô. Ước tính của Cordts và cộng sự trong dự án Cityscapes cho biết chi phí trung bình để chú thích một ảnh đường phố ở mức semantic segmentation với mask pixel-level là 1.5 giờ lao động chuyên môn, tức là hàng nghìn giờ người cho một tập dữ liệu cỡ vừa, chưa kể chi phí thiết bị, logistics và kiểm soát chất lượng [7]. Bên cạnh đó, nhiều ứng dụng có yêu cầu chụp ảnh trong điều kiện khó tiếp cận hoặc nguy hiểm như bên trong lò phản ứng hạt nhân, dưới nước sâu hoặc trong vùng thảm họa tự nhiên, khiến việc thu thập dữ liệu thực tế trở nên không khả thi hoặc cực kỳ tốn kém. Những hạn chế cốt lõi này, kết hợp với nhu cầu dữ liệu ngày càng tăng của các kiến trúc học sâu hiện đại, chính là động lực thúc đẩy sự phát triển mạnh mẽ của các phương pháp tăng cường và sinh dữ liệu tổng hợp."
       ],
+      "para_metadata": [
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        }
+      ],
       "paragraph_count": 3,
       "verbatim": true,
-      "source_anchor": "thu-thap-du-lieu-anh-thu-cong"
+      "source_anchor": "thu-thap-du-lieu-anh-thu-cong",
+      "has_image": false,
+      "has_math": false,
+      "has_bold": false,
+      "has_italic": false
     },
     {
       "tag": "h3_1_4_2",
@@ -93,9 +236,36 @@
         "Các kỹ thuật tăng cường hình học bao gồm lật ảnh theo chiều ngang và dọc, xoay ảnh một góc tùy ý, cắt ngẫu nhiên (random crop), biến dạng phi tuyến (elastic deformation) và phối cảnh (perspective transform). Các kỹ thuật tăng cường quang học bao gồm thay đổi độ sáng (brightness), độ tương phản (contrast), bão hòa màu (saturation), cân bằng màu (hue shift), thêm nhiễu Gaussian và làm mờ ảnh (blur). Phương pháp Mixup đề xuất bởi Zhang và cộng sự năm 2018 tạo ra ảnh tổng hợp bằng cách nội suy tuyến tính cả ảnh lẫn nhãn của hai mẫu gốc theo công thức $\\tilde{x} = \\lambda x_i + (1 - \\lambda)x_j$ với $\\lambda$ lấy mẫu từ phân phối Beta, cải thiện độ chính xác phân loại từ 0.3 đến 2.5 phần trăm trên nhiều benchmark và tăng đáng kể độ bền vững (robustness) trước các ví dụ đối nghịch (adversarial examples) [8]. CutMix kết hợp các vùng ảnh từ nhiều ảnh khác nhau trong khi CutOut che khuất một vùng ngẫu nhiên của ảnh, cả hai đều khuyến khích mô hình học phân biệt đặc trưng từ nhiều vùng không gian của ảnh thay vì phụ thuộc quá mức vào một vùng cục bộ.",
         "AutoAugment và các biến thể như RandAugment, TrivialAugment đánh dấu bước chuyển quan trọng từ tăng cường được thiết kế thủ công sang tăng cường được tìm kiếm tự động hoặc ngẫu nhiên hóa có nguyên tắc. AutoAugment sử dụng học tăng cường để tìm kiếm chính sách tăng cường tối ưu trong không gian tổ hợp các phép biến đổi và xác suất áp dụng của chúng, đạt được cải thiện đáng kể trên CIFAR-10, CIFAR-100 và ImageNet so với tăng cường thủ công tốt nhất, nhưng với chi phí tính toán tìm kiếm rất lớn tương đương với huấn luyện năm nghìn mô hình [8]. RandAugment thay thế quá trình tìm kiếm bằng cách chọn ngẫu nhiên từ tập 14 phép biến đổi với cường độ đồng nhất, giữ nguyên hiệu năng của AutoAugment trong khi giảm thiểu đáng kể chi phí tính toán. Mặc dù tăng cường dữ liệu là công cụ mạnh mẽ và được áp dụng phổ biến, nó có giới hạn cơ bản không thể vượt qua: mọi biến thể được tạo ra đều phải bắt đầu từ ảnh gốc thực, và kỹ thuật này không thể tạo ra các đối tượng, bối cảnh hay điều kiện hoàn toàn mới không có trong tập dữ liệu gốc, từ đó tạo nên nhu cầu cho các phương pháp sinh dữ liệu ảnh tiên tiến hơn dựa trên mô hình sinh tổng quát [7]."
       ],
+      "para_metadata": [
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": true,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        }
+      ],
       "paragraph_count": 3,
       "verbatim": true,
-      "source_anchor": "tang-cuong-du-lieu-anh"
+      "source_anchor": "tang-cuong-du-lieu-anh",
+      "has_image": false,
+      "has_math": true,
+      "has_bold": false,
+      "has_italic": false
     },
     {
       "tag": "h1_2",
@@ -103,6 +273,7 @@
       "title": "ỨNG DỤNG VÀ ĐỊNH HƯỚNG PHÁT TRIỂN AI",
       "level": 1,
       "body_paragraphs": [],
+      "para_metadata": [],
       "paragraph_count": 0,
       "verbatim": true,
       "source_anchor": "ung-dung-va-dinh-huong-phat-trien-ai"
@@ -125,9 +296,92 @@
         "Thị trường Small Language Model đang trải qua giai đoạn tăng trưởng nóng với quy mô dự kiến từ mức không phảy ba ba tỷ USD vào năm hai mươi lăm lên năm phảy bốn lăm tỷ USD vào năm hai mươi ba hai, theo báo cáo của Zylos Research [13]. Xu hướng này được thúc đẩy bởi sự tiến hóa của kiến trúc mô hình: Microsoft Research công bố nghiên cứu năm hai nghìn hai trăm năm mươi về kiến trúc Encoder-Decoder cho Small Language Model, trong đó bộ mã hóa trích xuất đặc trưng ngữ nghĩa còn bộ giải mã thực hiện sinh văn bản theo cơ chế cross-attention. Kết quả thử nghiệm cho thấy kiến trúc này đạt hiệu suất tốt hơn từ hai đến bốn phần trăm so với Decoder-only truyền thống trên các tác vụ tổng hợp thông tin đồng thời giảm bốn mươi bảy phần trăm độ trễ suy luận nhờ loại bỏ bước autoregressive lặp [13]. Bên cạnh đó, xu hướng lai ghép đa phương thức ngày càng trở nên phổ biến khi các Small Language Model không chỉ xử lý văn bản thuần túy mà còn tích hợp khả năng hiểu hình ảnh, âm thanh và video trong cùng một mô hình duy nhất.",
         "Thách thức lớn nhất vẫn nằm ở việc cân bằng giữa kích thước mô hình và độ chính xác thực tế, đặc biệt khi đối mặt với các tác vụ đòi hỏi suy luận đa bước phức tạp hoặc khả năng tiếp cận tri thức từ nhiều lĩnh vực khác nhau trong cùng một phản hồi. Khi giảm tham số xuống mức rất thấp, cụ thể dưới năm trăm triệu, Small Language Model thường thể hiện suy giảm đáng kể về khả năng biểu đạt ngữ nghĩa, dẫn đến kết quả kém tin cậy trên các benchmark đánh giá reasoning như ARC-Challenge hay HumanEval. Ngoài ra, việc tối ưu hóa cho phần cứng cụ thể yêu cầu chuyên môn kỹ thuật sâu mà không phải mọi nhà phát triển đều sở hữu, dẫn đến rào cản gia nhập thị trường đối với các tổ chức vừa và nhỏ có ngân sách nghiên cứu hạn chế. Vấn đề thứ ba là sự thiếu hụt dataset huấn luyện đặc thù cho thiết bị biên, bởi các mô hình thường được huấn luyện trên dữ liệu web chung chung mà không phản ánh đúng ngữ cảnh ứng dụng thực tế của người dùng cuối [13]. Trong tương lai gần, hướng nghiên cứu tập trung vào tự động hóa quá trình tối ưu hóa mô hình (AutoML for SLM) và phát triển các kiến trúc mới như Mixture-of-Embedders để tận dụng tối đa tài nguyên hạn chế mà vẫn đạt chất lượng đầu ra cao nhất [13]. Những tiến bộ trong lĩnh vực này sẽ tiếp tục tạo đà cho sự phát triển của RAG trên thiết bị biên, và đây chính là chủ đề sẽ được phân tích chuyên sâu trong mục tiếp theo."
       ],
+      "para_metadata": [
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        }
+      ],
       "paragraph_count": 11,
       "verbatim": true,
-      "source_anchor": "toi-uu-hoa-hieu-nang-va-tri-tue-nhan-tao-tren-thiet-bi-bien"
+      "source_anchor": "toi-uu-hoa-hieu-nang-va-tri-tue-nhan-tao-tren-thiet-bi-bien",
+      "has_image": false,
+      "has_math": false,
+      "has_bold": false,
+      "has_italic": false
     },
     {
       "tag": "h2_2_2",
@@ -145,9 +399,78 @@
         "Hallucination vẫn là thách thức tồn đọng mặc dù RAG đã giảm đáng kể tần suất xuất hiện, với mức giảm ước tính khoảng tám mươi phần trăm so với mô hình thuần túy sinh văn bản không tham chiếu. Các nghiên cứu mới tập trung vào việc phát triển self-verification mechanism cho phép mô hình tự kiểm tra độ tin cậy của thông tin trước khi trình bày đến người dùng cuối, trong đó cơ chế phản hồi tự động (self-reflection) được áp dụng để so sánh các trích dẫn từ retrieval với nội dung đã sinh ra và đánh giá tính nhất quán logic [6]. Kỹ thuật này đặc biệt hiệu quả với Agentic RAG vì agent có thể thực hiện nhiều vòng tự kiểm tra liên tiếp, trong đó mỗi vòng tinh chỉnh độ chính xác thông tin thêm năm đến bảy phần trăm cho đến khi đạt ngưỡng tin cậy mục tiêu. Xu hướng Self-hosted AI deployment cũng ngày càng phổ biến khi doanh nghiệp muốn kiểm soát hoàn toàn dữ liệu đầu vào và đầu ra mà không phụ thuộc vào nhà cung cấp đám mây, đặc biệt trong các ngành có yêu cầu tuân thủ nghiêm ngặt như tài chính ngân hàng và quốc phòng. Các công cụ tự động hóa Governance như framework HEAT (Human Oversight, Evaluation, Accountability, Transparency) đang giúp tổ chức quản lý vòng đời mô hình trí tuệ nhân tạo một cách hệ thống từ giai đoạn thiết kế cho đến khi đưa vào vận hành thực tế, với khả năng phát hiện tự động các rủi ro về thiên kiến và đề xuất biện pháp giảm thiểu tương ứng [12].",
         "Tương lai của RAG hướng đến sự tích hợp sâu hơn với các thành phần AI agent, nơi quá trình truy xuất tri thức không còn là bước thụ động mà được chủ động lập kế hoạch và tối ưu hóa động dựa trên ngữ cảnh nhiệm vụ cụ thể. Hướng nghiên cứu Hybrid Agentic-RAG kết hợp khả năng suy luận đa bước của agent với độ chính xác truy xuất thông tin của RAG đang thu hút sự quan tâm đáng kể từ cộng đồng học thuật và doanh nghiệp, hứa hẹn mở ra khả năng xử lý các câu hỏi phức tạp liên ngành mà không một phương pháp đơn lẻ nào có thể đáp ứng hiệu quả [8]. Đồng thời, xu hướng federated learning kết hợp với on-device RAG sẽ cho phép tổ chức cải thiện mô hình từ dữ liệu người dùng phân tán mà không cần tập trung về máy chủ trung tâm, qua đó vừa nâng cao chất lượng dịch vụ vừa đảm bảo quyền riêng tư dữ liệu cá nhân [3]. Bên cạnh đó, sự phát triển của Multi-modal RAG cho phép truy xuất và kết hợp cả văn bản, hình ảnh, âm thanh và video trong cùng một ngữ cảnh sinh văn bản đang mở rộng đáng kể phạm vi ứng dụng của kiến trúc này ra ngoài các tác vụ xử lý ngôn ngữ thuần túy. Những tiến bộ này đặt nền móng cho các hệ thống trí tuệ nhân tạo thế hệ mới, vốn thông minh hơn, tin cậy hơn và đáng tin cậy trong việc bảo vệ quyền lợi của người dùng và tổ chức, từ đó củng cố niềm tin xã hội vào sự phát triển không ngừng của công nghệ AI. Sự kết hợp hài hòa giữa Edge AI và RAG có trách nhiệm sẽ định hình lại cách doanh nghiệp và cá nhân tương tác với trí tuệ nhân tạo trong những năm tới, khi hiệu suất cao đi đôi với minh bạch và an toàn."
       ],
+      "para_metadata": [
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        }
+      ],
       "paragraph_count": 9,
       "verbatim": true,
-      "source_anchor": "retrieval-augmented-generation-quan-ly-tri-thuc-va-trach-nhiem-ai"
+      "source_anchor": "retrieval-augmented-generation-quan-ly-tri-thuc-va-trach-nhiem-ai",
+      "has_image": false,
+      "has_math": false,
+      "has_bold": false,
+      "has_italic": false
     },
     {
       "tag": "h1_3",
@@ -169,9 +492,106 @@
         "[12] Boston Consulting Group & MIT Sloan Management Review. (2026). The State of Responsible AI in the Enterprise.",
         "[13] Zylos Research. (2025). Small Language Model Market Forecast 2025-2032."
       ],
+      "para_metadata": [
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        },
+        {
+          "has_image": false,
+          "has_math": false,
+          "has_bold": false,
+          "has_italic": false,
+          "images": []
+        }
+      ],
       "paragraph_count": 13,
       "verbatim": true,
-      "source_anchor": "tai-lieu-tham-khao"
+      "source_anchor": "tai-lieu-tham-khao",
+      "has_image": false,
+      "has_math": false,
+      "has_bold": false,
+      "has_italic": false
     }
   ],
   "section_count": 11

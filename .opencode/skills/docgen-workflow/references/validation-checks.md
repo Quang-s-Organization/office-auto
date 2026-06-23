@@ -39,3 +39,57 @@ Verify PRESERVE sections were not modified:
 Violation → FAIL.
 
 ---
+
+## CHECK-S8 — Outline Hierarchy Integrity (NEW — prevents issue #2)
+
+Verify every heading has the correct OOXML `outlineLevel` matching its heading style:
+
+```bash
+officecli query <file> "p[style=Heading1]" --props style,outlineLevel,text
+officecli query <file> "p[style=Heading2]" --props style,outlineLevel,text  
+officecli query <file> "p[style=Heading3]" --props style,outlineLevel,text
+```
+
+**Pass criteria:**
+- All Heading1 paragraphs have `outlineLevel=1` or empty (empty = default outline level)
+- All Heading2 paragraphs have `outlineLevel=2`
+- All Heading3 paragraphs have `outlineLevel=3`
+- Any heading with missing/incorrect `outlineLevel` → WARN
+
+**Edge case:** If `outlineLevel` prop doesn't exist in officecli output, the heading might still work
+correctly in Word through its style definition. Only flag as FAIL if headings visually appear
+at wrong hierarchy level in `officecli view outline`.
+
+## CHECK-S9 — Font/Style Consistency (NEW — prevents issues #4, #5)
+
+Verify all headings of the same style have consistent formatting:
+
+```bash
+# Compare ALL Heading1 font sizes
+officecli query <file> "p[style=Heading1]" --json --props effective.size,effective.font.ascii,text,style
+```
+
+**Pass criteria:**
+- All inserted Heading1 paragraphs must have the same font size (±1pt) as the template's CHAPTER heading
+- All inserted Heading2 paragraphs must have the same font size as the template reference
+- Font face must be consistent across all same-style paragraphs
+- Exception: ACKNOWLEDGEMENTS may differ from CHAPTER — that's OK
+
+**Fail condition:** If inserted content has 24pt but CHAPTER headings use 16pt → FAIL.
+
+## CHECK-S10 — First-Line Indent (NEW — prevents issue #3)
+
+Verify body paragraphs have proper first-line indent:
+
+```bash
+officecli query <file> "p[style=Normal and text!='']" --json --props ind.firstLine,text,paraId
+```
+
+**Pass criteria:**
+- All body paragraphs (Normal style) that contain content (non-empty) should have `ind.firstLine` set
+- Acceptable values: `1.27cm`, `2ch`, `720` (twips ≈ 1.27cm)
+- Body paragraphs WITHOUT first-line indent → WARN
+
+**Fail condition:** If >50% of body paragraphs lack `ind.firstLine` → FAIL (document is not ready for delivery).
+
+---

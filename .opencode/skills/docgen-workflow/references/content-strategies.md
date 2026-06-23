@@ -22,55 +22,42 @@ Prototypes are discovered LIVE via `officecli query` at runtime.
 
 ---
 
-## Prototype Resolution
+## Prototype Selection (MANDATORY — do not grab first result)
 
-Prototypes are discovered LIVE from the template. No intermediate file needed:
+See `prototype-selection-guide.md` for full details. Summary:
 
+1. Query ALL paragraphs of each target style
+2. Compare `effective.size`, `effective.font.ascii`, `text` across candidates
+3. Pick the one whose formatting and context matches your content's target section
+4. For CHAPTER content → clone a CHAPTER heading (16pt), not ACKNOWLEDGEMENTS (14pt)
+5. Verify prototype effective formatting before first clone
+
+## Anchor Selection (CRITICAL — prevents wrong insertion position)
+
+The initial anchor determines WHERE content appears in the document.
+
+**WRONG (causes content to appear as appendix):**
 ```bash
-# Query at runtime — always correct
-officecli query <template> "p[style=Heading1]" --json   # → first result is prototype
-officecli query <template> "p[style=Heading2]" --json
-officecli query <template> "p[style=Heading3]" --json
-officecli query <template> "p[style=Normal]" --json
+officecli query template.docx "p[last()]" --json  # → DANGER: appends at document end
 ```
 
-Map section type to prototype style:
-
-| Section type | Query style |
-|:------------|:------------|
-| `heading1` | `p[style=Heading1]` |
-| `heading2` | `p[style=Heading2]` |
-| `heading3` | `p[style=Heading3]` |
-| `body_text` | `p[style=Normal]` |
-
-### Cache (optional)
-
-If `.cache/template.ir.json` exists, you MAY use it as a shortcut reference.
-But ALWAYS verify at least one prototype via live query before cloning.
-
-> **Why not rely on cache?** paraId changes when user edits template, copies paragraphs,
-> or Word regenerates IDs. Live query guarantees correctness.
-
----
-
-## Anchor Resolution
-
-Mỗi cloned paragraph được chèn **sau** anchor paragraph:
-
-| Context | Anchor |
-|---------|--------|
-| Section heading đầu tiên | Sau preserved element cuối cùng (TOC/cover) |
-| Body paragraph đầu tiên của section | Sau cloned heading của section đó |
-| Body paragraph thứ N (N>1) | Sau body paragraph thứ N-1 |
-| Section heading tiếp theo | Sau body paragraph cuối cùng của section trước |
-
-**Công cụ**: 
+**CORRECT (content appears in target chapter):**
 ```bash
-officecli add <file> /body --from /body/p[@paraId=<prototype_id>] --after /body/p[@paraId=<anchor_id>]
+# 1. Find CHAPTER 2's position via outline
+officecli view template.docx outline
+
+# 2. Query the paragraph BEFORE CHAPTER 2 (e.g., end of CHAPTER 1)
+officecli query template.docx "p[style=Heading1]" --json  # → find CHAPTER 1
+officecli query template.docx "p[paraId=<chapter1>]/following-sibling::p[1]" --json  # → paragraph after CHAPTER 1
+
+# 3. Use that paragraph as anchor
+officecli add <file> /body --from /body/p[@paraId=<proto>] --after /body/p[@paraId=<last_of_chapter1>]
 ```
 
-**Important**: Dùng `@paraId` cho anchor, không dùng positional index.
-Sau mỗi lần clone, dùng `p[last()]` để reference paragraph vừa tạo.
+**Anchor chaining (sequential inserts):**
+- After each `add`, capture the new paragraph's `@paraId` via `query p[last()] --json`
+- Use that `@paraId` as the `--after` anchor for the NEXT insert
+- Always iterate body paragraphs in FORWARD order (index 0, 1, 2, ... not reversed)
 
 ---
 
@@ -79,12 +66,19 @@ Sau mỗi lần clone, dùng `p[last()]` để reference paragraph vừa tạo.
 ```bash
 # Bước 1: Clone heading prototype
 officecli add <file> /body --from /body/p[@paraId=<heading_proto>] --after /body/p[@paraId=<anchor>]
-officecli set <file> /body/p[last()] --prop text="<section title>"
+# Capture @paraId của heading vừa tạo — dùng làm anchor cho body paragraph đầu tiên
+ANCHOR=$(officecli query <file> "p[last()]" --json | python3 -c "import sys,json; print(json.load(sys.stdin)['results'][0]['format']['paraId'])")
+officecli set <file> /body/p[@paraId=$ANCHOR] --prop text="<section title>"
+# Apply OOXML properties (CRITICAL)
+officecli set <file> /body/p[@paraId=$ANCHOR] --prop outlineLevel=1 --prop size=16pt --prop font.ea=Calibri
 
 # Bước 2: Clone body prototype cho mỗi paragraph
 for paragraph in section.body_paragraphs:
-    officecli add <file> /body --from /body/p[@paraId=<normal_proto>] --after /body/p[last()]
-    officecli set <file> /body/p[last()] --prop text="<paragraph>"
+    officecli add <file> /body --from /body/p[@paraId=<normal_proto>] --after /body/p[@paraId=$ANCHOR]
+    ANCHOR=$(officecli query <file> "p[last()]" --json | python3 -c "import sys,json; print(json.load(sys.stdin)['results'][0]['format']['paraId'])")
+    officecli set <file> /body/p[@paraId=$ANCHOR] --prop text="<paragraph>"
+    # Apply first-line indent (CRITICAL — missing in previous runs)
+    officecli set <file> /body/p[@paraId=$ANCHOR] --prop ind.firstLine=1.27cm
 ```
 
 ---
@@ -95,7 +89,7 @@ for paragraph in section.body_paragraphs:
 - **Section có split marker** (`split_at` trong content IR): Clone Normal prototype 2 lần, nội dung chia tại marker
 - **Section không có body paragraphs**: Chỉ clone heading prototype, không clone body
 - **Nhiều heading liên tiếp không có body giữa**: Clone heading → clone heading tiếp theo (không clone body)
-
----
+- **Section có metadata (has_image, has_math, has_bold)**: Paragraphs flagged with `has_image: true` contain markdown image references `![alt](url)`. These cannot be rendered as real images in DOCX via clone+set. You MUST either: (a) remove the markdown image syntax and keep only the alt text, or (b) add a placeholder note like `[Xem hình: alt]`. For `has_math: true`, the LaTeX `$...$` syntax will appear as plain text — you can preserve it verbatim or convert to an image/equation object depending on capability.
+- **Tham khảo (references) section**: Section type is `heading1` with `body_paragraphs[]` containing citation entries. Insert in forward order (index 0, 1, 2, ...). Each `add --after anchor` + `anchor = new_id` ensures correct sequential order.
 
 ✅ Chỉ dùng: `add --from` + `set --prop text=` trên cloned paragraph
