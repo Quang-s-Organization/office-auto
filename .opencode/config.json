@@ -20,5 +20,30 @@
       "top_p": 0.95,
       "top_k": 20
     }
-  }
+  },
+  "mcp": {
+    "officecli": {
+      "type": "local",
+      "command": ["officecli", "mcp"],
+      "enabled": true,
+      "environment": {
+        "OFFICECLI_NO_AUTO_RESIDENT": "0"
+      }
+    }
+  },
+  "agent": {
+    "docgen-orchestrator": {
+      "mode": "primary",
+      "model": "sglang/Qwen3.6-35B-A3B-GGUF",
+      "description": "Orchestrates DOCX generation from noidung.md + template.docx via IR-based document synthesis.",
+      "tools": {
+        "officecli*": true
+      },
+      "permission": {
+        "edit": "allow",
+        "bash": "allow"
+      }
+    }
+  },
+  "default_agent": "docgen-orchestrator"
 }
