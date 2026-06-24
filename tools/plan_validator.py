@@ -1,320 +1,136 @@
 #!/usr/bin/env python3
-"""Pre-execution Plan Validator — PlanCompiler-style structural checks.
+"""Pre-execution validator (v5) — structural checks on batch_program.json.
 
-Validates a mapping_table.json against content.ir.json and template.ir.json
-BEFORE the composer runs. Catches structural errors early instead of
-letting them surface as runtime failures.
+Catches structural mistakes before the composer runs the batch. Validates the
+officecli batch program against the Template IR and Content IR.
 
 Usage:
-    python3 tools/plan_validator.py \\
-        --template-ir .cache/template.ir.json \\
-        --content content.ir.json \\
-        --mapping mapping_table.json
+    python3 tools/plan_validator.py --batch batch_program.json \\
+        --template-ir .cache/template.ir.json --content content.ir.json [--json]
 
-Exit code: 0 if all checks pass, 1 if any fail.
+Exit code: 0 if all pass, 1 otherwise.
 """
 
 from __future__ import annotations
 import argparse
 import json
+import re
 import sys
-import time
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
-class ValidationResult:
-    """Result of a single validation check."""
+class Result:
     name: str
     passed: bool
     message: str
-    details: list[str] = field(default_factory=list)
+    details: list = field(default_factory=list)
 
 
-def check_1_prototype_exists(
-    mapping_data: dict, template_ir: dict
-) -> ValidationResult:
-    """Check 1: All prototype IDs in pre_clone exist in Template IR."""
-    pre_clone = mapping_data.get("pre_clone")
-    if not pre_clone:
-        return ValidationResult("CHECK 1", True,
-                                "No pre_clone entries to validate")
+_PARAID_RE = re.compile(r"@paraId=([0-9A-Fa-f]+)")
 
-    all_template_ids = set()
-    for style, protos in template_ir.get("prototypes", {}).items():
-        for p in protos:
-            all_template_ids.add(p.get("para_id", ""))
 
+def check_program_nonempty(program, template_ir, content_ir):
+    if not program:
+        return Result("nonempty", False, "batch program is empty")
+    return Result("nonempty", True, f"{len(program)} ops")
+
+
+def check_remove_targets_exist(program, template_ir, content_ir):
+    body_ids = {p.get("para_id") for p in template_ir.get("body_sequence", [])}
     missing = []
-    for name, pid in pre_clone.items():
-        if pid not in all_template_ids:
-            # Check best_prototypes too
-            found = False
-            for bp in template_ir.get("best_prototypes", {}).values():
-                if bp.get("para_id") == pid:
-                    found = True
-                    break
-            if not found:
-                missing.append(f"{name}: {pid}")
-
+    for op in program:
+        if op.get("command") == "remove":
+            m = _PARAID_RE.search(op.get("path", ""))
+            if m and m.group(1) not in body_ids:
+                missing.append(m.group(1))
     if missing:
-        return ValidationResult("CHECK 1", False,
-                                f"{len(missing)} pre_clone paraIds not found in Template IR",
-                                details=missing)
-
-    return ValidationResult("CHECK 1", True,
-                            f"All {len(pre_clone)} pre_clone paraIds exist in Template IR")
+        return Result("remove_targets", False,
+                      f"{len(missing)} remove paraIds not in template body",
+                      details=missing[:8])
+    return Result("remove_targets", True, "all remove targets exist in template")
 
 
-def check_2_content_tags_exist(
-    mapping_data: dict, content_ir: dict
-) -> ValidationResult:
-    """Check 2: All content tags in mapping entries exist in Content IR."""
-    content_tags = {s["tag"] for s in content_ir.get("sections", [])}
-    mapping_tags = {e.get("content_tag", "") for e in mapping_data.get("entries", [])}
-
-    missing = [t for t in mapping_tags if t and t not in content_tags]
-
-    if missing:
-        return ValidationResult("CHECK 2", False,
-                                f"{len(missing)} content_tags not found in Content IR",
-                                details=missing)
-
-    return ValidationResult("CHECK 2", True,
-                            f"All {len(mapping_tags)} content_tags exist in Content IR")
+def check_add_p_has_style(program, template_ir, content_ir):
+    bad = [i for i, op in enumerate(program)
+           if op.get("command") == "add" and op.get("type") == "p"
+           and not op.get("props", {}).get("style")]
+    if bad:
+        return Result("add_p_style", False, f"{len(bad)} add-p ops missing style",
+                      details=bad[:8])
+    return Result("add_p_style", True, "all paragraphs carry a style")
 
 
-def check_3_no_overlap(
-    mapping_data: dict
-) -> ValidationResult:
-    """Check 3: pre_clone paraIds don't overlap with cleanup_ids."""
-    pre_clone = mapping_data.get("pre_clone") or {}
-    cleanup_ids = set(mapping_data.get("cleanup_ids", []))
-    pre_clone_ids = set(pre_clone.values())
-
-    overlap = pre_clone_ids & cleanup_ids
-
-    if overlap:
-        return ValidationResult("CHECK 3", False,
-                                f"{len(overlap)} paraIds appear in both pre_clone AND cleanup_ids",
-                                details=list(overlap))
-
-    return ValidationResult("CHECK 3", True,
-                            "No overlap between pre_clone and cleanup_ids")
+def check_runs_nonempty(program, template_ir, content_ir):
+    empty = [i for i, op in enumerate(program)
+             if op.get("command") == "add" and op.get("type") == "r"
+             and not (op.get("props", {}).get("text") or "").strip()]
+    if empty:
+        return Result("runs_nonempty", False, f"{len(empty)} empty run texts",
+                      details=empty[:8])
+    return Result("runs_nonempty", True, "all runs carry text")
 
 
-def check_4_paragraph_count(
-    mapping_data: dict, content_ir: dict
-) -> ValidationResult:
-    """Check 4: Entry body_paragraphs count matches Content IR paragraph_count."""
-    content_sections = {s["tag"]: s for s in content_ir.get("sections", [])}
-    mismatches = []
-
-    for entry in mapping_data.get("entries", []):
-        tag = entry.get("content_tag", "")
-        expected = content_sections.get(tag, {}).get("paragraph_count", 0)
-        actual = len(entry.get("body_paragraphs", []))
-
-        # Allow ±1 for edge cases (LLM may split/merge slightly)
-        if abs(actual - expected) > 1:
-            mismatches.append(
-                f"'{tag}': expected ~{expected} paragraphs, got {actual}"
-            )
-
-    if mismatches:
-        return ValidationResult("CHECK 4", False,
-                                f"{len(mismatches)} entries have paragraph count mismatch",
-                                details=mismatches[:10])
-
-    return ValidationResult("CHECK 4", True,
-                            f"All {len(mapping_data.get('entries', []))} entries have correct paragraph counts")
+def check_paragraph_count(program, template_ir, content_ir):
+    if not content_ir:
+        return Result("para_count", True, "no content IR — skipped")
+    expected_headings = sum(1 for s in content_ir.get("sections", [])
+                            if s.get("type", "").startswith("heading"))
+    expected_body = sum(s.get("paragraph_count", 0)
+                        for s in content_ir.get("sections", []))
+    added_p = sum(1 for op in program
+                  if op.get("command") == "add" and op.get("type") == "p")
+    expected = expected_headings + expected_body
+    if added_p != expected:
+        return Result("para_count", False,
+                      f"{added_p} paragraphs built != {expected} expected "
+                      f"({expected_headings} headings + {expected_body} body)")
+    return Result("para_count", True, f"{added_p} paragraphs == content IR")
 
 
-def check_5_no_orphan_cleanup(
-    mapping_data: dict, template_ir: dict
-) -> ValidationResult:
-    """Check 5: cleanup_ids reference real paraIds in the template."""
-    all_template_ids = set()
-    for style, protos in template_ir.get("prototypes", {}).items():
-        for p in protos:
-            all_template_ids.add(p.get("para_id", ""))
-    all_template_ids.update(template_ir.get("all_heading_ids", []))
-
-    cleanup_ids = mapping_data.get("cleanup_ids", [])
-    orphaned = [pid for pid in cleanup_ids if pid not in all_template_ids]
-
-    if orphaned:
-        return ValidationResult("CHECK 5", False,
-                                f"{len(orphaned)} cleanup_ids not found in Template IR",
-                                details=orphaned[:10])
-
-    return ValidationResult("CHECK 5", True,
-                            f"All {len(cleanup_ids)} cleanup_ids reference real template elements")
+ALL = [check_program_nonempty, check_remove_targets_exist, check_add_p_has_style,
+       check_runs_nonempty, check_paragraph_count]
 
 
-def check_6_anchor_exists(
-    mapping_data: dict, template_ir: dict
-) -> ValidationResult:
-    """Check 6: initial_anchor exists in template."""
-    anchor = mapping_data.get("initial_anchor", "")
-
-    if not anchor:
-        return ValidationResult("CHECK 6", False,
-                                "initial_anchor is empty", details=[])
-
-    all_ids = set(template_ir.get("all_heading_ids", []))
-    for style, protos in template_ir.get("prototypes", {}).items():
-        for p in protos:
-            all_ids.add(p.get("para_id", ""))
-
-    if anchor not in all_ids:
-        return ValidationResult("CHECK 6", False,
-                                f"initial_anchor '{anchor}' not found in Template IR",
-                                details=[])
-
-    return ValidationResult("CHECK 6", True,
-                            f"initial_anchor '{anchor[:20]}...' exists in template")
+def validate(program, template_ir, content_ir):
+    return [c(program, template_ir, content_ir) for c in ALL]
 
 
-def check_7_required_fields(
-    mapping_data: dict
-) -> ValidationResult:
-    """Check 7: All required fields present in each entry."""
-    required_entry_fields = ["content_tag", "heading_text", "prototype", "body_paragraphs"]
-    missing_fields = []
-
-    for i, entry in enumerate(mapping_data.get("entries", [])):
-        for field in required_entry_fields:
-            if field not in entry:
-                missing_fields.append(f"entry[{i}]: missing '{field}'")
-
-    if missing_fields:
-        return ValidationResult("CHECK 7", False,
-                                f"{len(missing_fields)} required fields missing",
-                                details=missing_fields)
-
-    return ValidationResult("CHECK 7", True,
-                            f"All {len(mapping_data.get('entries', []))} entries have required fields")
-
-
-ALL_CHECKS = [
-    check_1_prototype_exists,
-    check_2_content_tags_exist,
-    check_3_no_overlap,
-    check_4_paragraph_count,
-    check_5_no_orphan_cleanup,
-    check_6_anchor_exists,
-    check_7_required_fields,
-]
-
-
-def validate_plan(
-    mapping_data: dict, content_ir: dict, template_ir: dict
-) -> list[ValidationResult]:
-    """Run all 7 structural checks against the mapping table."""
-    results = []
-    for check in ALL_CHECKS:
-        sig = check.__code__.co_varnames[:check.__code__.co_argcount]
-        if "content_ir" in sig and "template_ir" in sig:
-            r = check(mapping_data, template_ir, content_ir)
-        elif "template_ir" in sig:
-            r = check(mapping_data, template_ir)
-        elif "content_ir" in sig:
-            r = check(mapping_data, content_ir)
-        else:
-            r = check(mapping_data)
-        results.append(r)
-    return results
+def _load(path, label):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(f"[plan-validator] ERROR loading {label}: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Validate mapping_table.json before composer runs"
-    )
-    parser.add_argument("--template-ir", required=True,
-                        help="Path to template.ir.json")
-    parser.add_argument("--content", required=True,
-                        help="Path to content.ir.json")
-    parser.add_argument("--mapping", required=True,
-                        help="Path to mapping_table.json")
-    parser.add_argument("--json", action="store_true",
-                        help="Output results as JSON")
-    args = parser.parse_args()
+    ap = argparse.ArgumentParser(description="Validate batch_program.json pre-execution")
+    ap.add_argument("--batch", required=True)
+    ap.add_argument("--template-ir", required=True)
+    ap.add_argument("--content", required=True)
+    ap.add_argument("--json", action="store_true")
+    args = ap.parse_args()
 
-    start = time.time()
+    program = _load(args.batch, "batch program")
+    template_ir = _load(args.template_ir, "template IR")
+    content_ir = _load(args.content, "content IR")
 
-    # Load files
-    try:
-        with open(args.mapping, encoding="utf-8") as f:
-            mapping_data = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-        print(f"[plan-validator] ERROR: Cannot load mapping table: {e}",
-              file=sys.stderr)
-        sys.exit(1)
-
-    try:
-        with open(args.content, encoding="utf-8") as f:
-            content_ir = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-        print(f"[plan-validator] ERROR: Cannot load content IR: {e}",
-              file=sys.stderr)
-        sys.exit(1)
-
-    try:
-        with open(args.template_ir, encoding="utf-8") as f:
-            template_ir = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-        print(f"[plan-validator] ERROR: Cannot load template IR: {e}",
-              file=sys.stderr)
-        sys.exit(1)
-
-    # Run checks
-    results = []
-    for check in ALL_CHECKS:
-        # Check signature to determine args
-        sig = check.__code__.co_varnames[:check.__code__.co_argcount]
-        if "content_ir" in sig and "template_ir" in sig:
-            r = check(mapping_data, template_ir, content_ir)
-        elif "template_ir" in sig:
-            r = check(mapping_data, template_ir)
-        elif "content_ir" in sig:
-            r = check(mapping_data, content_ir)
-        else:
-            r = check(mapping_data)
-        results.append(r)
-
-    elapsed = time.time() - start
+    results = validate(program, template_ir, content_ir)
     failures = [r for r in results if not r.passed]
 
     if args.json:
-        output = {
-            "elapsed_seconds": round(elapsed, 2),
-            "total": len(results),
-            "passed": len(results) - len(failures),
-            "failed": len(failures),
-            "checks": [
-                {"name": r.name, "passed": r.passed, "message": r.message,
-                 "details": r.details[:5]}
-                for r in results
-            ],
-        }
-        print(json.dumps(output, ensure_ascii=False, indent=2))
+        print(json.dumps({"failed": len(failures),
+                          "checks": [{"name": r.name, "passed": r.passed,
+                                      "message": r.message, "details": r.details[:5]}
+                                     for r in results]}, ensure_ascii=False, indent=2))
     else:
-        print(f"[plan-validator] {len(results)} checks in {elapsed:.2f}s")
         for r in results:
-            status = "✓" if r.passed else "✗"
-            print(f"  {status} {r.name}: {r.message}")
+            print(f"  {'✓' if r.passed else '✗'} {r.name}: {r.message}")
             for d in r.details[:3]:
                 print(f"       {d}")
-
-    if failures:
-        print(f"\n[plan-validator] FAILED: {len(failures)} check(s) failed",
-              file=sys.stderr)
-        sys.exit(1)
-    else:
-        print(f"\n[plan-validator] PASSED — all checks clean")
-        sys.exit(0)
+    sys.exit(1 if failures else 0)
 
 
 if __name__ == "__main__":
