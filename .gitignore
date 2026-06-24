@@ -12,3 +12,10 @@ node_modules/
 
 # Cache artifacts (auto-generated, optional)
 .cache/
+
+# Generated pipeline artifacts (regenerated each run)
+content.ir.json
+intent.json
+mapping_table.json
+batch_program.json
+report.docx
