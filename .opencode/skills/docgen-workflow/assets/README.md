@@ -1,49 +1,15 @@
 # Design Assets
 
-## Batch Operation IR (Design for v5)
+## Batch build — IMPLEMENTED (v5)
 
-Future optimization: compose the entire document as a batch of operations
-and execute via `officecli batch` in a single save cycle.
+The whole document is composed with a single `officecli batch` (one open/save
+cycle). `tools/planner.py` emits `batch_program.json`; `tools/doc_composer.py`
+runs it (remove cycle, then add cycle).
 
-### Current Problem
+This replaced the old per-paragraph `add → query → set` loop (O(N²), ~400s) with
+one batch (~3–5s). The earlier "Batch Operation IR (v5, todo)" note is done —
+`officecli batch` is the native mechanism, no custom executor needed.
 
-```
-v4 (sequential):  add → query (per-para) → set → query → add → ...
-                  N operations → ~N * 3 officecli calls
-                  Each call opens/saves the document → ~1-2s overhead per call
-```
-
-### Proposed Solution (Batch Operation IR)
-
-```json
-{
-  "operations": [
-    {"op": "add", "from": "proto_id_1", "after": "anchor_id", "to": "/body"},
-    {"op": "set", "target": "/body/p[last()]", "prop": "text=Content..."},
-    {"op": "set", "target": "/body/p[last()]", "prop": "outlineLevel=1"},
-    {"op": "add", "from": "proto_id_2", "after": "/body/p[last()]", "to": "/body"},
-    {"op": "set", "target": "/body/p[last()]", "prop": "text=Body content..."},
-    {"op": "remove", "target": "/body/p[@paraId=cleanup_1]" },
-    {"op": "remove", "target": "/body/p[@paraId=cleanup_2]" }
-  ]
-}
-```
-
-### Execution Model
-
-```bash
-officecli batch report.docx --ops batch_ir.json
-```
-
-### Expected Gains
-
-- Single open/save cycle instead of N cycles
-- Eliminates per-operation ~1-2s overhead
-- Estimated: ~400s → ~15-30s for 63 paragraphs
-- O(N²) → O(N) complexity
-
-### Status
-
-- [ ] Design Batch IR schema
-- [ ] Implement `doc_composer_batch.py` (v5)
-- [ ] Test with `officecli batch` API
+See `clone-workflow.json` for a minimal batch sample and `docs/batch-contract.md`
+for the verified rules (append-to-end, reconstruct don't clone-then-set,
+two cycles, no off-Windows refresh).

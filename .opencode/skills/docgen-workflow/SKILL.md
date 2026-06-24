@@ -1,63 +1,65 @@
 ---
 name: docgen-workflow
-version: 12
+version: 13
 description: >
-  v4 — Deterministic document compiler pipeline.
-  LLM's ONLY role: classify content sections → produce intent.json (semantic).
-  Planner + Composer + Validator are pure Python, deterministic.
-  See manifest/SKILL.md for IR schemas.
+  v5 — Deterministic document compiler. LLM's ONLY job: classify each content
+  section into semantic intent (intent.json). Inspector + Planner + Composer +
+  Validator are pure Python; the build runs as a single officecli batch.
+  See manifest/SKILL.md for IR schemas and officecli/SKILL.md for the batch model.
 ---
 
-## Pipeline (5 steps)
+## Pipeline (6 steps)
 
 ```
-STEP -1  markdown-parser.py          → content.ir.json          deterministic
-STEP 0a  template_inspector.py       → .cache/template.ir.json  deterministic
-STEP 0b  LLM classifies intent       → intent.json              **LLM-driven**
-STEP 0c  planner.py                  → mapping_table.json       deterministic
-STEP 1   doc_composer.py             → report.docx              deterministic
-STEP 2   validator.py                → pass/fail                deterministic
-STEP 3   cp report.docx out/                                    manual
+STEP -1  markdown-parser.py     noidung.md          -> content.ir.json       deterministic
+STEP 0   template_inspector.py  template.docx       -> .cache/template.ir.json deterministic (discovers styles, body_style, body_sequence)
+STEP 1   LLM classifies intent                      -> intent.json           **LLM (once)**
+STEP 2   planner.py             intent+IRs          -> batch_program.json     deterministic
+STEP 3   plan_validator.py      batch_program+IRs   -> pass/fail              deterministic (pre-exec)
+STEP 4   doc_composer.py        template+batch      -> out/report.docx        deterministic (ONE officecli batch)
+STEP 5   validator.py           report+template.ir  -> pass/fail              deterministic (S1-S8 vs discovered props)
 ```
 
-## LLM Responsibility (ONLY this)
+## LLM responsibility (ONLY this)
 
-Read `content.ir.json` + `template.ir.json` → assign `.intent` and `.presentation` to each content node in `intent.json`.
+Read `content.ir.json` + `.cache/template.ir.json`, then write `intent.json`:
+assign each content node an `intent` and a `presentation`. Nothing else — no
+paraIds, no styles, no font/size, no cleanup. The planner resolves all of that
+from the DISCOVERED template.
 
-### Intent Vocabulary
-
-| intent | Meaning |
+| intent | meaning |
 |--------|---------|
-| `replace` | This node replaces a template section (target_context required) |
-| `insert` | This node inserts new content (no template target) |
-| `preserve` | Keep template section as-is (do NOT include in sections) |
+| `replace` | node replaces a template section |
+| `insert`  | new content, no template target |
+| `preserve`| keep template section (omit from sections) |
 
-### Presentation Vocabulary
+| presentation | resolves to |
+|--------------|-------------|
+| `major_section` | top heading style (Heading1) |
+| `minor_section` | sub heading (Heading2) |
+| `sub_section`   | sub-sub heading (Heading3) |
+| `body_text`     | discovered body style |
 
-| presentation | Maps to prototype |
-|-------------|-------------------|
-| `major_section` | Heading1 |
-| `minor_section` | Heading2 |
-| `sub_section` | Heading3 |
-| `body_text` | Normal |
-| `appendix` | Appendix heading |
+Optional top-level `strategy`: `clone` (default — variable content) or `merge`
+(fixed `{{placeholder}}` templates, via `officecli merge`).
 
-## NEVER
-
-- Never call `officecli` directly for content build — only `doc_composer.py`
-- Never modify code files in `tools/` directory
-- Never skip `validator.py` before delivery
-- Never deliver with `E_*` errors
-- Never hardcode `paraId` — not needed for intent.json, Planner handles it
-- Never include execution details (paraIds, cleanup_ids, pre_clone) in output
-
-## Pipeline Commands
+## Commands
 
 ```bash
 python3 tools/markdown-parser.py noidung.md --out content.ir.json
 python3 tools/template_inspector.py templates/format_template.docx --out .cache/template.ir.json
-# LLM: produce intent.json
-python3 tools/planner.py --template-ir .cache/template.ir.json --content content.ir.json --intent intent.json --output mapping_table.json
-python3 tools/doc_composer.py --template templates/format_template.docx --template-ir .cache/template.ir.json --content content.ir.json --mapping mapping_table.json --output report.docx
-python3 tools/validator.py report.docx
+# LLM writes intent.json (see manifest/SKILL.md for schema)
+python3 tools/planner.py --template-ir .cache/template.ir.json --content content.ir.json --intent intent.json --output batch_program.json
+python3 tools/plan_validator.py --batch batch_program.json --template-ir .cache/template.ir.json --content content.ir.json
+python3 tools/doc_composer.py --template templates/format_template.docx --batch batch_program.json --output out/report.docx
+python3 tools/validator.py out/report.docx --template-ir .cache/template.ir.json --content content.ir.json
 ```
+
+## NEVER
+
+- Never modify files in `tools/` — they are the deterministic compiler.
+- Never hand-write or hand-edit `batch_program.json` — the planner emits it.
+- Never call `officecli` per paragraph for a build — the composer uses one batch.
+- Never put paraIds/styles/font/size in `intent.json` — semantic only.
+- Never deliver with `officecli validate` errors.
+- Never run `officecli refresh` off-Windows (corrupts bookmark ids).

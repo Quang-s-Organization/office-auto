@@ -1,43 +1,55 @@
-# Office Auto — Agent-Driven Document Generation
+# Office Auto — v5 Document Compiler
 
-AI-powered DOCX generation using **skills**, **agents**, and **MCP tools** — no custom scripts.
+Generate a formatted `.docx` from Markdown + a `.docx` template using a
+**deterministic compilation** pipeline: the LLM only assigns semantic intent;
+Python tools discover the template, plan the build, and execute it as a **single
+`officecli batch`**.
 
-## Architecture
+## Pipeline
 
 ```
-noidung.md (source)  ──►  tools/markdown-parser.py  ──►  content.ir.json  ──►  Agent  ──►  report.docx
-template.docx (template)  ──►  live officecli query  ───────────────────────────┘
-                                  ├── .opencode/skills/    (workflow v3)
-                                  ├── .cache/              (optional cache artifacts)
-                                  └── templates/           (format_template.docx)
+noidung.md ──► markdown-parser.py ──► content.ir.json
+template.docx ─► template_inspector.py ─► .cache/template.ir.json  (discovers styles, body_style, body_sequence)
+        content.ir + template.ir ──► LLM (once) ──► intent.json   (semantic: intent + presentation)
+                          intent + IRs ──► planner.py ──► batch_program.json
+                                  batch_program ──► plan_validator.py   (pre-exec checks)
+                  template + batch_program ──► doc_composer.py ──► out/report.docx  (ONE officecli batch)
+                          report + template.ir ──► validator.py   (S1–S8 vs discovered props)
 ```
 
-## Core Components
+## Run
 
-- **Agent**: `.opencode/agents/docgen-orchestrator.md` — orchestrates the document synthesis pipeline
-- **Skills**: `.opencode/skills/` — `docgen-workflow` (v3), `officecli`, `manifest`, `docx-template`
-- **Source**: `noidung.md` — input markdown content
-- **Template**: `templates/format_template.docx` — DOCX template with heading styles
-- **Parser**: `tools/markdown-parser.py` — deterministic markdown → content.ir.json (required)
+```bash
+python3 tools/markdown-parser.py noidung.md --out content.ir.json
+python3 tools/template_inspector.py templates/format_template.docx --out .cache/template.ir.json
+# LLM writes intent.json (schema: .opencode/skills/manifest/SKILL.md)
+python3 tools/planner.py     --template-ir .cache/template.ir.json --content content.ir.json --intent intent.json --output batch_program.json
+python3 tools/plan_validator.py --batch batch_program.json --template-ir .cache/template.ir.json --content content.ir.json
+python3 tools/doc_composer.py --template templates/format_template.docx --batch batch_program.json --output out/report.docx
+python3 tools/validator.py   out/report.docx --template-ir .cache/template.ir.json --content content.ir.json
+```
 
+## Design principles
 
-## Pipeline (v3)
+1. **Discover, don't assume** — fonts, sizes, indents, the body style, and the
+   placeholder region all come from the template at runtime. No hardcoded values.
+2. **LLM emits semantic intent only** — no paraIds, styles, or formatting. The
+   Planner resolves everything deterministically.
+3. **One batch build** — the document is composed in a single `officecli batch`
+   (remove cycle + add cycle), not per-paragraph calls.
+4. **Validate against the template** — output is checked against discovered
+   prototypes, not fixed constants.
 
-| Step | Action |
-|------|--------|
-| -1 | Generate `content.ir.json` from `noidung.md` via `markdown-parser.py` |
-| 0a | Live Template Discovery — outline + ALL style prototypes with comparison |
-| 0b | **MANDATORY: Template Mapping** — produce mapping table |
-| 0c | Prototype Selection — compare ALL candidates, pick best match |
-| 1 | Build clone plan with OOXML property requirements |
-| 2 | Execute `add --from` + `set` + OOXML property application |
-| 3-8 | AI sections, self-check, refresh, validation (S1-S10), copy, report |
+## Layout
 
-## Key Rules
+| Path | Purpose |
+|------|---------|
+| `tools/` | deterministic compiler (parser, inspector, planner, composer, validators) |
+| `.opencode/agents/`, `.opencode/skills/` | agent + skills (docgen-workflow, officecli, manifest) |
+| `templates/` | source `.docx` template(s) |
+| `noidung.md` | source content |
+| `docs/` | research, decisions, and `batch-contract.md` (verified officecli behavior) |
+| `out/` | generated output (gitignored) |
 
-- **Verbatim extraction** — LLM copies source text exactly, never rewrites
-- **Clone DOM Builder** — `add --from` + `set --prop text=`, not SDT batch
-- **Live discovery** — template is queried at runtime, not pre-cached
-- **Template Mapping (Step 0b)** is MANDATORY — never insert at document end
-- **OOXML Properties** — Always apply: `outlineLevel` on headings, `ind.firstLine` on body, font/size overrides
-- **Prototype Selection** — Compare ALL candidates; match CHAPTER style for chapter content
+See `docs/batch-contract.md` for the verified officecli batch rules and
+`.opencode/skills/officecli/SKILL.md` for the build model.
