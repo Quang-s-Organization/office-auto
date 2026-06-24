@@ -1,80 +1,117 @@
-# Workspace State — v3
+# Workspace State — v3 (Post-Test)
 
-> Pipeline updated to v3 with mandatory template mapping (Step 0b), prototype
-> selection with comparison (Step 0c), explicit OOXML property application,
-> and S8-S10 validation checks. Designed to prevent the 10 critical failures
-> from previous runs.
+> Pipeline v3 confirmed operational after real test run (2026-06-24).
+> Phases 1-3 tooling complete. Phase 4 (SKILL.md collapse) pending.
+> See `findings-opencode-llm-issues.md` for LLM behavior analysis.
 
 ---
 
-## Kiến trúc v3
+## Kiến trúc v3 (Actual)
 
 ```
 Required Inputs
 ---------------
-noidung.md
-template.docx
+noidung.md                          → Source content
+template.docx                       → Template with heading styles & formatting
 
-Generated (required)
---------------------
-tools/markdown-parser.py ──► content.ir.json  (deterministic AST with metadata)
+Deterministic Tools (Phase 1-3)
+-------------------------------
+tools/markdown-parser.py ──────────► content.ir.json
+tools/template_inspector.py ───────► .cache/template.ir.json
+tools/doc_composer.py ─────────────► report.docx
+tools/validator.py ────────────────► Validation report
 
-Pipeline
+LLM Responsibility (Semantic Only)
+-----------------------------------
+content.ir.json + template.ir.json → mapping_table.json
+  (LLM decides WHAT: semantic role classification)
+  (Code executes HOW: deterministic composition)
+
+Pipeline Flow (Tested)
 --------
-STEP -1:  Load content.ir.json
-STEP  0a: Live Template Discovery — officecli view outline + query ALL prototypes
-STEP  0b: TEMPLATE MAPPING (MANDATORY) — produce content→template mapping table
-STEP  0c: Prototype Selection — compare candidates by font/size/context
-STEP  1:  Build clone plan with OOXML property requirements
-STEP  2:  Execute: add --from <prototype> --after <anchor> → set text → apply OOXML props
-STEP  3:  Handle AI-generated sections (verbatim: false)
-STEP  4:  Verbatim self-check
-STEP  5:  officecli refresh
-STEP  6:  Validation S1-S10
-STEP  7:  Copy output
-STEP  8:  Report
+[LLM]  Generate mapping_table.json  (content→template mapping + cleanup plan)
+[Tool] python3 tools/markdown-parser.py noidung.md --out content.ir.json
+[Tool] python3 tools/template_inspector.py templates/format_template.docx --out .cache/template.ir.json
+[Tool] python3 tools/doc_composer.py --template ... --template-ir ... --content ... --mapping ... --output report.docx
+[Tool] python3 tools/validator.py report.docx
 
-Source of Truth: template.docx (queried live, no cache)
+Known Bottleneck: doc_composer loops are slow (~400s for 63 paragraphs)
+due to _all_para_ids() querying the entire document twice per add operation.
 ```
 
-## Key Changes from v2 Refined
+## Mapping Table Format (LLM produces this)
 
-| Before | After | Solves |
-|--------|-------|--------|
-| Step 0: grab first prototype of each style | Step 0a+c: query ALL candidates, compare, pick best match | Issues #4, #5 (font/size mismatch) |
-| No mapping step — content inserted at end | Step 0b: MANDATORY mapping table produced before any insert | Issue #1 (wrong placement) |
-| Clone + set only, no property application | Clone + set + outlineLevel + ind.firstLine + font overrides | Issues #2, #3 (outline, indent) |
-| S1-S7 validation | S1-S10 with S8 (outline), S9 (font), S10 (indent) checks | Catches issues before delivery |
-| Parser extracts text only | Parser detects images, LaTeX, bold/italic metadata | Issue #7 (partial fix) |
-| No explicit cleanup step | Step 0b-4: plan and execute REMOVE for placeholder elements | Issue #9 (template leftovers) |
-| No failure documentation | "Common Failures" table in SKILL.md | Prevents repeat mistakes |
+```json
+{
+  "initial_anchor": "04C2E2D0",
+  "pre_clone": {
+    "Heading1": "051169A1",
+    "Heading2": "05E2D782",
+    "Heading3": "15D7D3CD",
+    "Normal": "739F7B5F"
+  },
+  "cleanup_ids": ["47DD4FDA", "3B91656F", "4A77C03D", ...],
+  "entries": [
+    {
+      "content_tag": "h1_1",
+      "heading_text": "CƠ SỞ LÝ THUYẾT",
+      "prototype": "Heading1",
+      "body_prototype": "Normal",
+      "body_paragraphs": ["Paragraph text...", "..."]
+    }
+  ]
+}
+```
 
----
+## Files (Current State)
 
-## Files
+### Core Tools — Phase 1 (All Implemented)
 
-### Core (required)
+| File | Lines | Purpose | Status |
+|------|-------|---------|--------|
+| `tools/markdown-parser.py` | ~200 | Markdown → Content IR (AST with metadata) | ✅ Stable |
+| `tools/template_ir.py` | ~80 | Data classes: StylePrototype, TemplateIR | ✅ Stable |
+| `tools/template_inspector.py` | ~300 | Query template → compare candidates → select best prototypes | ✅ Stable |
+
+### Core Tools — Phase 2 (Implemented, performance issue)
+
+| File | Lines | Purpose | Status |
+|------|-------|---------|--------|
+| `tools/doc_composer_ops.py` | ~196 | Low-level officecli wrappers (add, set, remove, query) | ⚠️ _all_para_ids slow |
+| `tools/doc_composer.py` | ~430 | Composer: Content IR + Template IR + Mapping → DOCX | ⚠️ 411s for 63 paras |
+
+**Known issue:** `add_paragraph()` uses diff pattern: queries ALL paragraphs before & after each add.
+Fix would be incremental paraId tracking (get last paraId after add instead of full diff).
+
+### Core Tools — Phase 3 (Implemented)
+
+| File | Lines | Purpose | Status |
+|------|-------|---------|--------|
+| `tools/validation_checks.py` | ~200 | Individual S1-S10 check implementations | ✅ Stable |
+| `tools/validator.py` | ~80 | Validation runner + report | ✅ Stable |
+
+### Agent & Skills — Phase 4 (Not started)
 
 | File | Purpose | Status |
 |------|---------|--------|
-| `noidung.md` | Source content in markdown | Input |
-| `template.docx` | Template with heading styles | Input |
-| `tools/markdown-parser.py` | Parse markdown → `content.ir.json` (deterministic, required) | ✅ Kept |
-| `content.ir.json` | Content IR — auto-generated from markdown | Generated |
+| `.opencode/agents/docgen-orchestrator.md` | Agent definition — needs condensing | 🔄 Pending |
+| `.opencode/skills/docgen-workflow/SKILL.md` | ~488 lines — needs collapse to ~80 | 🔄 Pending |
+| `.opencode/skills/docgen-workflow/references/content-strategies.md` | Clone strategies — now in code | 🔄 Pending removal |
+| `.opencode/skills/docgen-workflow/references/validation-checks.md` | S1-S10 — now in code | 🔄 Pending removal |
+| `.opencode/skills/docgen-workflow/references/audit-guide.md` | Prototype selection — now in code | 🔄 Pending removal |
 
-### Agent & Skills
+### Config & Output
 
 | File | Purpose |
-|------|---------|
-| `.opencode/agents/docgen-orchestrator.md` | Agent definition — orchestrates pipeline |
-| `.opencode/skills/docgen-workflow/SKILL.md` | Pipeline step-by-step with live template discovery |
-| `.opencode/skills/docgen-workflow/references/content-strategies.md` | Clone + set strategy, prototype resolution via live query |
-| `.opencode/skills/docgen-workflow/references/content-rules.md` | Verbatim extraction rules |
-| `.opencode/skills/docgen-workflow/references/validation-checks.md` | S1-S7 validation |
-| `.opencode/skills/docgen-workflow/references/audit-guide.md` | Style prototype discovery guide |
-| `.opencode/skills/manifest/SKILL.md` | content.ir.json schema reference |
+|------|--------|
+| `mapping_table.json` | LLM-produced content→template mapping |
+| `report.docx` | Generated output document |
+| `content.ir.json` | Generated content IR |
+| `.cache/template.ir.json` | Generated template IR |
+| `.opencode/skills/manifest/SKILL.md` | Content IR schema reference |
 | `.opencode/skills/officecli/SKILL.md` | OfficeCLI syntax reference |
 | `.opencode/skills/docx-template/SKILL.md` | Template authoring guide |
+| `findings-opencode-llm-issues.md` | LLM behavior analysis after test run |
 
 ### Obsolete (kept for reference)
 
@@ -82,35 +119,39 @@ Source of Truth: template.docx (queried live, no cache)
 |------|--------|
 | `manifests/format_template.manifest.json` | Replaced by content.ir.json + live template discovery |
 | `manifests/format_template.struct-spec.json` | Replaced by live officecli query |
+| `.opencode/skills/docgen-workflow/references/prototype-selection-guide.md` | Logic in template_inspector.py |
 
 ---
 
-## Pipeline (v2 Refined)
+## Pipeline (v3 — Current)
 
 ```
-STEP -1: Load content.ir.json — nếu thiếu, chạy tools/markdown-parser.py
-STEP  0: Live Template Discovery — dùng officecli query template.docx trực tiếp
-         officecli query <template> "p[style=Heading1]" --json  → prototype_selector
-         officecli query <template> "p[style=Heading2]" --json
-         officecli query <template> "p[style=Heading3]" --json
-         officecli query <template> "p[style=Normal]" --json
-         officecli view <template> outline  → heading order
-STEP  1: Build clone plan (mapping content sections → style selectors → anchors)
-STEP  2: Execute clone + set cho từng section
-STEP  3: Handle AI-generated sections (verbatim: false)
-STEP  4: Verbatim self-check
-STEP  5: officecli refresh
-STEP  6: Validation S1-S7
-STEP  7: Copy output to out/report.docx
-STEP  8: Report
+Phase 1-3 Tools (deterministic, Python):
+  python3 tools/markdown-parser.py noidung.md --out content.ir.json
+  python3 tools/template_inspector.py templates/format_template.docx --out .cache/template.ir.json
+  python3 tools/doc_composer.py --template ... --template-ir ... --content ... --mapping ... --output report.docx
+  python3 tools/validator.py report.docx
+
+LLM (semantic only):
+  → mapping_table.json (content→template classification + cleanup plan)
+
+Expected Total: ~60-90s (current: ~420s due to _all_para_ids bottleneck)
 ```
 
----
-
-## Design Principles
+## Design Principles (Confirmed)
 
 1. **Source of truth là template.docx** — mọi discovery đều live, không có cache file
 2. **`markdown-parser.py` là required** — LLM không thể parse 100-300 trang markdown tin cậy
 3. **Template discovery là live** — agent query template qua `officecli query`, không cần cache
-4. **Dùng style selector, không dùng paraId cứng** — `p[style=Heading1]` ổn định hơn `@paraId=ABC`
-5. **Clone DOM Builder** (`add --from` + `set --prop text=`) là cơ chế duy nhất để insert content
+4. **Clone DOM Builder** (`add --from` + `set --prop text=`) là cơ chế duy nhất để insert content
+5. **Code handles deterministic ops, LLM chỉ quyết định semantic mapping** — không modify code, không generate code
+6. **Mapping table có `pre_clone` + `cleanup_ids`** — prototype paragraphs phải được cloned trước khi cleanup
+7. **Không include prototype paraIds trong cleanup_ids nếu không có pre_clone** — nếu không composer không tìm thấy source để clone
+
+## Known Bottlenecks
+
+| Issue | Cause | Impact | Fix |
+|-------|-------|--------|-----|
+| `_all_para_ids` 2x per add | `add_paragraph()` diff-based paraId tracking | ~400s for 63 paragraphs | Use incremental tracking: query last paraId after add only |
+| Model quantize quá aggressive | Qwen3.6-35B-A3B-GGUF mất ~40% reasoning | Overthinking, circular logic | Dùng model không quantize hoặc FP8/INT8 |
+| LLM tự modify code | Không có guard trong architecture | Code hỏng, mất thời gian debug | Strict enforcement: LLM chỉ produce mapping JSON |
