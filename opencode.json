@@ -1,5 +1,28 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "sglang": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "sglang",
+      "options": {
+        "baseURL": "https://appresearchpublic83.aiplatform.vcntt.tech/v1"
+      },
+      "models": {
+        "Qwen3.6-35B-A3B-GGUF": {
+          "name": "Qwen3.6-35B-A3B-GGUF"
+        }
+      }
+    }
+  },
+  "model": "sglang/Qwen3.6-35B-A3B-GGUF",
+  "models": {
+    "sglang/Qwen3.6-35B-A3B-GGUF": {
+      "temperature": 0.3,
+      "top_p": 0.9,
+      "top_k": 20,
+      "maxTokens": 4096
+    }
+  },
   "mcp": {
     "officecli": {
       "type": "local",
@@ -15,7 +38,7 @@
     "docgen-orchestrator": {
       "mode": "primary",
       "model": "sglang/Qwen3.6-35B-A3B-GGUF",
-      "description": "Orchestrates document generation pipeline.",
+      "description": "v5 deterministic document compiler. LLM assigns semantic intent only (intent.json); planner/composer/validator are pure Python; the document is built via a single officecli batch.",
       "tools": {
         "officecli*": false
       },
