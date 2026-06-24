@@ -1,0 +1,81 @@
+{
+  "initial_preserved": "SUPERVISOR",
+  "body_prototype": "Normal",
+  "sections": [
+    {
+      "node_id": "h1_1",
+      "intent": "replace",
+      "presentation": "major_section",
+      "target_context": "CHAPTER"
+    },
+    {
+      "node_id": "h2_1_1",
+      "intent": "replace",
+      "presentation": "minor_section",
+      "target_context": "CHAPTER"
+    },
+    {
+      "node_id": "h2_1_2",
+      "intent": "replace",
+      "presentation": "minor_section",
+      "target_context": "CHAPTER"
+    },
+    {
+      "node_id": "h2_1_3",
+      "intent": "replace",
+      "presentation": "minor_section",
+      "target_context": "CHAPTER"
+    },
+    {
+      "node_id": "h2_1_4",
+      "intent": "replace",
+      "presentation": "minor_section",
+      "target_context": "CHAPTER"
+    },
+    {
+      "node_id": "h3_1_4_1",
+      "intent": "replace",
+      "presentation": "sub_section",
+      "target_context": "CHAPTER"
+    },
+    {
+      "node_id": "h3_1_4_2",
+      "intent": "replace",
+      "presentation": "sub_section",
+      "target_context": "CHAPTER"
+    },
+    {
+      "node_id": "h1_2",
+      "intent": "replace",
+      "presentation": "major_section",
+      "target_context": "CHAPTER"
+    },
+    {
+      "node_id": "h2_2_1",
+      "intent": "replace",
+      "presentation": "minor_section",
+      "target_context": "CHAPTER"
+    },
+    {
+      "node_id": "h2_2_2",
+      "intent": "replace",
+      "presentation": "minor_section",
+      "target_context": "CHAPTER"
+    },
+    {
+      "node_id": "h1_3",
+      "intent": "replace",
+      "presentation": "major_section",
+      "target_context": "REFERENCES"
+    }
+  ],
+  "preserve_contexts": [
+    "ACKNOWLEDGEMENTS",
+    "ABSTRACT",
+    "TABLE OF CONTENTS",
+    "LIST OF ABBREVIATIONS",
+    "LIST OF TABLES",
+    "APPENDIX",
+    "SUPERVISOR"
+  ]
+}

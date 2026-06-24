@@ -11,11 +11,12 @@ Exit code: 0 if all error-level checks pass, 1 if any fail.
 from __future__ import annotations
 import argparse
 import json
+import os
 import sys
 import time
 
-sys.path.insert(0, ".")
-from tools.validation_checks import run_all, CheckResult
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from validation_checks import run_all, CheckResult
 
 
 def main():
@@ -31,13 +32,20 @@ def main():
 
     start = time.time()
 
-    from tools.validation_checks import ALL_CHECKS, run_all, check_s1_heading_order
+    from validation_checks import ALL_CHECKS, run_all
 
     if args.check:
-        # Map check names to functions
-        check_map = {
-            "S1": check_s1_heading_order,
-        }
+        # Build check map dynamically from ALL_CHECKS
+        check_map = {}
+        for check_fn in ALL_CHECKS:
+            # Derive S-number from function name
+            parts = check_fn.__name__.split("_")
+            for p in parts:
+                if p.startswith("s") and p[1:].isdigit():
+                    s_num = f"S{p[1:]}"
+                    check_map[s_num] = check_fn
+                    break
+
         results = []
         for name in args.check:
             fn = check_map.get(name)

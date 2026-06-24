@@ -17,10 +17,10 @@
       "model": "sglang/Qwen3.6-35B-A3B-GGUF",
       "description": "Orchestrates document generation pipeline.",
       "tools": {
-        "officecli*": true
+        "officecli*": false
       },
       "permission": {
-        "edit": "allow",
+        "edit": "deny",
         "bash": "allow"
       }
     }

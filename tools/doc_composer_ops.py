@@ -74,6 +74,24 @@ def close_doc(filepath: str) -> bool:
     return ok
 
 
+def _query_para_text(filepath: str, para_id: str) -> Optional[str]:
+    """Query a specific paragraph by paraId and return its text content."""
+    out = _run([
+        "officecli", "query", filepath,
+        f"/body/p[@paraId={para_id}]", "--json"
+    ])
+    if not out:
+        return None
+    try:
+        data = json.loads(out)
+        results = data.get("data", {}).get("results", [])
+        if results:
+            return results[0].get("text", "")
+    except (json.JSONDecodeError, KeyError, IndexError):
+        pass
+    return None
+
+
 def add_paragraph(
     filepath: str,
     proto_para_id: str,
@@ -82,37 +100,24 @@ def add_paragraph(
 ) -> Optional[str]:
     """Clone a prototype paragraph after an anchor.
 
-    Uses diff pattern: capture all paraIds before/after, return new one.
-    Optimized: no sleep, single retry only on failure.
+    Uses diff-based tracking: captures all paraIds before add, then
+    queries after to find the new one. This works regardless of where
+    in the document the anchor lives.
     """
-    before = _all_para_ids(filepath)
-
     for attempt in range(max_retries):
+        before = _all_para_ids(filepath)
         _run([
             "officecli", "add", filepath, "/body",
             "--from", f"/body/p[@paraId={proto_para_id}]",
             "--after", f"/body/p[@paraId={after_para_id}]",
         ])
-
         after = _all_para_ids(filepath)
-        diff = after - before
-
-        if len(diff) == 1:
-            new_id = list(diff)[0]
-            # Quick verify it's readable
-            _run([
-                "officecli", "query", filepath,
-                f"/body/p[@paraId={new_id}]", "--json"
-            ])
+        new_ids = after - before
+        new_id = new_ids.pop() if len(new_ids) == 1 else None
+        if new_id and new_id != after_para_id and new_id in after:
             return new_id
-        elif len(diff) > 1:
-            new_id = sorted(diff)[-1]
-            return new_id
-        else:
-            if attempt < max_retries - 1:
-                import time
-                time.sleep(0.5)
-
+        if attempt < max_retries - 1:
+            time.sleep(0.5)
     return None
 
 
@@ -154,16 +159,20 @@ def refresh_doc(filepath: str) -> bool:
 
 
 def get_text(filepath: str, para_id: str) -> Optional[str]:
-    """Read back the text content of a paragraph."""
-    out = _run([
-        "officecli", "query", filepath,
-        f"/body/p[@paraId={para_id}]", "--json"
-    ])
+    """Read back the text content of a paragraph.
+
+    Uses the all-paragraphs query since specific paraId XPath may fail
+    for newly added paragraphs.
+    """
+    out = _run(["officecli", "query", filepath, "p", "--json"])
     if not out:
         return None
     try:
         data = json.loads(out)
-        return data["data"]["results"][0].get("text", "")
+        for r in data.get("data", {}).get("results", []):
+            if r.get("format", {}).get("paraId") == para_id:
+                return r.get("text", "")
+        return None
     except (json.JSONDecodeError, KeyError, IndexError):
         return None
 

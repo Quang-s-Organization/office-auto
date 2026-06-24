@@ -28,6 +28,7 @@ from doc_composer_ops import (
     remove_paragraph, refresh_doc, get_text, query_heading_info
 )
 from template_ir import TemplateIR
+from plan_validator import validate_plan, ValidationResult
 
 
 # ── Data classes ──────────────────────────────────────────────────
@@ -223,7 +224,31 @@ def compose_document(
     if mapping is None:
         return ComposeResult(False, 0, ["Cannot load mapping table"], output_path)
 
-    # ── 2. Copy template → output ──
+    # ── 2. Pre-execution validation ──
+    print("[composer] Running pre-execution plan validation...", file=sys.stderr)
+    # Reload raw mapping data for validation (validate_plan expects dict format)
+    try:
+        with open(mapping_table_path, encoding="utf-8") as f:
+            raw_mapping_data = json.load(f)
+    except Exception:
+        raw_mapping_data = {}
+
+    validation_results = validate_plan(raw_mapping_data, content_ir, {
+        "prototypes": {k: [p.__dict__ for p in v] for k, v in template_ir.prototypes.items()},
+        "best_prototypes": {k: v.__dict__ for k, v in template_ir.best_prototypes.items()},
+        "all_heading_ids": template_ir.all_heading_ids,
+    })
+    validation_failures = [r for r in validation_results if not r.passed]
+    if validation_failures:
+        for r in validation_failures:
+            print(f"[composer] VALIDATION FAILED: {r.name}: {r.message}",
+                  file=sys.stderr)
+            for d in r.details[:3]:
+                print(f"       {d}", file=sys.stderr)
+        errors.append(f"Plan validation failed: {len(validation_failures)} check(s)")
+        # Continue with errors — don't abort, let the user see all failures
+
+    # ── 3. Copy template → output ──
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     shutil.copy2(template_path, output_path)
     print(f"[composer] Copied template to {output_path}", file=sys.stderr)

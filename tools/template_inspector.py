@@ -264,6 +264,26 @@ def inspect_template(
         prototypes[style] = candidates
         print(f"[inspector] {style}: {len(candidates)} candidates", file=sys.stderr)
 
+    # Enrich outline entries with para_id from heading prototypes
+    _heading_paras = {}
+    for style in ["Heading1", "Heading2", "Heading3"]:
+        for p in prototypes.get(style, []):
+            if p.para_id and p.text:
+                _heading_paras[p.text.strip().rstrip()] = p.para_id
+
+    for entry in outline:
+        txt = entry["text"].strip().rstrip()
+        # Try exact match
+        if txt in _heading_paras:
+            entry["para_id"] = _heading_paras[txt]
+        else:
+            # Try prefix match for truncated titles
+            for title, pid in _heading_paras.items():
+                if txt and (title.startswith(txt) or txt.startswith(title[:min(len(txt), 10)])):
+                    entry["para_id"] = pid
+                    break
+
+
     # Collect all heading paraIds for outline verification
     all_heading_ids: list[str] = []
     for style in ["Heading1", "Heading2", "Heading3"]:

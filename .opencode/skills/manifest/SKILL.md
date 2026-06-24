@@ -130,6 +130,52 @@ Tags encode hierarchy position:
 
 ---
 
+## intent.json Schema (v4, Semantic LLM Output)
+
+```json
+{
+  "initial_preserved": "ACKNOWLEDGEMENTS",
+  "body_prototype": "Normal",
+  "sections": [
+    {
+      "node_id": "h1_1",
+      "intent": "replace",
+      "presentation": "major_section",
+      "target_context": "CHAPTER"
+    }
+  ],
+  "preserve_contexts": ["ACKNOWLEDGEMENTS", "ABSTRACT", ...]
+}
+```
+
+### Fields
+
+| Field | Always | Description |
+|-------|--------|-------------|
+| `initial_preserved` | ✅ | section_context of the template element to anchor after (e.g. "ACKNOWLEDGEMENTS") |
+| `body_prototype` | ✅ | Style name for body paragraphs (usually "Normal") |
+| `sections[]` | ✅ | Content sections with semantic intent |
+| `preserve_contexts` | ✅ | Template sections to keep as-is |
+
+### Section Fields
+
+| Field | Always | Description |
+|-------|--------|-------------|
+| `node_id` | ✅ | From content.ir.json tag (e.g. "h1_1") |
+| `intent` | ✅ | `replace` / `insert` / `preserve` / `remove` |
+| `presentation` | ✅ | `major_section` / `minor_section` / `sub_section` / `body_text` / `appendix` |
+| `target_context` | ❌ | Required for `replace` intent: template section context (e.g. "CHAPTER") |
+
+### CRITICAL: What intent.json does NOT contain
+
+- ❌ No `paraId` — Planner resolves these from Template IR
+- ❌ No `cleanup_ids` — Planner calculates from intent + template structure
+- ❌ No `pre_clone` — Planner determines when pre-clone is needed
+- ❌ No `initial_anchor` — derived from `initial_preserved` context
+- ❌ No `body_paragraphs` — copied from content.ir.json by Planner
+
+---
+
 ## Deprecated: manifests/ files
 
 Files in `manifests/` (format_template.manifest.json, format_template.struct-spec.json)

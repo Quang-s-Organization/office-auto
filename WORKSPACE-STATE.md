@@ -1,157 +1,161 @@
-# Workspace State — v3 (Post-Test)
+# Workspace State — v4 (Research-Driven)
 
-> Pipeline v3 confirmed operational after real test run (2026-06-24).
-> Phases 1-3 tooling complete. Phase 4 (SKILL.md collapse) pending.
-> See `findings-opencode-llm-issues.md` for LLM behavior analysis.
+> Updated 2026-06-24 after external research on Anthropic, PlanCompiler, LangGraph, AutoGen.
+> Key finding: your architecture converges on "deterministic compilation" — LLM emits structured plan, code validates/compiles/executes.
 
 ---
 
-## Kiến trúc v3 (Actual)
+## Kiến trúc v4 (Research-Aligned)
 
 ```
-Required Inputs
----------------
-noidung.md                          → Source content
-template.docx                       → Template with heading styles & formatting
-
-Deterministic Tools (Phase 1-3)
--------------------------------
-tools/markdown-parser.py ──────────► content.ir.json
-tools/template_inspector.py ───────► .cache/template.ir.json
-tools/doc_composer.py ─────────────► report.docx
-tools/validator.py ────────────────► Validation report
-
-LLM Responsibility (Semantic Only)
------------------------------------
-content.ir.json + template.ir.json → mapping_table.json
-  (LLM decides WHAT: semantic role classification)
-  (Code executes HOW: deterministic composition)
-
-Pipeline Flow (Tested)
---------
-[LLM]  Generate mapping_table.json  (content→template mapping + cleanup plan)
-[Tool] python3 tools/markdown-parser.py noidung.md --out content.ir.json
-[Tool] python3 tools/template_inspector.py templates/format_template.docx --out .cache/template.ir.json
-[Tool] python3 tools/doc_composer.py --template ... --template-ir ... --content ... --mapping ... --output report.docx
-[Tool] python3 tools/validator.py report.docx
-
-Known Bottleneck: doc_composer loops are slow (~400s for 63 paragraphs)
-due to _all_para_ids() querying the entire document twice per add operation.
+Source Content
+    ↓
+┌─────────────────────┐
+│  markdown-parser.py  │  Pure code
+└─────────────────────┘
+    ↓  content.ir.json
+┌─────────────────────────┐
+│  template_inspector.py   │  Pure code
+└─────────────────────────┘
+    ↓  template.ir.json
+┌─────────────────────┐
+│  LLM (single call)   │  ↓ temperature 0.3, maxTokens 4096
+└─────────────────────┘
+    ↓  intent.json (semantic only — no paraIds, no cleanup_ids)
+┌─────────────────────┐
+│  planner.py (NEW)    │  Pure Python, deterministic
+└─────────────────────┘
+    ↓  mapping_table.json (contains execution details)
+┌─────────────────────┐
+│  plan_validator.py   │  7 structural checks (PlanCompiler-style)
+└─────────────────────┘
+    ↓  validated plan
+┌─────────────────────┐
+│  doc_composer.py     │  Deterministic, uses incremental paraId tracking
+└─────────────────────┘
+    ↓  report.docx
+┌─────────────────────┐
+│  validator.py        │  S1-S10 (S3-S7 individual checks restored)
+└─────────────────────┘
+    ↓  PASSED or E_* errors
 ```
 
-## Mapping Table Format (LLM produces this)
+## Key Changes from v3
 
-```json
-{
-  "initial_anchor": "04C2E2D0",
-  "pre_clone": {
-    "Heading1": "051169A1",
-    "Heading2": "05E2D782",
-    "Heading3": "15D7D3CD",
-    "Normal": "739F7B5F"
-  },
-  "cleanup_ids": ["47DD4FDA", "3B91656F", "4A77C03D", ...],
-  "entries": [
-    {
-      "content_tag": "h1_1",
-      "heading_text": "CƠ SỞ LÝ THUYẾT",
-      "prototype": "Heading1",
-      "body_prototype": "Normal",
-      "body_paragraphs": ["Paragraph text...", "..."]
-    }
-  ]
-}
+| Aspect | v3 | v4 |
+|--------|----|----|
+| LLM output | `mapping_table.json` (paraIds, cleanup, pre_clone) | `intent.json` (semantic only: intent + presentation) |
+| Planner | ❌ None | ✅ `planner.py` — deterministic intent→execution conversion |
+| Pre-validation | ❌ None | ✅ `plan_validator.py` — 7 checks before composer runs |
+| `add_paragraph` | Full document diff (2x per add) | Incremental last-paraId tracking (~50x faster) |
+| Validation | 5 merged checks (S2-S7 merged) | 10 individual checks (S1-S10 restored) |
+| SKILL.md | ~57 lines | ~57 lines (was already collapsed) |
+| Temperature | 0.6 | 0.3 |
+| Agent edit permission | `allow` | `deny` |
+| Agent officecli access | `true` | `false` |
+
+## Pipeline (v4 — Current)
+
+```bash
+# Step -1: Parse content
+python3 tools/markdown-parser.py noidung.md --out content.ir.json
+
+# Step 0a: Inspect template
+python3 tools/template_inspector.py templates/format_template.docx --out .cache/template.ir.json
+
+# Step 0b: LLM produces semantic intent (NO execution details)
+#   → produces intent.json
+
+# Step 0c: Planner converts intent → execution plan
+python3 tools/planner.py --template-ir .cache/template.ir.json \
+    --content content.ir.json --intent intent.json \
+    --output mapping_table.json --validate
+
+# Step 1: Compose document
+python3 tools/doc_composer.py --template templates/format_template.docx \
+    --template-ir .cache/template.ir.json --content content.ir.json \
+    --mapping mapping_table.json --output report.docx
+
+# Step 2: Validate
+python3 tools/validator.py report.docx
 ```
 
 ## Files (Current State)
 
-### Core Tools — Phase 1 (All Implemented)
+### Core Tools — Phase 1-3
 
 | File | Lines | Purpose | Status |
 |------|-------|---------|--------|
-| `tools/markdown-parser.py` | ~200 | Markdown → Content IR (AST with metadata) | ✅ Stable |
-| `tools/template_ir.py` | ~80 | Data classes: StylePrototype, TemplateIR | ✅ Stable |
-| `tools/template_inspector.py` | ~300 | Query template → compare candidates → select best prototypes | ✅ Stable |
+| `tools/markdown-parser.py` | ~200 | Markdown → Content IR | ✅ Stable |
+| `tools/template_ir.py` | ~100 | Data classes: StylePrototype, TemplateIR | ✅ Stable |
+| `tools/template_inspector.py` | ~300 | Query template → best prototypes | ✅ Stable |
 
-### Core Tools — Phase 2 (Implemented, performance issue)
-
-| File | Lines | Purpose | Status |
-|------|-------|---------|--------|
-| `tools/doc_composer_ops.py` | ~196 | Low-level officecli wrappers (add, set, remove, query) | ⚠️ _all_para_ids slow |
-| `tools/doc_composer.py` | ~430 | Composer: Content IR + Template IR + Mapping → DOCX | ⚠️ 411s for 63 paras |
-
-**Known issue:** `add_paragraph()` uses diff pattern: queries ALL paragraphs before & after each add.
-Fix would be incremental paraId tracking (get last paraId after add instead of full diff).
-
-### Core Tools — Phase 3 (Implemented)
+### Core Tools — Phase 2 (Fixed)
 
 | File | Lines | Purpose | Status |
 |------|-------|---------|--------|
-| `tools/validation_checks.py` | ~200 | Individual S1-S10 check implementations | ✅ Stable |
-| `tools/validator.py` | ~80 | Validation runner + report | ✅ Stable |
+| `tools/doc_composer_ops.py` | ~200 | Low-level officecli wrappers | ✅ **Fixed**: incremental paraId tracking |
+| `tools/doc_composer.py` | ~440 | Composer: IRs + Mapping → DOCX | ✅ **Updated**: calls plan_validator before compose |
 
-### Agent & Skills — Phase 4 (Not started)
+### Core Tools — Phase 3 (Enhanced)
+
+| File | Lines | Purpose | Status |
+|------|-------|---------|--------|
+| `tools/validation_checks.py` | ~320 | Individual S1-S10 check implementations | ✅ **Enhanced**: S3, S4, S5, S6, S7 restored |
+| `tools/validator.py` | ~100 | Validation runner | ✅ Updated with dynamic check map |
+
+### Core Tools — Phase 4 (NEW)
+
+| File | Lines | Purpose | Status |
+|------|-------|---------|--------|
+| `tools/planner.py` | ~280 | Semantic Intent → Execution Plan | ✅ **New**: deterministic planner |
+| `tools/plan_validator.py` | ~230 | Pre-execution structural validation | ✅ **New**: 7 PlanCompiler-style checks |
+
+### Agent & Skills — Phase 4
 
 | File | Purpose | Status |
 |------|---------|--------|
-| `.opencode/agents/docgen-orchestrator.md` | Agent definition — needs condensing | 🔄 Pending |
-| `.opencode/skills/docgen-workflow/SKILL.md` | ~488 lines — needs collapse to ~80 | 🔄 Pending |
-| `.opencode/skills/docgen-workflow/references/content-strategies.md` | Clone strategies — now in code | 🔄 Pending removal |
-| `.opencode/skills/docgen-workflow/references/validation-checks.md` | S1-S10 — now in code | 🔄 Pending removal |
-| `.opencode/skills/docgen-workflow/references/audit-guide.md` | Prototype selection — now in code | 🔄 Pending removal |
+| `.opencode/agents/docgen-orchestrator.md` | Agent definition — v4, LLM-only-intent | ✅ Updated |
+| `.opencode/skills/docgen-workflow/SKILL.md` | Pipeline reference — v4 with Planner step | ✅ Updated |
+| `.opencode/skills/manifest/SKILL.md` | Schema reference incl. intent.json | ✅ Updated |
+| `.opencode/config.json` | temperature 0.3, maxTokens 4096 | ✅ Updated |
+| `opencode.json` | officecli*: false, edit: deny | ✅ Updated |
 
-### Config & Output
+### Data Files
 
 | File | Purpose |
-|------|--------|
-| `mapping_table.json` | LLM-produced content→template mapping |
+|------|---------|
+| `intent.json` | **New** — sample LLM semantic output |
+| `mapping_table.json` | LLM-produced (legacy) OR Planner-produced mapping |
 | `report.docx` | Generated output document |
 | `content.ir.json` | Generated content IR |
 | `.cache/template.ir.json` | Generated template IR |
-| `.opencode/skills/manifest/SKILL.md` | Content IR schema reference |
-| `.opencode/skills/officecli/SKILL.md` | OfficeCLI syntax reference |
-| `.opencode/skills/docx-template/SKILL.md` | Template authoring guide |
+
+### Design Documents
+
+| File | Purpose |
+|------|---------|
+| `external-research-findings.md` | Research on Anthropic, PlanCompiler, LangGraph, AutoGen |
 | `findings-opencode-llm-issues.md` | LLM behavior analysis after test run |
+| `.opencode/skills/docgen-workflow/assets/README.md` | Batch Operation IR design (v5) |
+| `references/template-mapping-guide.md` | Semantic mapping guidelines for LLM |
+| `references/content-rules.md` | Verbatim rules for LLM |
 
-### Obsolete (kept for reference)
+## Known Performance
 
-| File | Reason |
-|------|--------|
-| `manifests/format_template.manifest.json` | Replaced by content.ir.json + live template discovery |
-| `manifests/format_template.struct-spec.json` | Replaced by live officecli query |
-| `.opencode/skills/docgen-workflow/references/prototype-selection-guide.md` | Logic in template_inspector.py |
+| Bottleneck | v3 | v4 (Estimated) |
+|------------|-----|---------------|
+| `add_paragraph` (63 paragraphs) | ~400s (full diff 2x/add) | ~8-15s (incremental tracking) |
+| Plan validation | ❌ None | < 1s (7 static checks) |
+| Planner | ❌ None | < 1s (Python dict logic) |
+| **Total compose** | ~400-420s | **~10-30s** (13-40x faster) |
 
----
+## Design Principles
 
-## Pipeline (v3 — Current)
-
-```
-Phase 1-3 Tools (deterministic, Python):
-  python3 tools/markdown-parser.py noidung.md --out content.ir.json
-  python3 tools/template_inspector.py templates/format_template.docx --out .cache/template.ir.json
-  python3 tools/doc_composer.py --template ... --template-ir ... --content ... --mapping ... --output report.docx
-  python3 tools/validator.py report.docx
-
-LLM (semantic only):
-  → mapping_table.json (content→template classification + cleanup plan)
-
-Expected Total: ~60-90s (current: ~420s due to _all_para_ids bottleneck)
-```
-
-## Design Principles (Confirmed)
-
-1. **Source of truth là template.docx** — mọi discovery đều live, không có cache file
-2. **`markdown-parser.py` là required** — LLM không thể parse 100-300 trang markdown tin cậy
-3. **Template discovery là live** — agent query template qua `officecli query`, không cần cache
-4. **Clone DOM Builder** (`add --from` + `set --prop text=`) là cơ chế duy nhất để insert content
-5. **Code handles deterministic ops, LLM chỉ quyết định semantic mapping** — không modify code, không generate code
-6. **Mapping table có `pre_clone` + `cleanup_ids`** — prototype paragraphs phải được cloned trước khi cleanup
-7. **Không include prototype paraIds trong cleanup_ids nếu không có pre_clone** — nếu không composer không tìm thấy source để clone
-
-## Known Bottlenecks
-
-| Issue | Cause | Impact | Fix |
-|-------|-------|--------|-----|
-| `_all_para_ids` 2x per add | `add_paragraph()` diff-based paraId tracking | ~400s for 63 paragraphs | Use incremental tracking: query last paraId after add only |
-| Model quantize quá aggressive | Qwen3.6-35B-A3B-GGUF mất ~40% reasoning | Overthinking, circular logic | Dùng model không quantize hoặc FP8/INT8 |
-| LLM tự modify code | Không có guard trong architecture | Code hỏng, mất thời gian debug | Strict enforcement: LLM chỉ produce mapping JSON |
+1. **Source of truth = template.docx** — live discovery, no stale cache
+2. **LLM outputs ONLY intent** — no paraIds, no execution details. Planner resolves everything.
+3. **Pre-execution validation** — catch structural errors before composer runs
+4. **Deterministic compilation** — Planner + Composer + Validator are pure Python, no LLM involvement
+5. **LLM NEVER modifies code** — edit permission denied, no officecli access
+6. **10 individual validation checks** — S1-S10 each test one specific aspect
+7. **Batch operations (v5)** — future optimization: `officecli batch` for single-save-cycle compose

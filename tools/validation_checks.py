@@ -127,55 +127,216 @@ def check_s8_outline_hierarchy(filepath: str) -> CheckResult:
                        severity="info")
 
 
-def check_s9_font_consistency(filepath: str) -> CheckResult:
-    """S9: Font consistency — check effective font and size for headings."""
+def check_s3_font_consistency(filepath: str) -> CheckResult:
+    """S3: Font consistency — check effective font and size for headings.
+
+    Compares all Heading1 paragraphs against expected font (Calibri, 16pt)
+    and Heading2 against expected (Calibri, 14pt). Reports mismatches.
+    """
     issues = []
 
-    # Check Heading1 paragraphs
-    out = _run([
-        "officecli", "query", filepath,
-        "p[style=Heading1]", "--json"
-    ])
-    if out:
+    expected = {
+        "Heading1": {"font": "Calibri", "size": "16pt"},
+        "Heading2": {"font": "Calibri", "size": "14pt"},
+    }
+
+    for style, exp in expected.items():
+        out = _run([
+            "officecli", "query", filepath,
+            f"p[style={style}]", "--json"
+        ])
+        if not out:
+            continue
         try:
             data = json.loads(out)
             for r in data.get("data", {}).get("results", []):
                 fmt = r.get("format", {})
-                text = r.get("text", "")
-                font = fmt.get("effective.font.ascii", "?")
-                size = fmt.get("effective.size", "?")
-                # Font consistency: heading fonts should be similar
-                if font and font not in issues and font != "?}":
-                    pass  # Track font usage
-        except (json.JSONDecodeError, KeyError):
-            pass
+                text = (r.get("text", "") or "")[:50]
+                font = fmt.get("effective.font.ascii", "")
+                size = fmt.get("effective.size", "")
 
-    # Check Normal body paragraphs for ind.firstLine
+                if font and font != exp["font"]:
+                    issues.append(f"'{text}' has font '{font}' (expected '{exp['font']}')")
+                if size and size != exp["size"]:
+                    issues.append(f"'{text}' has size {size} (expected {exp['size']})")
+        except (json.JSONDecodeError, KeyError):
+            continue
+
+    if issues:
+        return CheckResult("S3", False,
+                           f"{len(issues)} font/size mismatches found",
+                           details=issues, severity="warning")
+
+    return CheckResult("S3", True, "All headings have consistent font and size",
+                       severity="info")
+
+
+def check_s4_first_line_indent(filepath: str) -> CheckResult:
+    """S4: First-line indent — check Normal paragraphs have ind.firstLine = 1.27cm."""
     out = _run([
         "officecli", "query", filepath,
         "p[style=Normal and text!='']", "--json"
     ])
-    if out:
-        try:
-            data = json.loads(out)
-            no_indent = 0
-            for r in data.get("data", {}).get("results", []):
-                fmt = r.get("format", {})
-                first_line = fmt.get("ind.firstLine")
-                if not first_line or first_line == "0":
-                    no_indent += 1
-            total = len(data.get("data", {}).get("results", []))
-            if no_indent > 0:
-                issues.append(f"{no_indent}/{total} body paragraphs have no first-line indent")
-        except (json.JSONDecodeError, KeyError):
-            pass
+    if not out:
+        return CheckResult("S4", False,
+                           "Could not query body paragraphs", severity="error")
 
-    if issues:
-        return CheckResult("S9", False,
-                           f"Font/formatting issues: {'; '.join(issues)}",
-                           details=issues, severity="warning")
+    try:
+        data = json.loads(out)
+        results = data.get("data", {}).get("results", [])
+        missing = []
+        wrong_value = []
 
-    return CheckResult("S9", True, "Font and formatting are consistent", severity="info")
+        for r in results:
+            fmt = r.get("format", {})
+            first_line = fmt.get("ind.firstLine", "")
+            text = (r.get("text", "") or "")[:40]
+
+            if not first_line or first_line == "0":
+                missing.append(f"'{text}' has no first-line indent")
+            elif first_line != "1.27cm":
+                wrong_value.append(f"'{text}' has indent '{first_line}' (expected '1.27cm')")
+
+        if missing:
+            return CheckResult("S4", False,
+                               f"{len(missing)} paragraphs missing first-line indent",
+                               details=missing[:5], severity="warning")
+        if wrong_value:
+            return CheckResult("S4", False,
+                               f"{len(wrong_value)} paragraphs with wrong indent value",
+                               details=wrong_value[:5], severity="warning")
+
+        return CheckResult("S4", True,
+                           f"All {len(results)} paragraphs have correct first-line indent",
+                           severity="info")
+    except (json.JSONDecodeError, KeyError) as e:
+        return CheckResult("S4", False, f"Failed to parse: {e}", severity="error")
+
+
+def check_s5_empty_paragraphs(filepath: str) -> CheckResult:
+    """S5: Check for empty paragraphs at end of document (last 5 paragraphs)."""
+    out = _run([
+        "officecli", "query", filepath, "p", "--json"
+    ])
+    if not out:
+        return CheckResult("S5", False,
+                           "Could not query paragraphs", severity="error")
+
+    try:
+        data = json.loads(out)
+        results = data.get("data", {}).get("results", [])
+        last_5 = results[-5:] if len(results) >= 5 else results
+        empty_at_end = []
+
+        for i, r in enumerate(last_5):
+            text = (r.get("text", "") or "").strip()
+            style = r.get("format", {}).get("style", "?")
+            para_id = r.get("format", {}).get("paraId", "?")
+            if not text and style not in ("Normal", "TOC", "No Spacing"):
+                empty_at_end.append(
+                    f"Para at position -{len(last_5)-i}: style={style}, paraId={para_id[:8]}"
+                )
+
+        if empty_at_end:
+            return CheckResult("S5", False,
+                               f"{len(empty_at_end)} empty non-Normal paragraphs at end",
+                               details=empty_at_end, severity="warning")
+
+        return CheckResult("S5", True,
+                           "No empty paragraphs at document end", severity="info")
+    except (json.JSONDecodeError, KeyError) as e:
+        return CheckResult("S5", False, f"Failed to parse: {e}", severity="error")
+
+
+def check_s6_chapter_numbering(filepath: str) -> CheckResult:
+    """S6: Check Heading1 headings follow correct chapter numbering order."""
+    out = _run([
+        "officecli", "query", filepath,
+        "p[style=Heading1]", "--json"
+    ])
+    if not out:
+        return CheckResult("S6", False,
+                           "Could not query Heading1 paragraphs", severity="info")
+
+    try:
+        data = json.loads(out)
+        results = data.get("data", {}).get("results", [])
+        issues = []
+        expected_num = 1
+
+        for r in results:
+            text = (r.get("text", "") or "").strip()
+            if text.startswith("CHAPTER") or text.startswith("CHƯƠNG"):
+                # Extract chapter number
+                import re
+                match = re.search(r'(?:CHAPTER|CHƯƠNG)\s+(\d+)', text, re.IGNORECASE)
+                if match:
+                    chapter_num = int(match.group(1))
+                    if chapter_num != expected_num:
+                        issues.append(
+                            f"Expected CHAPTER {expected_num}, got '{text}'"
+                        )
+                    expected_num += 1
+
+        if issues:
+            return CheckResult("S6", False,
+                               f"{len(issues)} chapter numbering issues",
+                               details=issues, severity="warning")
+
+        return CheckResult("S6", True, "Chapter numbering is correct",
+                           severity="info")
+    except (json.JSONDecodeError, KeyError) as e:
+        return CheckResult("S6", False, f"Failed to parse: {e}", severity="error")
+
+
+def check_s7_content_completeness(filepath: str, content_ir: dict = None) -> CheckResult:
+    """S7: Content completeness — compare paragraph count with expected.
+
+    If content_ir is not provided, counts total Normal paragraphs only.
+    """
+    out = _run([
+        "officecli", "query", filepath,
+        "p[style=Normal]", "--json"
+    ])
+    if not out:
+        return CheckResult("S7", False,
+                           "Could not query Normal paragraphs", severity="error")
+
+    try:
+        data = json.loads(out)
+        results = data.get("data", {}).get("results", [])
+        actual_normal = len(results)
+
+        if content_ir:
+            expected = sum(
+                s.get("paragraph_count", 0)
+                for s in content_ir.get("sections", [])
+            )
+            ratio = actual_normal / expected if expected > 0 else 1.0
+            if ratio < 0.85:
+                return CheckResult("S7", False,
+                                   f"Content incomplete: {actual_normal}/{expected} paragraphs "
+                                   f"({ratio*100:.0f}%)",
+                                   severity="error")
+            return CheckResult("S7", True,
+                               f"Content complete: {actual_normal}/{expected} paragraphs "
+                               f"({ratio*100:.0f}%)",
+                               severity="info")
+
+        if actual_normal == 0:
+            return CheckResult("S7", False,
+                               "No Normal paragraphs found", severity="warning")
+
+        return CheckResult("S7", True,
+                           f"{actual_normal} Normal paragraphs present",
+                           severity="info")
+    except (json.JSONDecodeError, KeyError) as e:
+        return CheckResult("S7", False, f"Failed to parse: {e}", severity="error")
+
+
+def check_s9_font_consistency(filepath: str) -> CheckResult:
+    """S9 (legacy): Font consistency — delegates to S3."""
+    return check_s3_font_consistency(filepath)
 
 
 def check_s10_anchor_integrity(filepath: str) -> CheckResult:
@@ -217,6 +378,11 @@ def check_s10_anchor_integrity(filepath: str) -> CheckResult:
 ALL_CHECKS = [
     check_s1_heading_order,
     check_s2_schema_validity,
+    check_s3_font_consistency,
+    check_s4_first_line_indent,
+    check_s5_empty_paragraphs,
+    check_s6_chapter_numbering,
+    check_s7_content_completeness,
     check_s8_outline_hierarchy,
     check_s9_font_consistency,
     check_s10_anchor_integrity,

@@ -1,37 +1,18 @@
 {
   "initial_anchor": "04C2E2D0",
-  "pre_clone": {
-    "Heading1": "051169A1",
-    "Heading2": "05E2D782",
-    "Heading3": "15D7D3CD",
-    "Normal": "739F7B5F"
-  },
-  "cleanup_ids": [
-    "47DD4FDA",
-    "051169A1",
-    "05E2D782",
-    "3B91656F",
-    "4A77C03D",
-    "114C20C7",
-    "450E8917",
-    "15D7D3CD",
-    "4C9C80FE",
-    "37D21BE6",
-    "7AFAB967",
-    "7FA7A178",
-    "3F0FE4AF"
-  ],
+  "cleanup_ids": [],
   "entries": [
     {
       "content_tag": "h1_1",
       "heading_text": "CƠ SỞ LÝ THUYẾT",
       "prototype": "Heading1",
       "body_prototype": "Normal",
-      "body_paragraphs": []
+      "body_paragraphs": [],
+      "ooxml_overrides": {}
     },
     {
       "content_tag": "h2_1_1",
-      "heading_text": "1.1. Tầm quan trọng dữ liệu ảnh huấn luyện trong thị giác máy tính",
+      "heading_text": "Tầm quan trọng dữ liệu ảnh huấn luyện trong thị giác máy tính",
       "prototype": "Heading2",
       "body_prototype": "Normal",
       "body_paragraphs": [
@@ -39,11 +20,12 @@
         "Các mô hình học sâu (Deep Learning) cho thị giác máy tính, đặc biệt là mạng tích chập (Convolutional Neural Network - CNN) và Transformer thị giác (Vision Transformer - ViT), đã đạt được kết quả vượt trội trên nhiều tác vụ chuẩn kể từ thành công đột phá của AlexNet năm 2012 trên tập dữ liệu ImageNet với hơn một triệu hai trăm nghìn ảnh thuộc một nghìn lớp đối tượng [1]. Bản chất của học sâu là tối ưu hóa hàng triệu tham số trên không gian gradient có chiều cao, đòi hỏi lượng dữ liệu lớn để tránh overfitting và để mô hình học được các biểu diễn bất biến (invariant representations) đủ tổng quát cho dữ liệu chưa thấy bao giờ. Quy luật scaling được nghiên cứu bởi Zhai và cộng sự năm 2022 cho thấy hiệu năng mô hình tăng theo hàm lũy thừa với số lượng dữ liệu huấn luyện, với hệ số mũ dao động từ 0.1 đến 0.4 tùy thuộc vào kiến trúc và tác vụ cụ thể, điều này lý giải tại sao các tổ chức nghiên cứu hàng đầu như Google và Meta liên tục đầu tư vào việc mở rộng quy mô tập dữ liệu của mình [2].",
         "[Hình 1.1. Các bước xây dựng mô hình học máy trong thị giác máy tính]",
         "Chất lượng dữ liệu ảnh không chỉ được đo bằng số lượng mà còn bởi tính đa dạng (diversity), sự cân bằng phân lớp (class balance), độ chính xác nhãn (label accuracy) và tính đại diện cho phân phối dữ liệu triển khai thực tế. Một tập dữ liệu lớn nhưng thiếu đa dạng về góc chụp, điều kiện ánh sáng và bối cảnh nền sẽ tạo ra mô hình chỉ hoạt động tốt trong môi trường phòng thí nghiệm nhưng thất bại nghiêm trọng khi gặp điều kiện ngoài phân phối (out-of-distribution). Ngược lại, một tập dữ liệu nhỏ nhưng được curate cẩn thận với nhãn chất lượng cao và phân phối đa dạng có thể vượt trội hơn tập dữ liệu lớn được thu thập tự động không qua kiểm duyệt, đặc biệt rõ rệt trong các tác vụ phân đoạn ngữ nghĩa (semantic segmentation) và phát hiện đối tượng (object detection) nơi chú thích chi tiết ở mức pixel [2]."
-      ]
+      ],
+      "ooxml_overrides": {}
     },
     {
       "content_tag": "h2_1_2",
-      "heading_text": "1.2. Các thách thức phổ biến liên quan đến dữ liệu",
+      "heading_text": "Các thách thức phổ biến liên quan đến dữ liệu",
       "prototype": "Heading2",
       "body_prototype": "Normal",
       "body_paragraphs": [
@@ -51,11 +33,12 @@
         "Ô nhiễm nhãn (label noise) là thách thức thứ hai, xuất hiện khi nhãn được gán không chính xác do sự mơ hồ về định nghĩa lớp, lỗi người chú thích hoặc sự không nhất quán giữa nhiều người chú thích khác nhau. Nghiên cứu của Northcutt và cộng sự năm 2021 về tập dữ liệu ImageNet ước tính rằng khoảng 3,4 phần trăm trong một triệu nhãn kiểm tra có lỗi hệ thống, một tỷ lệ tưởng chừng nhỏ nhưng đủ để làm lệch hướng quá trình tối ưu hóa khi nhân với số lượng mẫu khổng lồ [3]. Các kỹ thuật học mạnh mẽ với nhãn nhiễu (learning with noisy labels) như Co-teaching, MentorNet và Label Smoothing đã được phát triển để giảm thiểu ảnh hưởng của nhãn sai, trong đó Co-teaching huấn luyện song song hai mạng để chúng có thể lọc ra các mẫu có khả năng nhãn sai cao trước khi cập nhật gradient. Ngoài ra, phương pháp crowdsourced labeling kết hợp với quy tắc đa số có trọng số chuyên môn đang dần được áp dụng rộng rãi để nâng cao chất lượng chú thích ở quy mô lớn mà vẫn kiểm soát được chi phí.",
         "Sự dịch chuyển phân phối (distribution shift) hay còn gọi là domain shift là khi phân phối dữ liệu huấn luyện khác biệt đáng kể so với phân phối dữ liệu triển khai thực tế, dẫn đến sự suy giảm hiệu năng đột ngột của mô hình khi ra ngoài môi trường phòng thí nghiệm [4]. Chẳng hạn, một mô hình nhận diện biển báo giao thông được huấn luyện hoàn toàn trên ảnh ban ngày điều kiện thời tiết tốt sẽ thất bại khi gặp ảnh chụp vào ban đêm, trong mưa hoặc dưới ánh đèn đường. Domain shift có thể xuất hiện theo nhiều dạng: covariate shift khi phân phối đầu vào thay đổi nhưng quan hệ đầu vào-đầu ra giữ nguyên, concept drift khi chính bản chất của bài toán thay đổi theo thời gian, và prior probability shift khi tỷ lệ các lớp thay đổi giữa môi trường huấn luyện và triển khai. Các phương pháp thích ứng miền (domain adaptation) như DANN (Domain-Adversarial Neural Network) và các kỹ thuật học chuyển giao (transfer learning) được thiết kế để giảm khoảng cách phân phối này, nhưng hiệu quả phụ thuộc nhiều vào mức độ tương đồng giữa hai miền và chất lượng dữ liệu miền đích [4].",
         "Thách thức về chi phí và tốc độ thu thập dữ liệu cũng đóng vai trò then chốt, đặc biệt trong các lĩnh vực chuyên sâu như y tế, tự động hóa công nghiệp và hàng không vũ trụ, nơi mỗi ảnh cần được chú thích bởi chuyên gia có trình độ cao với chi phí lên đến hàng chục đô la cho một ảnh duy nhất [3]. Vấn đề quyền riêng tư và đạo đức dữ liệu cũng ngày càng trở nên quan trọng khi dữ liệu ảnh có thể chứa thông tin nhận dạng cá nhân, đặt ra yêu cầu tuân thủ các quy định như GDPR ở Châu Âu và Luật Bảo vệ Dữ liệu Cá nhân tại Việt Nam. Sự kết hợp của các thách thức này thúc đẩy mạnh mẽ nhu cầu về các phương pháp sinh dữ liệu tổng hợp có kiểm soát, vừa giải quyết bài toán quy mô vừa bảo đảm tính đa dạng và an toàn về quyền riêng tư."
-      ]
+      ],
+      "ooxml_overrides": {}
     },
     {
       "content_tag": "h2_1_3",
-      "heading_text": "1.3. Các lĩnh vực ứng dụng chính",
+      "heading_text": "Các lĩnh vực ứng dụng chính",
       "prototype": "Heading2",
       "body_prototype": "Normal",
       "body_paragraphs": [
@@ -63,49 +46,54 @@
         "Sản xuất công nghiệp và kiểm soát chất lượng tự động là lĩnh vực thứ hai hưởng lợi đáng kể từ sự tiến bộ trong dữ liệu ảnh và mô hình thị giác máy tính. Hệ thống phát hiện lỗi bề mặt (surface defect detection) trong dây chuyền sản xuất điện tử, ô tô và dệt may có thể vận hành liên tục với tốc độ vượt xa khả năng kiểm tra thủ công của con người, xử lý hàng nghìn sản phẩm mỗi giờ trong điều kiện ánh sáng và góc chụp kiểm soát chặt chẽ [6]. Tuy nhiên, một trong những thách thức đặc thù của lĩnh vực này là sự hiếm gặp cực kỳ của các mẫu lỗi trong sản xuất thực tế, khi tỷ lệ sản phẩm lỗi chỉ ở mức phần nghìn đến phần triệu, dẫn đến vấn đề mất cân bằng phân lớp nghiêm trọng và đòi hỏi các kỹ thuật sinh dữ liệu lỗi tổng hợp để đảm bảo mô hình được huấn luyện trên đủ mẫu dương tính. Nghiên cứu của MVTec Anomaly Detection dataset đã cung cấp chuẩn so sánh được chấp nhận rộng rãi trong cộng đồng, gồm 5,354 ảnh độ phân giải cao thuộc mười lăm loại vật liệu và đối tượng khác nhau với tổng cộng 70 loại lỗi được chú thích ở mức pixel.",
         "Phương tiện tự lái và hệ thống hỗ trợ lái xe nâng cao (Advanced Driver Assistance Systems - ADAS) là một trong những ứng dụng đòi hỏi tập dữ liệu ảnh đa dạng và phong phú nhất hiện nay, với yêu cầu bao phủ đầy đủ mọi điều kiện thời tiết, thời gian trong ngày, loại đường, mật độ giao thông và tình huống biên hiếm gặp nhưng an toàn tới hạn [6]. Bộ dữ liệu Waymo Open Dataset với hơn ba nghìn phút lái xe được ghi lại bởi 32 cảm biến LiDAR và 5 camera, tập dữ liệu KITTI của Viện Công nghệ Karlsruhe và nuScenes của Motional đã trở thành nền tảng chuẩn cho nghiên cứu phát hiện đối tượng 3D và ước lượng độ sâu. Đáng chú ý là các tình huống long-tail, tức là các trường hợp hiếm gặp như người đi bộ ở điều kiện tầm nhìn thấp, phương tiện bị che khuất một phần hoặc điều kiện thời tiết cực đoan, chiếm lượng không đáng kể trong dữ liệu tự nhiên nhưng lại chính xác là những trường hợp quyết định sự an toàn trong thực tế, và đây là một trong những động lực mạnh mẽ nhất thúc đẩy nghiên cứu sinh dữ liệu ảnh tổng hợp.",
         "Nông nghiệp thông minh và giám sát môi trường là lĩnh vực ứng dụng đang thu hút đầu tư mạnh mẽ, đặc biệt trong bối cảnh biến đổi khí hậu và áp lực an ninh lương thực toàn cầu. Các hệ thống phân tích ảnh chụp từ UAV (drone) và vệ tinh viễn thám được ứng dụng để phát hiện sâu bệnh, đánh giá tình trạng sức khỏe cây trồng qua chỉ số thực vật NDVI (Normalized Difference Vegetation Index), ước lượng năng suất thu hoạch và giám sát diện tích rừng. Thách thức dữ liệu đặc trưng của lĩnh vực này bao gồm sự biến đổi theo mùa vụ và địa lý, nhu cầu chú thích chuyên môn từ các nhà nông học và sinh thái học, cùng với độ phân giải không gian và phổ ảnh đa dạng phụ thuộc vào loại cảm biến thu thập [5]."
-      ]
+      ],
+      "ooxml_overrides": {}
     },
     {
       "content_tag": "h2_1_4",
-      "heading_text": "1.4. Các phương pháp sinh dữ liệu ảnh truyền thống",
+      "heading_text": "Các phương pháp sinh dữ liệu ảnh truyền thống",
       "prototype": "Heading2",
       "body_prototype": "Normal",
       "body_paragraphs": [
         "Trước sự phát triển của các phương pháp sinh tổng hợp dựa trên học sâu, cộng đồng nghiên cứu và phát triển ứng dụng thị giác máy tính chủ yếu dựa vào hai nhóm phương pháp truyền thống để xây dựng và mở rộng tập dữ liệu ảnh: thu thập thủ công kết hợp chú thích của con người và tăng cường dữ liệu thông qua các biến đổi hình học và quang học xác định. Hai nhóm phương pháp này đã tạo ra nền tảng cho nhiều đột phá quan trọng trong lịch sử thị giác máy tính, từ ImageNet đến COCO, và tiếp tục đóng vai trò quan trọng như nguồn dữ liệu gốc cho các hệ thống huấn luyện hiện đại ngay cả khi được kết hợp với dữ liệu tổng hợp [7]."
-      ]
+      ],
+      "ooxml_overrides": {}
     },
     {
       "content_tag": "h3_1_4_1",
-      "heading_text": "1.4.1. Thu thập dữ liệu ảnh thủ công",
+      "heading_text": "Thu thập dữ liệu ảnh thủ công",
       "prototype": "Heading3",
       "body_prototype": "Normal",
       "body_paragraphs": [
         "Thu thập dữ liệu ảnh thủ công là phương pháp xây dựng tập dữ liệu nguyên thủy nhất và vẫn là nguồn dữ liệu có tính xác thực cao nhất khi được thực hiện đúng cách, bao gồm quy trình lập kế hoạch thu thập, chụp ảnh thực địa có kiểm soát và chú thích chuyên môn bởi con người. Quy trình thu thập hiệu quả bắt đầu từ việc xác định rõ phân phối đích của tập dữ liệu thông qua phân tích ontology đối tượng, sau đó thiết kế giao thức thu thập đảm bảo sự đa dạng theo các chiều quan trọng như góc nhìn, điều kiện ánh sáng, nền và kích thước đối tượng trong ảnh [7]. Tập dữ liệu ImageNet, được xây dựng bởi nhóm nghiên cứu của Fei-Fei Li tại Stanford từ năm 2007 đến 2009, đã huy động hơn ba mươi nghìn người chú thích qua nền tảng Amazon Mechanical Turk để tạo ra 14 triệu ảnh thuộc 21,841 nhóm đối tượng theo WordNet hierarchy, thiết lập chuẩn vàng cho phương pháp thu thập dữ liệu ảnh quy mô lớn [1].",
         "Quy trình chú thích (annotation pipeline) là yếu tố quyết định chất lượng của tập dữ liệu thu thập thủ công, đặc biệt với các tác vụ cần chú thích chi tiết như phát hiện đối tượng với bounding box, phân đoạn instance với mask ở mức pixel và ước lượng pose với keypoint. Tập dữ liệu COCO (Common Objects in Context) do Microsoft phát triển đã đặt ra chuẩn mực cho quy trình chú thích đa tác vụ, với 330,000 ảnh được chú thích bởi hơn năm mươi nghìn người, trong đó mỗi ảnh trung bình chứa 7.7 đối tượng được chú thích với bounding box, mask phân đoạn và 80 loại nhãn phân cấp [2]. Công cụ chú thích hiện đại như CVAT (Computer Vision Annotation Tool), Label Studio và Scale AI cung cấp hạ tầng quản lý tác vụ, kiểm soát chất lượng nhiều lớp và tích hợp dự đoán trợ giúp từ mô hình pre-trained để tăng tốc quá trình chú thích từ hai đến năm lần so với chú thích thuần thủ công. Các hệ thống Inter-Annotator Agreement (IAA) như Cohen's Kappa và Fleiss' Kappa được sử dụng để đo lường mức độ đồng thuận giữa các người chú thích, với ngưỡng chấp nhận thường được đặt ở kappa lớn hơn 0.7 cho tác vụ phân loại và lớn hơn 0.6 cho tác vụ phân đoạn [7].",
         "Chi phí và thời gian là rào cản lớn nhất của phương pháp thu thập thủ công khi mở rộng quy mô. Ước tính của Cordts và cộng sự trong dự án Cityscapes cho biết chi phí trung bình để chú thích một ảnh đường phố ở mức semantic segmentation với mask pixel-level là 1.5 giờ lao động chuyên môn, tức là hàng nghìn giờ người cho một tập dữ liệu cỡ vừa, chưa kể chi phí thiết bị, logistics và kiểm soát chất lượng [7]. Bên cạnh đó, nhiều ứng dụng có yêu cầu chụp ảnh trong điều kiện khó tiếp cận hoặc nguy hiểm như bên trong lò phản ứng hạt nhân, dưới nước sâu hoặc trong vùng thảm họa tự nhiên, khiến việc thu thập dữ liệu thực tế trở nên không khả thi hoặc cực kỳ tốn kém. Những hạn chế cốt lõi này, kết hợp với nhu cầu dữ liệu ngày càng tăng của các kiến trúc học sâu hiện đại, chính là động lực thúc đẩy sự phát triển mạnh mẽ của các phương pháp tăng cường và sinh dữ liệu tổng hợp."
-      ]
+      ],
+      "ooxml_overrides": {}
     },
     {
       "content_tag": "h3_1_4_2",
-      "heading_text": "1.4.2. Tăng cường dữ liệu ảnh",
+      "heading_text": "Tăng cường dữ liệu ảnh",
       "prototype": "Heading3",
       "body_prototype": "Normal",
       "body_paragraphs": [
         "Tăng cường dữ liệu ảnh (data augmentation) là nhóm kỹ thuật áp dụng các biến đổi có kiểm soát lên ảnh gốc để tạo ra các biến thể mới, qua đó mở rộng hiệu quả quy mô của tập dữ liệu mà không cần thu thập thêm dữ liệu thực và đồng thời cải thiện khả năng tổng quát hóa của mô hình bằng cách mô phỏng sự biến thiên tự nhiên của dữ liệu thực [8]. Về mặt lý thuyết, tăng cường dữ liệu có thể được hiểu là một dạng regularization ngầm ẩn, áp đặt tiên nghiệm về tính bất biến mong muốn của mô hình (invariance prior) lên không gian biểu diễn học được. Khi chúng ta áp dụng phép lật ngang ảnh (horizontal flip) trong huấn luyện, chúng ta ngầm yêu cầu mô hình học biểu diễn bất biến với phản xạ gương, một tiên nghiệm hợp lý cho nhiều tác vụ nhận dạng đối tượng nhưng hoàn toàn không phù hợp cho tác vụ nhận dạng ký tự chữ viết tay hay phân biệt trái-phải trong chẩn đoán y khoa [8].",
         "Các kỹ thuật tăng cường hình học bao gồm lật ảnh theo chiều ngang và dọc, xoay ảnh một góc tùy ý, cắt ngẫu nhiên (random crop), biến dạng phi tuyến (elastic deformation) và phối cảnh (perspective transform). Các kỹ thuật tăng cường quang học bao gồm thay đổi độ sáng (brightness), độ tương phản (contrast), bão hòa màu (saturation), cân bằng màu (hue shift), thêm nhiễu Gaussian và làm mờ ảnh (blur). Phương pháp Mixup đề xuất bởi Zhang và cộng sự năm 2018 tạo ra ảnh tổng hợp bằng cách nội suy tuyến tính cả ảnh lẫn nhãn của hai mẫu gốc theo công thức $\\tilde{x} = \\lambda x_i + (1 - \\lambda)x_j$ với $\\lambda$ lấy mẫu từ phân phối Beta, cải thiện độ chính xác phân loại từ 0.3 đến 2.5 phần trăm trên nhiều benchmark và tăng đáng kể độ bền vững (robustness) trước các ví dụ đối nghịch (adversarial examples) [8]. CutMix kết hợp các vùng ảnh từ nhiều ảnh khác nhau trong khi CutOut che khuất một vùng ngẫu nhiên của ảnh, cả hai đều khuyến khích mô hình học phân biệt đặc trưng từ nhiều vùng không gian của ảnh thay vì phụ thuộc quá mức vào một vùng cục bộ.",
         "AutoAugment và các biến thể như RandAugment, TrivialAugment đánh dấu bước chuyển quan trọng từ tăng cường được thiết kế thủ công sang tăng cường được tìm kiếm tự động hoặc ngẫu nhiên hóa có nguyên tắc. AutoAugment sử dụng học tăng cường để tìm kiếm chính sách tăng cường tối ưu trong không gian tổ hợp các phép biến đổi và xác suất áp dụng của chúng, đạt được cải thiện đáng kể trên CIFAR-10, CIFAR-100 và ImageNet so với tăng cường thủ công tốt nhất, nhưng với chi phí tính toán tìm kiếm rất lớn tương đương với huấn luyện năm nghìn mô hình [8]. RandAugment thay thế quá trình tìm kiếm bằng cách chọn ngẫu nhiên từ tập 14 phép biến đổi với cường độ đồng nhất, giữ nguyên hiệu năng của AutoAugment trong khi giảm thiểu đáng kể chi phí tính toán. Mặc dù tăng cường dữ liệu là công cụ mạnh mẽ và được áp dụng phổ biến, nó có giới hạn cơ bản không thể vượt qua: mọi biến thể được tạo ra đều phải bắt đầu từ ảnh gốc thực, và kỹ thuật này không thể tạo ra các đối tượng, bối cảnh hay điều kiện hoàn toàn mới không có trong tập dữ liệu gốc, từ đó tạo nên nhu cầu cho các phương pháp sinh dữ liệu ảnh tiên tiến hơn dựa trên mô hình sinh tổng quát [7]."
-      ]
+      ],
+      "ooxml_overrides": {}
     },
     {
       "content_tag": "h1_2",
       "heading_text": "ỨNG DỤNG VÀ ĐỊNH HƯỚNG PHÁT TRIỂN AI",
       "prototype": "Heading1",
       "body_prototype": "Normal",
-      "body_paragraphs": []
+      "body_paragraphs": [],
+      "ooxml_overrides": {}
     },
     {
       "content_tag": "h2_2_1",
-      "heading_text": "2.1. Tối ưu hóa hiệu năng và trí tuệ nhân tạo trên thiết bị biên",
+      "heading_text": "Tối ưu hóa hiệu năng và trí tuệ nhân tạo trên thiết bị biên",
       "prototype": "Heading2",
       "body_prototype": "Normal",
       "body_paragraphs": [
@@ -120,11 +108,12 @@
         "Case study thực tế minh họa rõ nét hiệu quả của Edge AI trong sản xuất ở nhiều lĩnh vực khác nhau. Google đã triển khai Gemma 3n trực tiếp trên thiết bị Android cho dịch vụ dịch thuật nội địa, cho phép người dùng tại các khu vực có kết nối internet không ổn định vẫn nhận được phản hồi dịch chính xác với độ trễ dưới năm mươi mili giây nhờ suy luận hoàn toàn cục bộ mà không cần truyền dữ liệu qua mạng. Điều này đặc biệt quan trọng đối với người dùng di động và cộng đồng vùng sâu vùng xa. Trong lĩnh vực y tế, một bệnh viện tuyến huyện tại vùng sâu đã triển khai hệ thống phân tích ảnh X-quang phổi sử dụng Small Language Model chạy trên máy chủ nội bộ đảm bảo tuân thủ quy định HIPAA về bảo mật thông tin bệnh nhân, tránh mọi rủi ro truyền dữ liệu nhạy cảm ra bên ngoài mạng lưới tổ chức. Kết quả thử nghiệm trong sáu tháng cho thấy độ nhạy phát hiện bất thường đạt 92,3 phần trăm so với đánh giá của bác sĩ chuyên khoa, đồng thời giảm một nửa thời gian chờ đợi kết quả chẩn đoán ban đầu từ tám phút xuống còn bốn phút. Một case study khác tại ngân hàng thương mại lớn đã áp dụng Phi-4-mini trên server nội địa để xử lý phân tích văn bản hợp đồng pháp lý, tự động trích xuất các điều khoản rủi ro và đề xuất phương án xử lý. Kết quả đạt được mức giảm 60 phần trăm thời gian review hợp đồng so với quy trình thủ công truyền thống [13].",
         "Thị trường Small Language Model đang trải qua giai đoạn tăng trưởng nóng với quy mô dự kiến từ mức không phảy ba ba tỷ USD vào năm hai mươi lăm lên năm phảy bốn lăm tỷ USD vào năm hai mươi ba hai, theo báo cáo của Zylos Research [13]. Xu hướng này được thúc đẩy bởi sự tiến hóa của kiến trúc mô hình: Microsoft Research công bố nghiên cứu năm hai nghìn hai trăm năm mươi về kiến trúc Encoder-Decoder cho Small Language Model, trong đó bộ mã hóa trích xuất đặc trưng ngữ nghĩa còn bộ giải mã thực hiện sinh văn bản theo cơ chế cross-attention. Kết quả thử nghiệm cho thấy kiến trúc này đạt hiệu suất tốt hơn từ hai đến bốn phần trăm so với Decoder-only truyền thống trên các tác vụ tổng hợp thông tin đồng thời giảm bốn mươi bảy phần trăm độ trễ suy luận nhờ loại bỏ bước autoregressive lặp [13]. Bên cạnh đó, xu hướng lai ghép đa phương thức ngày càng trở nên phổ biến khi các Small Language Model không chỉ xử lý văn bản thuần túy mà còn tích hợp khả năng hiểu hình ảnh, âm thanh và video trong cùng một mô hình duy nhất.",
         "Thách thức lớn nhất vẫn nằm ở việc cân bằng giữa kích thước mô hình và độ chính xác thực tế, đặc biệt khi đối mặt với các tác vụ đòi hỏi suy luận đa bước phức tạp hoặc khả năng tiếp cận tri thức từ nhiều lĩnh vực khác nhau trong cùng một phản hồi. Khi giảm tham số xuống mức rất thấp, cụ thể dưới năm trăm triệu, Small Language Model thường thể hiện suy giảm đáng kể về khả năng biểu đạt ngữ nghĩa, dẫn đến kết quả kém tin cậy trên các benchmark đánh giá reasoning như ARC-Challenge hay HumanEval. Ngoài ra, việc tối ưu hóa cho phần cứng cụ thể yêu cầu chuyên môn kỹ thuật sâu mà không phải mọi nhà phát triển đều sở hữu, dẫn đến rào cản gia nhập thị trường đối với các tổ chức vừa và nhỏ có ngân sách nghiên cứu hạn chế. Vấn đề thứ ba là sự thiếu hụt dataset huấn luyện đặc thù cho thiết bị biên, bởi các mô hình thường được huấn luyện trên dữ liệu web chung chung mà không phản ánh đúng ngữ cảnh ứng dụng thực tế của người dùng cuối [13]. Trong tương lai gần, hướng nghiên cứu tập trung vào tự động hóa quá trình tối ưu hóa mô hình (AutoML for SLM) và phát triển các kiến trúc mới như Mixture-of-Embedders để tận dụng tối đa tài nguyên hạn chế mà vẫn đạt chất lượng đầu ra cao nhất [13]. Những tiến bộ trong lĩnh vực này sẽ tiếp tục tạo đà cho sự phát triển của RAG trên thiết bị biên, và đây chính là chủ đề sẽ được phân tích chuyên sâu trong mục tiếp theo."
-      ]
+      ],
+      "ooxml_overrides": {}
     },
     {
       "content_tag": "h2_2_2",
-      "heading_text": "2.2. Retrieval-Augmented Generation, quản lý tri thức và trách nhiệm AI",
+      "heading_text": "Retrieval-Augmented Generation, quản lý tri thức và trách nhiệm AI",
       "prototype": "Heading2",
       "body_prototype": "Normal",
       "body_paragraphs": [
@@ -137,7 +126,8 @@
         "Thực tiễn doanh nghiệp cho thấy khoảng cách đáng kể giữa cam kết về trách nhiệm xã hội và năng lực thực thi kỹ thuật thực tế. Khảo sát của BCG và MIT Sloan Management Review năm 2026 chỉ ra rằng tám mươi lăm phần trăm các công ty lớn đã triển khai chương trình Responsible AI ở mức độ nào đó, nhưng chỉ hai mươi lăm phần trăm sở hữu khung trưởng mature với các biện pháp đo lường, giám sát và cải tiến liên tục. Phần còn lại dừng ở mức chính sách bề mặt, thiếu cơ chế thực thi cụ thể [12]. Nguyên nhân chủ yếu xuất phát từ việc nhiều tổ chức chưa đầu tư đúng mức vào hạ tầng kỹ thuật cần thiết cho việc giám sát mô hình, dẫn đến các nguyên tắc RAI chỉ tồn tại trên văn bản mà không đi kèm công cụ đo lường và cảnh báo tự động phù hợp. Xu hướng mới nhất là ưu tiên xây dựng nền tảng kỹ thuật thay vì chỉ ban hành văn bản chính sách: các công ty đang đầu tư vào công cụ tự động phát hiện thiên kiến (bias detection tool), hệ thống giám sát mô hình thời gian thực và quy trình review độc lập trước khi đưa mô hình vào sản xuất. Vai trò mới của Chief AI Governance Officer hay AI Auditor cũng đang dần trở thành vị trí quản trị không thể thiếu tại các tập đoàn công nghệ lớn, chịu trách nhiệm đảm bảo rằng mọi sản phẩm trí tuệ nhân tạo đều đáp ứng tiêu chuẩn đạo đức và pháp lý trước khi ra mắt thị trường [12].",
         "Hallucination vẫn là thách thức tồn đọng mặc dù RAG đã giảm đáng kể tần suất xuất hiện, với mức giảm ước tính khoảng tám mươi phần trăm so với mô hình thuần túy sinh văn bản không tham chiếu. Các nghiên cứu mới tập trung vào việc phát triển self-verification mechanism cho phép mô hình tự kiểm tra độ tin cậy của thông tin trước khi trình bày đến người dùng cuối, trong đó cơ chế phản hồi tự động (self-reflection) được áp dụng để so sánh các trích dẫn từ retrieval với nội dung đã sinh ra và đánh giá tính nhất quán logic [6]. Kỹ thuật này đặc biệt hiệu quả với Agentic RAG vì agent có thể thực hiện nhiều vòng tự kiểm tra liên tiếp, trong đó mỗi vòng tinh chỉnh độ chính xác thông tin thêm năm đến bảy phần trăm cho đến khi đạt ngưỡng tin cậy mục tiêu. Xu hướng Self-hosted AI deployment cũng ngày càng phổ biến khi doanh nghiệp muốn kiểm soát hoàn toàn dữ liệu đầu vào và đầu ra mà không phụ thuộc vào nhà cung cấp đám mây, đặc biệt trong các ngành có yêu cầu tuân thủ nghiêm ngặt như tài chính ngân hàng và quốc phòng. Các công cụ tự động hóa Governance như framework HEAT (Human Oversight, Evaluation, Accountability, Transparency) đang giúp tổ chức quản lý vòng đời mô hình trí tuệ nhân tạo một cách hệ thống từ giai đoạn thiết kế cho đến khi đưa vào vận hành thực tế, với khả năng phát hiện tự động các rủi ro về thiên kiến và đề xuất biện pháp giảm thiểu tương ứng [12].",
         "Tương lai của RAG hướng đến sự tích hợp sâu hơn với các thành phần AI agent, nơi quá trình truy xuất tri thức không còn là bước thụ động mà được chủ động lập kế hoạch và tối ưu hóa động dựa trên ngữ cảnh nhiệm vụ cụ thể. Hướng nghiên cứu Hybrid Agentic-RAG kết hợp khả năng suy luận đa bước của agent với độ chính xác truy xuất thông tin của RAG đang thu hút sự quan tâm đáng kể từ cộng đồng học thuật và doanh nghiệp, hứa hẹn mở ra khả năng xử lý các câu hỏi phức tạp liên ngành mà không một phương pháp đơn lẻ nào có thể đáp ứng hiệu quả [8]. Đồng thời, xu hướng federated learning kết hợp với on-device RAG sẽ cho phép tổ chức cải thiện mô hình từ dữ liệu người dùng phân tán mà không cần tập trung về máy chủ trung tâm, qua đó vừa nâng cao chất lượng dịch vụ vừa đảm bảo quyền riêng tư dữ liệu cá nhân [3]. Bên cạnh đó, sự phát triển của Multi-modal RAG cho phép truy xuất và kết hợp cả văn bản, hình ảnh, âm thanh và video trong cùng một ngữ cảnh sinh văn bản đang mở rộng đáng kể phạm vi ứng dụng của kiến trúc này ra ngoài các tác vụ xử lý ngôn ngữ thuần túy. Những tiến bộ này đặt nền móng cho các hệ thống trí tuệ nhân tạo thế hệ mới, vốn thông minh hơn, tin cậy hơn và đáng tin cậy trong việc bảo vệ quyền lợi của người dùng và tổ chức, từ đó củng cố niềm tin xã hội vào sự phát triển không ngừng của công nghệ AI. Sự kết hợp hài hòa giữa Edge AI và RAG có trách nhiệm sẽ định hình lại cách doanh nghiệp và cá nhân tương tác với trí tuệ nhân tạo trong những năm tới, khi hiệu suất cao đi đôi với minh bạch và an toàn."
-      ]
+      ],
+      "ooxml_overrides": {}
     },
     {
       "content_tag": "h1_3",
@@ -158,7 +148,8 @@
         "[11] OECD. (2024). OECD Due Diligence Guidance for Responsible AI. OECD Publishing.",
         "[12] Boston Consulting Group & MIT Sloan Management Review. (2026). The State of Responsible AI in the Enterprise.",
         "[13] Zylos Research. (2025). Small Language Model Market Forecast 2025-2032."
-      ]
+      ],
+      "ooxml_overrides": {}
     }
   ]
 }
