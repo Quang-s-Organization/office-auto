@@ -242,6 +242,60 @@ def select_best_prototype(
     return best
 
 
+# ── body sequence discovery ────────────────────────────────────────
+
+_HEADING_STYLES = {"Heading1", "Heading2", "Heading3"}
+
+
+def get_body_sequence(filepath: str) -> list[dict]:
+    """Return the ordered list of /body/p paragraphs with minimal metadata.
+
+    Each entry: {para_id, style, has_text, is_heading, outline_level}.
+    This is pure discovered state — the planner decides what to do with it.
+    """
+    result = run_officecli(["query", filepath, "p", "--json"])
+    if not result.get("success"):
+        return []
+    seq = []
+    for r in result.get("data", {}).get("results", []):
+        fmt = r.get("format", {})
+        style_raw = fmt.get("style")
+        style = style_raw.title().replace(" ", "") if style_raw else None
+        text = (r.get("text") or "").strip()
+        ol = fmt.get("outlineLevel")
+        seq.append({
+            "para_id": fmt.get("paraId"),
+            "style": style,
+            "has_text": bool(text),
+            "is_heading": style in _HEADING_STYLES,
+            "outline_level": int(ol) if ol is not None and str(ol).isdigit() else None,
+        })
+    return seq
+
+
+def discover_body_style(body_sequence: list[dict]) -> Optional[str]:
+    """Discover the style used for body text within the content region.
+
+    The content region starts at the first heading. Among non-heading
+    paragraphs there that carry text, the most common style is the body
+    style (e.g. 'Normalstyle'). No hardcoded style name assumed.
+    """
+    first_heading = next((i for i, p in enumerate(body_sequence) if p["is_heading"]), None)
+    if first_heading is None:
+        region = body_sequence
+    else:
+        region = body_sequence[first_heading:]
+    from collections import Counter
+    counts = Counter(
+        p["style"] for p in region
+        if not p["is_heading"] and p["has_text"] and p["style"]
+    )
+    if counts:
+        return counts.most_common(1)[0][0]
+    # Fallback: any non-heading style that exists as a prototype
+    return None
+
+
 # ── main entry point ───────────────────────────────────────────────
 
 def inspect_template(
@@ -291,9 +345,22 @@ def inspect_template(
             if p.para_id:
                 all_heading_ids.append(p.para_id)
 
-    # Select best prototype for each style
+    # Discover the ordered body sequence and the real body text style
+    body_sequence = get_body_sequence(abs_path)
+    body_style = discover_body_style(body_sequence)
+    print(f"[inspector] Body: {len(body_sequence)} paragraphs, body_style={body_style}",
+          file=sys.stderr)
+
+    # Query the discovered body style as a prototype too (to read its props)
+    if body_style and body_style not in prototypes:
+        prototypes[body_style] = query_prototypes(abs_path, body_style)
+
+    # Select best prototype for each style (headings + body style)
+    select_styles = list(styles_to_query)
+    if body_style and body_style not in select_styles:
+        select_styles.append(body_style)
     best_prototypes: dict[str, StylePrototype] = {}
-    for style in styles_to_query:
+    for style in select_styles:
         candidates = prototypes.get(style, [])
         best = select_best_prototype(candidates, preferred_context)
         if best:
@@ -305,6 +372,8 @@ def inspect_template(
         outline=outline,
         best_prototypes=best_prototypes,
         all_heading_ids=all_heading_ids,
+        body_sequence=body_sequence,
+        body_style=body_style,
     )
 
     print(f"[inspector] Done. Best: {list(best_prototypes.keys())}", file=sys.stderr)
