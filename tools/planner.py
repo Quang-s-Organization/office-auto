@@ -63,6 +63,13 @@ class IntentIR:
     sections: list[IntentSection]
     initial_preserved: Optional[str] = None
     body_prototype: str = "body_text"
+    strategy: str = "clone"   # "clone" (reconstruction, implemented) | "merge"
+
+
+# strategy routing: clone-prototype (this planner) handles variable-length
+# structured content. The alternative is officecli's native `merge` for
+# fixed {{placeholder}} form templates — chosen by intent.strategy == "merge".
+SUPPORTED_STRATEGIES = {"clone"}
 
 
 # ── content-region detection (policy lives here, not in the inspector) ──
@@ -178,6 +185,7 @@ def load_intent(path: str) -> Optional[IntentIR]:
         sections=sections,
         initial_preserved=data.get("initial_preserved"),
         body_prototype=data.get("body_prototype", "body_text"),
+        strategy=data.get("strategy", "clone"),
     )
 
 
@@ -205,6 +213,12 @@ def main():
     intent = load_intent(args.intent)
     if intent is None:
         sys.exit(1)
+    if intent.strategy not in SUPPORTED_STRATEGIES:
+        print(f"[planner] ERROR: strategy '{intent.strategy}' not implemented by the "
+              f"planner. For fixed {{{{placeholder}}}} templates use `officecli merge` "
+              f"directly. Implemented: {sorted(SUPPORTED_STRATEGIES)}", file=sys.stderr)
+        sys.exit(2)
+
     content_ir = _load_json(args.content, "content IR")
     template_ir = TemplateIR.from_json(_load_json(args.template_ir, "template IR"))
 

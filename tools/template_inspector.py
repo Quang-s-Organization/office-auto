@@ -41,33 +41,12 @@ def run_officecli(args: list[str], timeout: int = 30) -> dict:
         return {"success": False, "error": "timeout"}
 
 
-# ── section context classification ─────────────────────────────────
-
-_CONTEXT_PATTERNS = [
-    (r"ACKNOWLEDGEMENTS?", "ACKNOWLEDGEMENTS"),
-    (r"ABSTRACT", "ABSTRACT"),
-    (r"TABLE\s+OF\s+CONTENTS", "TABLE OF CONTENTS"),
-    (r"LIST\s+OF\s+ABBREVIATIONS?", "LIST OF ABBREVIATIONS"),
-    (r"LIST\s+OF\s+TABLES?", "LIST OF TABLES"),
-    (r"CHAPTER", "CHAPTER"),
-    (r"INTRODUCTION", "INTRODUCTION"),
-    (r"REFERENCES?", "REFERENCES"),
-    (r"APPENDIX", "APPENDIX"),
-    (r"SUPERVISOR", "SUPERVISOR"),
-    (r"TÀI\s+LIỆU\s+THAM\s+KHẢO", "REFERENCES"),
-    (r"CƠ\s+SỞ\s+LÝ\s+THUYẾT", "CHAPTER"),
-    (r"PHƯƠNG\s+PHÁP", "CHAPTER"),
-    (r"KẾT\s+QUẢ", "CHAPTER"),
-    (r"KẾT\s+LUẬN", "CHAPTER"),
-]
-
-
-def classify_context(text: str) -> str:
-    """Classify a heading into a section context based on its text."""
-    for pattern, context in _CONTEXT_PATTERNS:
-        if re.search(pattern, text.upper()):
-            return context
-    return "OTHER"
+# Section context is classified STRUCTURALLY (by position in the body), not by
+# matching hardcoded heading names. A prototype is "CONTENT" if it lives in the
+# main content region (from the first heading to the last content paragraph) and
+# "FRONT" otherwise. This works for any template / language.
+CTX_CONTENT = "CONTENT"
+CTX_FRONT = "FRONT"
 
 
 # ── prototype extraction ───────────────────────────────────────────
@@ -81,8 +60,8 @@ def _extract_proto(r: dict) -> StylePrototype:
     style_name = style_raw.title().replace(" ", "")
     text = r.get("text", "")
 
-    # Section context from text
-    section_context = classify_context(text)
+    # Section context is assigned later (structurally) in inspect_template.
+    section_context = ""
 
     # Effective properties
     eff_size = fmt.get("effective.size")
@@ -171,74 +150,30 @@ def get_outline(filepath: str) -> list[dict]:
     return outline
 
 
-# ── prototype selection ────────────────────────────────────────────
+# ── prototype selection (structural, language-agnostic) ────────────
 
-def _context_rank(context: str) -> int:
-    """Rank section contexts: CHAPTER content > back/front matter."""
-    if context in ("CHAPTER", "INTRODUCTION"):
-        return 0  # Best — main content
-    elif context == "REFERENCES":
-        return 1
-    elif context in ("ACKNOWLEDGEMENTS", "ABSTRACT"):
-        return 2
-    elif context in ("TABLE OF CONTENTS", "LIST OF ABBREVIATIONS", "LIST OF TABLES"):
-        return 3
-    elif context == "APPENDIX":
-        return 4
-    elif context == "SUPERVISOR":
-        return 5
-    return 6
+def select_best_prototype(candidates: list[StylePrototype]) -> "StylePrototype | None":
+    """Pick the best prototype for a style.
 
-
-def select_best_prototype(
-    candidates: list[StylePrototype],
-    preferred_context: str = "CHAPTER"
-) -> StylePrototype | None:
-    """Select the best prototype from a list of candidates.
-
-    Heuristics (in priority order):
-    1. Prefer candidates whose section_context matches preferred_context
-    2. Prefer candidates with explicit_size (markRPr) over effective-only
-    3. Prefer candidates with larger font size (CHAPTER headings > front matter)
-    4. Fallback to first candidate
+    Priorities (lower score = better), all structural:
+    1. Prefer a prototype that lives in the main CONTENT region (a real body
+       heading) over one in the front matter (TOC/cover).
+    2. Prefer non-empty text (a used example) over an empty placeholder.
+    3. Prefer explicit (markRPr) sizing over inherited-only.
     """
     if not candidates:
         return None
 
-    # Score each candidate (lower is better)
-    def score(c: StylePrototype) -> int:
-        s = 0
-        # STRONG penalty for empty text (only for Normal style — body text)
-        if c.style_name == "Normal" and not c.text.strip():
-            s += 100
-        # Context match: preferred_context gets 0, others get penalty
-        ctx = c.section_context
-        if ctx == preferred_context:
-            s += 0
-        elif ctx == "OTHER":
-            s += 20
-        else:
-            s += 10 + _context_rank(ctx) * 2
-        # Explicit props preferred
-        if c.explicit_size:
-            s -= 5
-        # Parse size for sorting
-        if c.effective_size:
-            sz = c.effective_size
-            num = float(re.sub(r'[^\d.]', '', sz)) if re.search(r'\d', sz) else 0
-            # Prefer larger (CHAPTER = 16pt > ACKNOWLEDGEMENTS = 14pt)
-            s -= num
-        return s
+    def score(c: StylePrototype) -> tuple:
+        in_content = 0 if c.section_context == CTX_CONTENT else 1
+        has_text = 0 if (c.text or "").strip() else 1
+        explicit = 0 if c.explicit_size else 1
+        return (in_content, has_text, explicit)
 
-    candidates_sorted = sorted(candidates, key=score)
-    best = candidates_sorted[0]
-
-    # Debug output
-    print(f"[inspector] Best {best.style_name} prototype: '{best.text[:40]}' "
-          f"(ctx={best.section_context}, size={best.effective_size}, "
-          f"font={best.effective_font}, paraId={best.para_id})",
-          file=sys.stderr)
-
+    best = sorted(candidates, key=score)[0]
+    print(f"[inspector] Best {best.style_name} prototype: '{(best.text or '')[:40]}' "
+          f"(ctx={best.section_context or '-'}, size={best.effective_size}, "
+          f"font={best.effective_font}, paraId={best.para_id})", file=sys.stderr)
     return best
 
 
@@ -298,10 +233,21 @@ def discover_body_style(body_sequence: list[dict]) -> Optional[str]:
 
 # ── main entry point ───────────────────────────────────────────────
 
-def inspect_template(
-    filepath: str,
-    preferred_context: str = "CHAPTER"
-) -> TemplateIR:
+def _content_region_ids(body_sequence: list[dict]) -> set:
+    """Para IDs in the main content region (first heading -> last content para)."""
+    heading_idxs = [i for i, p in enumerate(body_sequence) if p.get("is_heading")]
+    if not heading_idxs:
+        return set()
+    first = heading_idxs[0]
+    last = first
+    for i in range(first, len(body_sequence)):
+        if body_sequence[i].get("is_heading") or body_sequence[i].get("has_text"):
+            last = i
+    return {body_sequence[i]["para_id"] for i in range(first, last + 1)
+            if body_sequence[i].get("para_id")}
+
+
+def inspect_template(filepath: str) -> TemplateIR:
     """Run full template inspection: query, classify, select, return TemplateIR."""
     abs_path = os.path.abspath(filepath)
     print(f"[inspector] Inspecting: {abs_path}", file=sys.stderr)
@@ -355,6 +301,12 @@ def inspect_template(
     if body_style and body_style not in prototypes:
         prototypes[body_style] = query_prototypes(abs_path, body_style)
 
+    # Tag every prototype structurally: CONTENT (in main body region) vs FRONT
+    region_ids = _content_region_ids(body_sequence)
+    for plist in prototypes.values():
+        for p in plist:
+            p.section_context = CTX_CONTENT if p.para_id in region_ids else CTX_FRONT
+
     # Select best prototype for each style (headings + body style)
     select_styles = list(styles_to_query)
     if body_style and body_style not in select_styles:
@@ -362,7 +314,7 @@ def inspect_template(
     best_prototypes: dict[str, StylePrototype] = {}
     for style in select_styles:
         candidates = prototypes.get(style, [])
-        best = select_best_prototype(candidates, preferred_context)
+        best = select_best_prototype(candidates)
         if best:
             best_prototypes[style] = best
 
@@ -387,15 +339,13 @@ def main():
     parser.add_argument("template", help="Path to template.docx")
     parser.add_argument("--out", "-o", default=None,
                         help="Output path for template.ir.json")
-    parser.add_argument("--context", default="CHAPTER",
-                        help="Preferred section context for prototype selection")
     args = parser.parse_args()
 
     if not os.path.exists(args.template):
         print(f"ERROR: Template not found: {args.template}", file=sys.stderr)
         sys.exit(1)
 
-    ir = inspect_template(args.template, args.context)
+    ir = inspect_template(args.template)
     output = ir.to_json()
 
     if args.out:
