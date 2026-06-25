@@ -79,10 +79,17 @@ def compose(template: str, batch_path: str, output: str) -> dict:
     t0 = time.time()
     out_dir = os.path.dirname(output) or "."
     os.makedirs(out_dir, exist_ok=True)
-    # Evict any stale resident for this path before overwriting it on disk.
-    _run(["officecli", "close", output])
-    shutil.copy2(template, output)
-    print(f"[composer] Copied template -> {output}", file=sys.stderr)
+
+    # Compose into an isolated temp path this process owns exclusively —
+    # no prior officecli resident can exist for a PID-scoped name.
+    # This sidesteps the resident-shadow problem: `shutil.copy2` to a
+    # known path (output) is useless if a stale resident for that path
+    # exists in memory; the batch would operate on RAM, not the fresh copy.
+    # After all batches complete we evict the output-path resident and
+    # atomically rename temp → output.
+    tmp_output = os.path.join(out_dir, f".compose-{os.getpid()}.docx")
+    shutil.copy2(template, tmp_output)
+    print(f"[composer] Copied template -> tmp", file=sys.stderr)
 
     with open(batch_path, encoding="utf-8") as f:
         program = json.load(f)
@@ -98,18 +105,21 @@ def compose(template: str, batch_path: str, output: str) -> dict:
     for label, ops in (("cleanup", removes), ("build", adds)):
         if not ops:
             continue
-        tmp = _write_tmp(ops, os.path.join(out_dir, f".batch_{label}.json"))
+        tmp_batch = _write_tmp(ops, os.path.join(out_dir, f".batch_{label}.json"))
         print(f"[composer] {label}: {len(ops)} ops via officecli batch...", file=sys.stderr)
-        r = run_batch(output, tmp)
-        os.remove(tmp)
+        r = run_batch(tmp_output, tmp_batch)
+        os.remove(tmp_batch)
         failures += r["failures"]
         summary["succeeded"] += r.get("summary", {}).get("succeeded", 0)
         summary["failed"] += r.get("summary", {}).get("failed", 0)
 
+    # Publish: evict any stale resident for the destination, then atomic rename.
     # NOTE: `officecli refresh` is intentionally NOT called here. It requires a
-    # Word backend (Windows); when that is unavailable it fails AND leaves the
-    # document with duplicate TOC-bookmark ids (schema error). Word updates TOC
-    # fields on open instead. Run refresh manually on Windows if needed.
+    # Word backend (Windows); on Linux/WSL it fails AND leaves duplicate
+    # TOC-bookmark ids (schema error). Word regenerates TOC on open instead.
+    _run(["officecli", "close", output])
+    os.replace(tmp_output, output)
+    print(f"[composer] Published -> {output}", file=sys.stderr)
 
     return {
         "success": not failures,

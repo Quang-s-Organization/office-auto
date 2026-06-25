@@ -106,6 +106,14 @@ def _props_for_style(template_ir: TemplateIR, style_name: Optional[str]) -> dict
     proto = template_ir.best_prototypes.get(style_name)
     if proto is not None:
         return proto.build_props()
+    # Heading3 fallback: borrow Heading2 props (font/size) if available,
+    # keeping style=Heading3 so Word's outline structure is preserved.
+    if style_name == "Heading3":
+        fallback = template_ir.best_prototypes.get("Heading2")
+        if fallback:
+            props = fallback.build_props()
+            props["style"] = "Heading3"
+            return props
     return {"style": style_name}
 
 

@@ -15,21 +15,13 @@
     }
   },
   "model": "sglang/Qwen3.6-35B-A3B-GGUF",
-  "models": {
-    "sglang/Qwen3.6-35B-A3B-GGUF": {
-      "temperature": 0.3,
-      "top_p": 0.9,
-      "top_k": 20,
-      "maxTokens": 4096
-    }
-  },
   "mcp": {
     "officecli": {
       "type": "local",
       "command": ["officecli", "mcp"],
       "enabled": true,
       "environment": {
-        "OFFICECLI_NO_AUTO_RESIDENT": "0"
+        "OFFICECLI_NO_AUTO_RESIDENT": "1"
       }
     }
   },
@@ -38,6 +30,12 @@
     "docgen-orchestrator": {
       "mode": "primary",
       "model": "sglang/Qwen3.6-35B-A3B-GGUF",
+      "temperature": 0.3,
+      "top_p": 0.9,
+      "options": {
+        "top_k": 20,
+        "maxTokens": 4096
+      },
       "description": "v5 deterministic document compiler. LLM assigns semantic intent only (intent.json); planner/composer/validator are pure Python; the document is built via a single officecli batch.",
       "tools": {
         "officecli*": false

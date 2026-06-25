@@ -47,7 +47,10 @@ class StylePrototype:
             props["size"] = size
         font = self.explicit_font or self.effective_font
         if font:
-            props["font.ea"] = font
+            # Set both Latin axes (ascii + hAnsi). Vietnamese text is Latin-script
+            # and rendered via w:ascii/w:hAnsi, not w:eastAsia (CJK only).
+            props["font.ascii"] = font
+            props["font.hAnsi"] = font
         if self.ind_first_line and self.ind_first_line not in ("0", "0pt", "0cm"):
             props["firstLineIndent"] = self.ind_first_line   # SET key (read back as ind.firstLine)
         if self.alignment:

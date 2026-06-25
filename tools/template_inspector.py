@@ -68,9 +68,11 @@ def _extract_proto(r: dict) -> StylePrototype:
     eff_font = fmt.get("effective.font.ascii")
     bold = fmt.get("effective.bold")
 
-    # Explicit properties (preferred over effective)
+    # Explicit properties (preferred over effective).
+    # Use Latin-script axes (ascii / hAnsi) for font, NOT font.ea (East Asian).
+    # Vietnamese text is rendered via w:ascii + w:hAnsi; font.ea only affects CJK.
     explicit_size = fmt.get("markRPr.size") or fmt.get("size")
-    explicit_font = fmt.get("font.ea")
+    explicit_font = fmt.get("font.ascii") or fmt.get("font.hAnsi")
     align = fmt.get("align")
     line_spacing = fmt.get("lineSpacing")
     space_before = fmt.get("effective.spaceBefore")
