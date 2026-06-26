@@ -1,65 +1,85 @@
 ---
 name: docgen-workflow
-version: 13
+version: 14
 description: >
-  v5 — Deterministic document compiler. LLM's ONLY job: classify each content
-  section into semantic intent (intent.json). Inspector + Planner + Composer +
-  Validator are pure Python; the build runs as a single officecli batch.
+  v6 — Deterministic document compiler with a three-tier semantic flow.
+  LLM's ONLY job: assign each heading a semantic ROLE (semantic.ir.json) from
+  the heading tree. Logical mapping (role→section/style via a profile), planner,
+  composer and validator are pure Python; the build runs as one officecli batch.
   See manifest/SKILL.md for IR schemas and officecli/SKILL.md for the batch model.
 ---
 
-## Pipeline (6 steps)
+## Pipeline (v6 — Semantic → Logical → Physical)
 
 ```
-STEP -1  markdown-parser.py     noidung.md          -> content.ir.json       deterministic
-STEP 0   template_inspector.py  template.docx       -> .cache/template.ir.json deterministic (discovers styles, body_style, body_sequence)
-STEP 1   LLM classifies intent                      -> intent.json           **LLM (once)**
-STEP 2   planner.py             intent+IRs          -> batch_program.json     deterministic
-STEP 3   plan_validator.py      batch_program+IRs   -> pass/fail              deterministic (pre-exec)
-STEP 4   doc_composer.py        template+batch      -> out/report.docx        deterministic (ONE officecli batch)
-STEP 5   validator.py           report+template.ir  -> pass/fail              deterministic (S1-S8 vs discovered props)
+STEP -1  markdown-parser.py     noidung.md          -> content.ir.json        deterministic (+document_tree, word_count)
+STEP 0   template_inspector.py  template.docx       -> .cache/template.ir.json deterministic (styles, body_style, body_sequence)
+STEP 1   SEMANTIC tier          document_tree+profile-> semantic.ir.json       **stub OR LLM** (role per node)
+STEP 2   LOGICAL tier  logical_mapper.py  semantic+profile -> logical.ir.json  deterministic (role -> section/outline/presentation/intent)
+STEP 3   planner.py             logical+IRs         -> batch_program.json      deterministic (Physical IR — contract unchanged)
+STEP 4   plan_validator.py      batch+IRs+logical   -> pass/fail              deterministic (pre-exec)
+STEP 5   doc_composer.py        template+batch      -> out/report.docx         deterministic (ONE officecli batch)
+STEP 6   validator.py           report+IRs+logical  -> pass/fail              deterministic (S1-S8 vs discovered props)
 ```
 
-## LLM responsibility (ONLY this)
+`batch_program.json` and everything downstream of `logical.ir.json` is the same
+battle-tested deterministic compiler. The semantic tier is the ONLY non-deterministic
+step, and it is the only one allowed to be.
 
-Read `content.ir.json` + `.cache/template.ir.json`, then write `intent.json`:
-assign each content node an `intent` and a `presentation`. Nothing else — no
-paraIds, no styles, no font/size, no cleanup. The planner resolves all of that
-from the DISCOVERED template.
+## STEP 1 — the only place the LLM may act
 
-| intent | meaning |
-|--------|---------|
-| `replace` | node replaces a template section |
-| `insert`  | new content, no template target |
-| `preserve`| keep template section (omit from sections) |
+Two ways to produce `semantic.ir.json`:
 
-| presentation | resolves to |
-|--------------|-------------|
-| `major_section` | top heading style (Heading1) |
-| `minor_section` | sub heading (Heading2) |
-| `sub_section`   | sub-sub heading (Heading3) |
-| `body_text`     | discovered body style |
+- **Deterministic (default, no LLM):** run the stub. It keyword-matches the
+  profile's `keyword_rules` against heading titles — already correct for standard
+  Vietnamese headings, and the guaranteed fallback.
+  ```bash
+  python3 tools/semantic_classifier.py --content content.ir.json \
+      --profile profiles/vn-thesis.json --output semantic.ir.json
+  ```
 
-Optional top-level `strategy`: `clone` (default — variable content) or `merge`
-(fixed `{{placeholder}}` templates, via `officecli merge`).
+- **LLM (for ambiguous / non-standard headings):** read ONLY the heading tree
+  (`document_tree` in content.ir.json — titles + levels + word_count, NEVER the
+  full body), write `semantic.ir.json` by hand assigning each node a
+  `semantic_role` from the profile vocabulary + a `confidence`. Then ALWAYS
+  validate (clamps hallucinated roles to the profile default):
+  ```bash
+  python3 tools/semantic_classifier.py --check semantic.ir.json --profile profiles/vn-thesis.json
+  ```
 
-## Commands
+The LLM assigns ONLY `semantic_role` + `confidence`. No styles, no section names,
+no paraIds, no intent — the profile + logical_mapper resolve all of that.
+
+## Roles & profiles (data, not code)
+
+`profiles/<id>.json` holds: `role_vocabulary` (the legal enum), `keyword_rules`
+(stub classification), `front_matter_roles` (→ `intent=preserve`, kept from the
+template — e.g. cover page / title), and `role_to_logical` (role → section,
+outline, presentation). Supporting a new template = add ONE profile file; never
+touch the planner/composer. `presentation: "FROM_LEVEL"` = derive from the
+markdown level after the outline shift (logical_mapper computes the shift so the
+shallowest emitted heading becomes the top tier).
+
+## Commands (default deterministic run)
 
 ```bash
 python3 tools/markdown-parser.py noidung.md --out content.ir.json
 python3 tools/template_inspector.py templates/format_template.docx --out .cache/template.ir.json
-# LLM writes intent.json (see manifest/SKILL.md for schema)
-python3 tools/planner.py --template-ir .cache/template.ir.json --content content.ir.json --intent intent.json --output batch_program.json
-python3 tools/plan_validator.py --batch batch_program.json --template-ir .cache/template.ir.json --content content.ir.json
+python3 tools/semantic_classifier.py --content content.ir.json --profile profiles/vn-thesis.json --output semantic.ir.json
+python3 tools/logical_mapper.py --semantic semantic.ir.json --content content.ir.json --profile profiles/vn-thesis.json --output logical.ir.json
+python3 tools/planner.py --template-ir .cache/template.ir.json --content content.ir.json --logical logical.ir.json --output batch_program.json
+python3 tools/plan_validator.py --batch batch_program.json --template-ir .cache/template.ir.json --content content.ir.json --logical logical.ir.json
 python3 tools/doc_composer.py --template templates/format_template.docx --batch batch_program.json --output out/report.docx
-python3 tools/validator.py out/report.docx --template-ir .cache/template.ir.json --content content.ir.json
+python3 tools/validator.py out/report.docx --template-ir .cache/template.ir.json --content content.ir.json --logical logical.ir.json
 ```
+
+(Legacy v5 `intent.json` still works: `planner.py --intent intent.json`.)
 
 ## NEVER
 
 - Never modify files in `tools/` — they are the deterministic compiler.
-- Never hand-write or hand-edit `batch_program.json` — the planner emits it.
+- Never hand-write `batch_program.json` or `logical.ir.json` — tools emit them.
+- Never put a role outside the profile vocabulary in `semantic.ir.json` (it gets
+  clamped); never put styles/paraIds/font/size/section names there — semantic only.
 - Never call `officecli` per paragraph for a build — the composer uses one batch.
-- Never put paraIds/styles/font/size in `intent.json` — semantic only.
-- Never deliver with `officecli validate` errors.
-- Never run `officecli refresh` off-Windows (corrupts bookmark ids).
+- Never deliver with `officecli validate` errors; never run `officecli refresh` off-Windows.

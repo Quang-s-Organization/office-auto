@@ -34,14 +34,17 @@ def main():
     ap.add_argument("filepath")
     ap.add_argument("--template-ir")
     ap.add_argument("--content")
+    ap.add_argument("--logical", help="logical.ir.json — makes S7/S8 account "
+                    "for preserved nodes and the outline shift (v6 flow)")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
     template_ir = _load(args.template_ir)
     content_ir = _load(args.content)
+    logical_ir = _load(args.logical)
 
     start = time.time()
-    results = run_all(args.filepath, template_ir, content_ir)
+    results = run_all(args.filepath, template_ir, content_ir, logical_ir)
     elapsed = time.time() - start
 
     errors = [r for r in results if not r.passed and r.severity == "error"]

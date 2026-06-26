@@ -1,9 +1,10 @@
 ---
 name: manifest
-version: 5
+version: 6
 description: >
-  Schema reference for the v5 compiler IRs: content.ir.json, template.ir.json,
-  intent.json (LLM output), and batch_program.json (planner output).
+  Schema reference for the v6 compiler IRs: content.ir.json (+document_tree),
+  template.ir.json, semantic.ir.json (role tier — LLM/stub), logical.ir.json
+  (logical tier — deterministic, replaces intent.json), and batch_program.json.
 ---
 
 ## content.ir.json (markdown-parser.py)
@@ -15,11 +16,17 @@ description: >
   "sections": [
     {"tag": "h1_1", "type": "heading1", "title": "CƠ SỞ LÝ THUYẾT", "level": 1,
      "body_paragraphs": [], "paragraph_count": 0, "verbatim": true}
+  ],
+  "document_tree": [
+    {"node_id": "h1_1", "title": "...", "level": 1, "word_count": 1840,
+     "child_word_count": 5200, "first_paragraph": "Chương này...", "children": [...]}
   ]
 }
 ```
 `type` ∈ heading1|heading2|heading3. `body_paragraphs` = verbatim paragraph
 strings (split on blank lines). `tag` encodes hierarchy (h1_1, h2_1_1, h3_1_4_2).
+`document_tree` = deterministic nested view (from level+order) used by the
+semantic tier; `first_paragraph` (≤200 chars) is a lazy-load source only.
 
 ## template.ir.json (template_inspector.py — all DISCOVERED, nothing hardcoded)
 
@@ -45,25 +52,55 @@ strings (split on blank lines). `tag` encodes hierarchy (h1_1, h2_1_1, h3_1_4_2)
 - `StylePrototype.build_props()` yields officecli SET keys (style/size/font.ea/
   firstLineIndent/align/lineSpacing) from discovered values only.
 
-## intent.json (LLM output — SEMANTIC ONLY)
+## semantic.ir.json (SEMANTIC tier — stub OR LLM; role only)
 
 ```json
 {
+  "model": "deterministic-stub",
+  "profile": "vn-thesis",
+  "nodes": [
+    {"node_id": "h2_2_12", "semantic_role": "references", "confidence": 0.9, "evidence": "heading"}
+  ]
+}
+```
+`semantic_role` MUST be in the profile `role_vocabulary` (unknown → clamped to
+default by `semantic_classifier.py --check`). `confidence` < 0.7 flags a node for
+an optional lazy stage-2 read. MUST NOT contain styles, section names, paraIds,
+intent, font/size — role + confidence only.
+
+## profiles/<id>.json (DATA — the only thing a new template needs)
+
+`role_vocabulary` (legal enum) · `keyword_rules` (stub role classification) ·
+`front_matter_roles` (→ intent=preserve) · `role_to_logical` (role → section,
+outline_level, toc, intent, presentation). `presentation/outline_level:
+"FROM_LEVEL"` = derive from markdown level after the outline shift.
+
+## logical.ir.json (LOGICAL tier — logical_mapper.py, deterministic)
+
+Replaces v5 `intent.json`; a strict superset, so planner.py reads it directly.
+
+```json
+{
+  "profile": "vn-thesis",
   "strategy": "clone",
+  "outline_shift": 1,
   "sections": [
-    {"node_id": "h1_1", "intent": "replace", "presentation": "major_section"}
+    {"node_id": "h2_2_12", "intent": "replace", "presentation": "major_section",
+     "logical_section": "References", "outline_level": 1, "toc": false,
+     "resolved_by": "role:references"}
   ]
 }
 ```
 | field | values |
 |-------|--------|
 | `node_id` | a content.ir `tag` |
-| `intent` | replace \| insert \| preserve |
+| `intent` | replace \| insert \| preserve (planner emits unless preserve/remove) |
 | `presentation` | major_section \| minor_section \| sub_section \| body_text |
-| `strategy` (top-level, optional) | clone (default) \| merge |
+| `outline_shift` (top-level) | shallowest emitted level becomes tier 1 |
+| `strategy` (top-level) | clone (default) \| merge |
 
-MUST NOT contain: paraId, style names, font, size, cleanup ids, anchors. The
-planner derives all of those from template.ir.json.
+The planner derives paraIds/styles/font/size from template.ir.json — never put
+those here.
 
 ## batch_program.json (planner.py output — officecli batch array)
 

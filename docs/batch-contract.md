@@ -50,7 +50,7 @@
 | First-line indent | **`firstLineIndent`** | `ind.firstLine` |
 | Style | `style` (Heading1/Normal…) | `style` |
 | Size | `size` (vd `16pt`) | `effective.size` |
-| Font EA | `font.ea` | `effective.font.ascii` |
+| Font (Latin) | **`font.latin`** (đã sửa; trước v5 dùng nhầm `font.ea`/EA) | `effective.font.ascii` / `.hAnsi` |
 | Align | `align` | `align` |
 - ⚠️ Tools v4 set `ind.firstLine` (SAI — không phải SET key). Phải đổi sang `firstLineIndent`.
 
@@ -82,3 +82,37 @@
 - `doc_composer_ops.py` diff-tracking/`get_text` full-query/`_extract_last_para_id` → **bỏ**. Thay bằng: build batch array → 1 lần `officecli batch` → parse `results`.
 - `planner.py` emit `batch_program.json` theo schema §1, mô hình §4, props từ Template IR.
 - `validation_checks.py` đọc readback key (`ind.firstLine`, `effective.size`…) so với Template IR.
+
+## 6. Element ops cho rich content (verified 2026-06-25, trên bản copy template)
+
+Tất cả op dưới đây đã chạy clean + `officecli validate` sạch. Chi tiết mapping
+markdown→primitive: [markdown-fidelity.md](markdown-fidelity.md).
+
+| Element | Op | Readback |
+|---|---|---|
+| Superscript/subscript | `add r --prop vertAlign=superscript\|subscript` | `format.superscript=true` |
+| Code (monospace) | `add r --prop font.latin="Courier New"` (raw text, no tokenize) | `effective.font.ascii=Courier New` |
+| Bullet list | `add p --prop listStyle=bullet` (1 p/item) | `numId` được gán |
+| Ordered list | `add p --prop listStyle=ordered` (1 p/item) | `numId`; **tự nối** 2 list cùng loại liền kề |
+| Equation (display) | `add --type equation --prop formula=<LaTeX> mode=display` | tạo `/body/oMathPara`; `\tag{}` không tự đánh số → strip ở parser |
+| Indent (callout) | `add p --prop leftIndent=360` (twips) | `indent=18pt` |
+
+### 6a. Two-cycle remove→add (BẮT BUỘC)
+Composer chạy **removes ở cycle 1, mọi add ở cycle 2** (hai lần `officecli batch`).
+Gộp vào một cycle → trùng `w:id` (auto TOC-bookmark) → schema error.
+
+### 6b. Resident cache + refresh
+- Compose vào temp path PID-scoped rồi `os.replace` → tránh resident shadow.
+  Đặt `OFFICECLI_NO_AUTO_RESIDENT=1`; `officecli close <out>` trước khi publish.
+- **KHÔNG** `officecli refresh` off-Windows (cần Word backend; trên Linux/WSL nó
+  fail và làm hỏng TOC-bookmark id). Word tự regen TOC khi mở.
+
+### 6c. body_style có thể = None
+`format_template.docx` hiện tại không lộ một body style tường minh
+(`discover_body_style` → None). Planner fallback sang prototype `Normal`. Đây là
+giới hạn discovery đã biết của inspector, không phải lỗi runtime — nếu cần body
+chuẩn, cải thiện `template_inspector.discover_body_style` (ngoài scope fidelity).
+
+## Nguồn OfficeCLI
+- https://github.com/iOfficeAI/OfficeCLI
+- https://deepwiki.com/iOfficeAI/OfficeCLI

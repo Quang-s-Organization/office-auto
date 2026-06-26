@@ -1,0 +1,80 @@
+{
+  "id": "vn-thesis",
+  "description": "Vietnamese research-proposal / thesis family. Roles map to a clone-strategy body where the document title is template front matter.",
+  "strategy": "clone",
+
+  "role_vocabulary": [
+    "institution", "title_page", "abstract", "list_of",
+    "rationale", "objective", "research_question", "scope",
+    "methodology", "literature_review", "timeline", "outline",
+    "results", "discussion", "conclusion", "references",
+    "appendix", "generic"
+  ],
+
+  "default_role": "generic",
+
+  "//role_descriptions": "Short gloss per role, handed to the LLM semantic pass as a closed-set menu (skill input at runtime). Keeps role assignment meaningful without leaking surface-form keywords. Data, not skill logic (docs A.3).",
+  "role_descriptions": {
+    "institution":       "Cơ quan chủ quản / trường / học viện (trang bìa).",
+    "title_page":        "Tên đề tài, loại hình (đề cương/luận văn/luận án/khóa luận).",
+    "abstract":          "Tóm tắt nội dung nghiên cứu.",
+    "list_of":           "Mục lục / danh mục bảng, hình, từ viết tắt.",
+    "rationale":         "Lý do, tính cấp thiết, đặt vấn đề (mở đầu).",
+    "objective":         "Mục tiêu, nhiệm vụ nghiên cứu.",
+    "research_question": "Câu hỏi / giả thuyết nghiên cứu.",
+    "scope":             "Đối tượng và phạm vi nghiên cứu.",
+    "methodology":       "Phương pháp, cách tiếp cận, thiết kế nghiên cứu.",
+    "literature_review": "Tổng quan, cơ sở lý thuyết, nghiên cứu trước.",
+    "timeline":          "Tiến độ, kế hoạch thực hiện.",
+    "outline":           "Bố cục / cấu trúc của báo cáo.",
+    "results":           "Kết quả, thực nghiệm, số liệu.",
+    "discussion":        "Bàn luận, phân tích kết quả.",
+    "conclusion":        "Kết luận và kiến nghị.",
+    "references":        "Tài liệu tham khảo.",
+    "appendix":          "Phụ lục.",
+    "generic":           "Nội dung thường, không thuộc vai trò đặc thù nào."
+  },
+
+  "//keyword_rules": "Deterministic stub classification: first rule whose any-keyword is a substring of the (uppercased, accent-kept) title wins. Order = priority. The LLM may override with richer roles; these are the fallback + clean-case path.",
+  "keyword_rules": [
+    {"role": "institution",       "any": ["BỘ GIÁO DỤC", "TRƯỜNG ĐẠI HỌC", "ĐẠI HỌC QUỐC GIA", "HỌC VIỆN"]},
+    {"role": "title_page",        "any": ["ĐỀ CƯƠNG", "LUẬN VĂN", "LUẬN ÁN", "KHÓA LUẬN", "ĐỒ ÁN"]},
+    {"role": "list_of",          "any": ["DANH MỤC", "MỤC LỤC"]},
+    {"role": "rationale",         "any": ["LÝ DO", "TÍNH CẤP THIẾT", "ĐẶT VẤN ĐỀ"]},
+    {"role": "research_question", "any": ["CÂU HỎI NGHIÊN CỨU"]},
+    {"role": "objective",         "any": ["MỤC TIÊU", "NHIỆM VỤ NGHIÊN CỨU"]},
+    {"role": "scope",             "any": ["ĐỐI TƯỢNG", "PHẠM VI"]},
+    {"role": "methodology",       "any": ["PHƯƠNG PHÁP"]},
+    {"role": "literature_review", "any": ["TỔNG QUAN", "CƠ SỞ LÝ", "NGHIÊN CỨU TRƯỚC", "TÌNH HÌNH NGHIÊN CỨU"]},
+    {"role": "timeline",          "any": ["TIẾN ĐỘ", "KẾ HOẠCH THỰC HIỆN"]},
+    {"role": "outline",           "any": ["BỐ CỤC", "CẤU TRÚC"]},
+    {"role": "conclusion",        "any": ["KẾT LUẬN", "KIẾN NGHỊ"]},
+    {"role": "references",        "any": ["TÀI LIỆU THAM KHẢO", "DANH MỤC TÀI LIỆU"]},
+    {"role": "appendix",          "any": ["PHỤ LỤC"]}
+  ],
+
+  "//front_matter_roles": "Roles whose nodes the template already provides → intent=preserve (NOT re-emitted). This is what keeps the cover page from being duplicated.",
+  "front_matter_roles": ["institution", "title_page"],
+
+  "//role_to_logical": "Deterministic role -> logical-section mapping. presentation/outline_level = 'FROM_LEVEL' means: derive from the markdown level after the outline shift (see logical_mapper). A real second template only needs to change this table.",
+  "role_to_logical": {
+    "institution":       {"section": "FrontMatter",   "intent": "preserve", "toc": false, "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
+    "title_page":        {"section": "TitlePage",      "intent": "preserve", "toc": false, "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
+    "list_of":           {"section": "Lists",          "intent": "insert",  "toc": false, "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
+    "rationale":         {"section": "Introduction",   "intent": "replace", "toc": true,  "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
+    "objective":         {"section": "Objectives",     "intent": "replace", "toc": true,  "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
+    "research_question": {"section": "Objectives",     "intent": "replace", "toc": true,  "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
+    "scope":             {"section": "Scope",          "intent": "replace", "toc": true,  "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
+    "methodology":       {"section": "Methods",        "intent": "replace", "toc": true,  "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
+    "literature_review": {"section": "RelatedWork",    "intent": "replace", "toc": true,  "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
+    "timeline":          {"section": "Timeline",       "intent": "replace", "toc": true,  "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
+    "outline":           {"section": "Outline",        "intent": "replace", "toc": true,  "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
+    "results":           {"section": "Results",        "intent": "replace", "toc": true,  "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
+    "discussion":        {"section": "Discussion",     "intent": "replace", "toc": true,  "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
+    "conclusion":        {"section": "Conclusion",     "intent": "replace", "toc": true,  "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
+    "references":        {"section": "References",     "intent": "replace", "toc": false, "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
+    "appendix":          {"section": "Appendix",       "intent": "replace", "toc": false, "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
+    "abstract":          {"section": "Abstract",       "intent": "replace", "toc": false, "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
+    "generic":           {"section": "Body",           "intent": "replace", "toc": true,  "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"}
+  }
+}

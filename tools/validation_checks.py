@@ -165,14 +165,34 @@ def check_s5_trailing_empties(filepath, template_ir=None, content_ir=None) -> Ch
     return CheckResult("S5", True, "No stray trailing empties", severity="info")
 
 
+# presentation (logical IR) -> heading style produced by the planner
+_PRESENTATION_TO_STYLE = {
+    "major_section": "Heading1",
+    "minor_section": "Heading2",
+    "sub_section": "Heading3",
+}
+
+
+def _emitted_tags(logical_ir) -> Optional[set]:
+    """Tags of nodes the planner emits (intent != preserve/remove), or None."""
+    if not logical_ir:
+        return None
+    return {s["node_id"] for s in logical_ir.get("sections", [])
+            if s.get("intent") not in ("preserve", "remove")}
+
+
 # ── S7: content completeness vs content IR ─────────────────────────
 
-def check_s7_completeness(filepath, template_ir=None, content_ir=None) -> CheckResult:
+def check_s7_completeness(filepath, template_ir=None, content_ir=None, logical_ir=None) -> CheckResult:
     body_style = (template_ir or {}).get("body_style") or "Normal"
     actual = len([r for r in _query(filepath, f"p[style={body_style}]")
                   if (r.get("text") or "").strip()])
     if content_ir:
-        expected = sum(s.get("paragraph_count", 0) for s in content_ir.get("sections", []))
+        emitted = _emitted_tags(logical_ir)
+        secs = content_ir.get("sections", [])
+        if emitted is not None:  # exclude preserved front matter
+            secs = [s for s in secs if s.get("tag") in emitted]
+        expected = sum(s.get("paragraph_count", 0) for s in secs)
         if expected and actual < 0.85 * expected:
             return CheckResult("S7", False,
                                f"Incomplete: {actual}/{expected} body paragraphs",
@@ -185,15 +205,25 @@ def check_s7_completeness(filepath, template_ir=None, content_ir=None) -> CheckR
 
 # ── S8: heading count matches content IR ───────────────────────────
 
-def check_s8_heading_counts(filepath, template_ir=None, content_ir=None) -> CheckResult:
-    if not content_ir:
+def check_s8_heading_counts(filepath, template_ir=None, content_ir=None, logical_ir=None) -> CheckResult:
+    if not content_ir and not logical_ir:
         return CheckResult("S8", True, "No content IR — skipped", severity="info")
     exp = {"Heading1": 0, "Heading2": 0, "Heading3": 0}
-    for s in content_ir.get("sections", []):
-        t = s.get("type")
-        if t == "heading1": exp["Heading1"] += 1
-        elif t == "heading2": exp["Heading2"] += 1
-        elif t == "heading3": exp["Heading3"] += 1
+    if logical_ir:
+        # v6: expected style = planner's resolution of each EMITTED node's
+        # presentation (accounts for preserve + outline shift).
+        for s in logical_ir.get("sections", []):
+            if s.get("intent") in ("preserve", "remove"):
+                continue
+            style = _PRESENTATION_TO_STYLE.get(s.get("presentation"))
+            if style:
+                exp[style] += 1
+    else:
+        for s in content_ir.get("sections", []):
+            t = s.get("type")
+            if t == "heading1": exp["Heading1"] += 1
+            elif t == "heading2": exp["Heading2"] += 1
+            elif t == "heading3": exp["Heading3"] += 1
     issues = []
     for style, e in exp.items():
         got = len([r for r in _query(filepath, f"p[style={style}]")
@@ -217,5 +247,11 @@ ALL_CHECKS = [
 ]
 
 
-def run_all(filepath, template_ir=None, content_ir=None) -> list[CheckResult]:
-    return [c(filepath, template_ir, content_ir) for c in ALL_CHECKS]
+def run_all(filepath, template_ir=None, content_ir=None, logical_ir=None) -> list[CheckResult]:
+    results = []
+    for c in ALL_CHECKS:
+        if c in (check_s7_completeness, check_s8_heading_counts):
+            results.append(c(filepath, template_ir, content_ir, logical_ir))
+        else:
+            results.append(c(filepath, template_ir, content_ir))
+    return results

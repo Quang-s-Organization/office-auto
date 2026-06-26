@@ -71,13 +71,17 @@ def check_runs_nonempty(program, template_ir, content_ir):
     return Result("runs_nonempty", True, "all runs carry text")
 
 
-def check_paragraph_count(program, template_ir, content_ir):
+def check_paragraph_count(program, template_ir, content_ir, emitted_tags=None):
     if not content_ir:
         return Result("para_count", True, "no content IR — skipped")
-    expected_headings = sum(1 for s in content_ir.get("sections", [])
+    # When a logical IR is supplied, only EMITTED nodes (intent != preserve/remove)
+    # contribute paragraphs; preserved front matter is kept from the template.
+    secs = content_ir.get("sections", [])
+    if emitted_tags is not None:
+        secs = [s for s in secs if s.get("tag") in emitted_tags]
+    expected_headings = sum(1 for s in secs
                             if s.get("type", "").startswith("heading"))
-    expected_body = sum(s.get("paragraph_count", 0)
-                        for s in content_ir.get("sections", []))
+    expected_body = sum(s.get("paragraph_count", 0) for s in secs)
     added_p = sum(1 for op in program
                   if op.get("command") == "add" and op.get("type") == "p")
     expected = expected_headings + expected_body
@@ -92,8 +96,14 @@ ALL = [check_program_nonempty, check_remove_targets_exist, check_add_p_has_style
        check_runs_nonempty, check_paragraph_count]
 
 
-def validate(program, template_ir, content_ir):
-    return [c(program, template_ir, content_ir) for c in ALL]
+def validate(program, template_ir, content_ir, emitted_tags=None):
+    results = []
+    for c in ALL:
+        if c is check_paragraph_count:
+            results.append(c(program, template_ir, content_ir, emitted_tags))
+        else:
+            results.append(c(program, template_ir, content_ir))
+    return results
 
 
 def _load(path, label):
@@ -110,6 +120,8 @@ def main():
     ap.add_argument("--batch", required=True)
     ap.add_argument("--template-ir", required=True)
     ap.add_argument("--content", required=True)
+    ap.add_argument("--logical", help="logical.ir.json — excludes preserved "
+                    "(intent=preserve/remove) nodes from the para_count check")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
@@ -117,7 +129,13 @@ def main():
     template_ir = _load(args.template_ir, "template IR")
     content_ir = _load(args.content, "content IR")
 
-    results = validate(program, template_ir, content_ir)
+    emitted_tags = None
+    if args.logical:
+        logical = _load(args.logical, "logical IR")
+        emitted_tags = {s["node_id"] for s in logical.get("sections", [])
+                        if s.get("intent") not in ("preserve", "remove")}
+
+    results = validate(program, template_ir, content_ir, emitted_tags)
     failures = [r for r in results if not r.passed]
 
     if args.json:
