@@ -1,38 +1,25 @@
 {
   "id": "springer-paper",
-  "description": "English research-paper / book-chapter family (Springer-Nature-style). Demonstrates P4: the SAME noidung.md + the SAME tools render a different logical structure by swapping only this profile file. No tool code changes.",
-  "strategy": "clone",
+  "extends": "_base",
+  "description": "English research-paper / book-chapter family (Springer-Nature-style). Overlay on _base: only the English lexicon + paper-specific roles/placement. Demonstrates P4 — same noidung.md + same tools, different logical structure by swapping this profile. 0 tool-code changes.",
 
+  "//role_vocabulary": "Genre-specific roles ADDED to the base ontology (union).",
   "role_vocabulary": [
-    "title_block", "abstract", "introduction", "background",
-    "literature_review", "methodology", "experiment", "results",
-    "discussion", "conclusion", "acknowledgments", "competing_interests",
-    "ethics", "references", "appendix", "generic"
+    "title_block", "introduction", "background",
+    "experiment", "acknowledgments", "competing_interests", "ethics"
   ],
 
-  "default_role": "generic",
-
-  "//role_descriptions": "Closed-set gloss handed to the LLM semantic pass at runtime (skill input). Swapping this list + role_to_logical is the whole cost of supporting a new genre.",
   "role_descriptions": {
     "title_block":         "Paper/chapter title block, author list, affiliations.",
-    "abstract":            "Structured abstract + keywords.",
     "introduction":        "Problem statement, motivation, contributions (Introduction).",
     "background":          "Foundational concepts / preliminaries.",
-    "literature_review":   "Survey of prior work (Related Work, Background, architectures, mechanisms).",
-    "methodology":         "Method, model, training, data, augmentation, strategies.",
     "experiment":          "Experimental setup, datasets, metrics.",
-    "results":             "Quantitative results, evaluation, comparison tables.",
-    "discussion":          "Interpretation and analysis of results.",
-    "conclusion":          "Conclusions and future directions.",
     "acknowledgments":     "Funding and acknowledgments.",
     "competing_interests": "Competing / conflict of interest statement.",
-    "ethics":              "Ethics approval / consent statement.",
-    "references":          "Reference list / bibliography.",
-    "appendix":            "Supplementary appendices.",
-    "generic":             "Ordinary content with no special role."
+    "ethics":              "Ethics approval / consent statement."
   },
 
-  "//keyword_rules": "Deterministic offline path: first rule whose any-keyword is a substring of the uppercased title wins. Order = priority (specific before generic). English surface forms only — the genre lives in the profile, not the tools.",
+  "//keyword_rules": "English surface forms. Replaces the (empty) base list. Order = priority (specific before generic).",
   "keyword_rules": [
     {"role": "abstract",            "any": ["ABSTRACT"]},
     {"role": "introduction",        "any": ["INTRODUCTION"]},
@@ -48,26 +35,17 @@
     {"role": "appendix",            "any": ["APPENDIX", "SUPPLEMENT"]}
   ],
 
-  "//front_matter_roles": "Empty: the current generic template provides no cover/abstract placeholders, so the title block and abstract are EMITTED as content rather than preserved. A real Springer template with a cover would list title_block/abstract here and add replace_fields anchors.",
+  "//front_matter_roles": "Empty: the current generic template has no cover/abstract placeholder, so title_block/abstract are EMITTED as content.",
   "front_matter_roles": [],
 
-  "//role_to_logical": "Deterministic role -> logical section. presentation/outline = FROM_LEVEL keeps the visible heading styles identical to the markdown level after the outline shift; the genre-awareness is in logical_section + toc (references/appendix/back-matter excluded from the TOC).",
+  "//role_to_logical": "Paper-specific placement, MERGED onto the base 9 shared entries.",
   "role_to_logical": {
     "title_block":         {"section": "TitleBlock",   "intent": "replace", "toc": false, "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
-    "abstract":            {"section": "Abstract",      "intent": "replace", "toc": false, "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
     "introduction":        {"section": "Introduction",  "intent": "replace", "toc": true,  "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
     "background":          {"section": "Background",     "intent": "replace", "toc": true,  "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
-    "literature_review":   {"section": "RelatedWork",   "intent": "replace", "toc": true,  "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
-    "methodology":         {"section": "Methods",       "intent": "replace", "toc": true,  "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
     "experiment":          {"section": "Experiments",   "intent": "replace", "toc": true,  "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
-    "results":             {"section": "Results",       "intent": "replace", "toc": true,  "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
-    "discussion":          {"section": "Discussion",    "intent": "replace", "toc": true,  "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
-    "conclusion":          {"section": "Conclusion",    "intent": "replace", "toc": true,  "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
     "acknowledgments":     {"section": "BackMatter",    "intent": "replace", "toc": false, "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
     "competing_interests": {"section": "BackMatter",    "intent": "replace", "toc": false, "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
-    "ethics":              {"section": "BackMatter",    "intent": "replace", "toc": false, "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
-    "references":          {"section": "References",    "intent": "replace", "toc": false, "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
-    "appendix":            {"section": "Appendix",      "intent": "replace", "toc": false, "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"},
-    "generic":             {"section": "Body",          "intent": "replace", "toc": true,  "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"}
+    "ethics":              {"section": "BackMatter",    "intent": "replace", "toc": false, "presentation": "FROM_LEVEL", "outline_level": "FROM_LEVEL"}
   }
 }

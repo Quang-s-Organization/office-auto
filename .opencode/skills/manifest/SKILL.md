@@ -75,6 +75,30 @@ intent, font/size — role + confidence only.
 outline_level, toc, intent, presentation). `presentation/outline_level:
 "FROM_LEVEL"` = derive from markdown level after the outline shift.
 
+**Layering (v6, optional):** a profile may `extends` a parent id (e.g. `_base`)
+and supply only deltas — extra `role_vocabulary` (union), `keyword_rules`
+(replace) or `keyword_rules_extra` (prepend), `role_to_logical` / `role_overrides`
+(merge), `front_matter_roles` (union). `tools/contracts.resolve_profile` merges
+the chain; the RESOLVED profile must satisfy `schemas/profile.schema.json`.
+`profiles/_base.json` = the universal 9-role academic ontology.
+
+**Capabilities (v6, optional, §5):** `capabilities` = what the matched template
+can render (`toc`, `equation`, `table`, `code`, `list`, `callout`, `image`).
+`false` ⇒ degrade. `logical_mapper` writes `capability_report` + gates TOC. No
+`capabilities` block ⇒ negotiation off (parity).
+
+**Contracts:** `markdown-parser` output, profiles, and content IR are validated
+at load (`tools/contracts.py`, JSON-Schema in `schemas/`). Validate manually:
+`python3 tools/contracts.py <file> content.ir|profile|profile-resolve`.
+
+**Block elements:** all body block kinds (paragraph/callout/list/code/table/
+equation) live in `tools/block_specs.py` (BlockSpec registry — parse+emit+count
+co-located). Add an element there, NOT in the parser/planner.
+
+**Semantic backends:** `semantic_classifier.py --backend keyword` (default,
+exact substring) | `--backend router [--lazy]` (offline char-ngram similarity in
+`role_matcher.py` — covers paraphrases, multilingual, no model/network).
+
 ## logical.ir.json (LOGICAL tier — logical_mapper.py, deterministic)
 
 Replaces v5 `intent.json`; a strict superset, so planner.py reads it directly.

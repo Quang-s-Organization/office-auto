@@ -33,6 +33,7 @@ from typing import Optional
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from template_ir import TemplateIR, StylePrototype
+from block_specs import EmitCtx, emit_block
 
 
 # ── Intent vocabulary ─────────────────────────────────────────────
@@ -144,101 +145,18 @@ def build_batch_program(
     if enforce_justify:
         body_props = {**body_props, "align": "both"}
 
-    def _emit_runs(parent_path: str, runs, mono: bool = False):
-        """Emit one `add r` per styled span (markdown emphasis -> bold/italic/
-        superscript). `runs` is a plain string (single run) or a list of
-        {text, bold, italic, sup, sub} spans. Empty spans are dropped.
-        `mono=True` forces Courier New (code) and skips emphasis."""
-        if isinstance(runs, str):
-            runs = [{"text": runs}] if runs else []
-        for r in runs:
-            text = r.get("text", "")
-            if not text:
-                continue
-            props = {"text": text}
-            if mono:
-                props["font.latin"] = "Courier New"
-            else:
-                if r.get("bold"):
-                    props["bold"] = True
-                if r.get("italic"):
-                    props["italic"] = True
-                if r.get("sup"):
-                    props["vertAlign"] = "superscript"
-                elif r.get("sub"):
-                    props["vertAlign"] = "subscript"
-            program.append({"command": "add", "parent": parent_path,
-                            "type": "r", "props": props})
-
-    def add_paragraph(props: dict, runs, mono: bool = False):
-        program.append({"command": "add", "parent": "/body", "type": "p",
-                        "props": dict(props)})
-        _emit_runs("/body/p[last()]", runs, mono=mono)
-
-    def emit_table(block: dict):
-        """Build a real Word table. `add table {colWidths}` seeds one empty
-        row; each `add row` auto-creates N grid cells. Cells are filled by
-        adding runs to the cell's auto-created paragraph (tc[k]/p[last()])."""
-        ncols = max(1, block.get("ncols", 1))
-        col_w = max(1200, int(9000 / ncols))
-        col_widths = ",".join([str(col_w)] * ncols)
-        program.append({"command": "add", "parent": "/body", "type": "table",
-                        "props": {"colWidths": col_widths}})
-        for ri, row in enumerate(block.get("rows", [])):
-            if ri > 0:                       # row 0 reuses the seeded default row
-                program.append({"command": "add", "parent": "/body/tbl[last()]",
-                                "type": "row", "props": {}})
-            for ci in range(ncols):
-                cell = row[ci] if ci < len(row) else []
-                _emit_runs(f"/body/tbl[last()]/tr[last()]/tc[{ci + 1}]/p[last()]", cell)
-
-    def emit_code(block: dict):
-        """One paragraph per source line, runs forced to Courier New (raw text,
-        no markdown tokenization — preserves `_`/`*` in identifiers)."""
-        for line in block.get("lines", []):
-            add_paragraph(body_props, [{"text": line}] if line else [{"text": " "}],
-                          mono=True)
-
-    def emit_equation(block: dict):
-        """Display equation -> oMathPara via `add type=equation`. The LaTeX
-        formula (\\tag stripped by the parser) is parsed into OMML by officecli."""
-        mode = block.get("mode", "display")
-        program.append({"command": "add", "parent": "/body", "type": "equation",
-                        "props": {"formula": block.get("formula", ""), "mode": mode}})
-
-    def emit_list(block: dict):
-        """Native Word numbering: one paragraph per item with listStyle. A
-        non-list block between two lists stops officecli auto-joining them."""
-        list_style = "ordered" if block.get("ordered") else "bullet"
-        for item in block.get("items", []):
-            add_paragraph({**body_props, "listStyle": list_style}, item)
-
-    def emit_callout(block: dict):
-        """Didactic callout: keep the bold label, indent the block. The current
-        template ships no didactic paragraph style, so this is direct format."""
-        add_paragraph({**body_props, "leftIndent": "360"}, block.get("runs", []))
-
-    def emit_blocks(blocks: list[dict]):
-        for blk in blocks:
-            kind = blk.get("kind")
-            if kind == "table":
-                emit_table(blk)
-            elif kind == "code":
-                emit_code(blk)
-            elif kind == "equation":
-                emit_equation(blk)
-            elif kind == "list":
-                emit_list(blk)
-            elif kind == "callout":
-                emit_callout(blk)
-            else:
-                add_paragraph(body_props, blk.get("runs") or blk.get("text", ""))
+    # All per-kind run/block emission lives in block_specs (the BlockSpec
+    # registry). The planner owns only headings + body dispatch via the shared
+    # EmitCtx, so a new content element is one BlockSpec, not a planner edit.
+    ctx = EmitCtx(program=program, body_props=body_props)
+    add_paragraph = ctx.add_paragraph
 
     def emit_body(content_sec: dict):
         """Prefer structured body_blocks (runs + tables); fall back to plain."""
         blocks = content_sec.get("body_blocks")
         if blocks is not None:
-            emit_blocks(blocks)
+            for blk in blocks:
+                emit_block(blk, ctx)
         else:
             for para in content_sec.get("body_paragraphs", []):
                 add_paragraph(body_props, para)
@@ -333,7 +251,8 @@ def main():
               f"directly. Implemented: {sorted(SUPPORTED_STRATEGIES)}", file=sys.stderr)
         sys.exit(2)
 
-    content_ir = _load_json(args.content, "content IR")
+    import contracts
+    content_ir = contracts.load_and_validate(args.content, "content.ir", "content IR")
     template_ir = TemplateIR.from_json(_load_json(args.template_ir, "template IR"))
 
     print(f"[planner] Planning {len(intent.sections)} intent sections "

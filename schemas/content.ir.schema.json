@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "office-auto/content.ir",
+  "title": "Content IR",
+  "description": "Output of markdown-parser.py. The reader contract (axis A): any reader that emits this shape plugs into the rest of the pipeline unchanged.",
+  "type": "object",
+  "required": ["source_file", "sections", "section_count", "document_tree"],
+  "properties": {
+    "source_file": {"type": "string"},
+    "generated_at": {"type": ["string", "null"]},
+    "section_count": {"type": "integer", "minimum": 0},
+    "sections": {"type": "array", "items": {"$ref": "#/$defs/section"}},
+    "document_tree": {"type": "array", "items": {"$ref": "#/$defs/treeNode"}}
+  },
+  "$defs": {
+    "section": {
+      "type": "object",
+      "required": ["tag", "type", "title", "level", "body_paragraphs", "body_blocks", "paragraph_count", "verbatim"],
+      "properties": {
+        "tag": {"type": "string"},
+        "type": {"type": "string", "enum": ["heading1", "heading2", "heading3", "body_text"]},
+        "title": {"type": "string"},
+        "level": {"type": "integer", "minimum": 0},
+        "body_paragraphs": {"type": "array", "items": {"type": "string"}},
+        "body_blocks": {"type": "array", "items": {"$ref": "#/$defs/block"}},
+        "para_metadata": {"type": "array"},
+        "paragraph_count": {"type": "integer", "minimum": 0},
+        "verbatim": {"type": "boolean"},
+        "source_anchor": {"type": "string"},
+        "has_image": {"type": "boolean"},
+        "has_math": {"type": "boolean"},
+        "has_bold": {"type": "boolean"},
+        "has_italic": {"type": "boolean"},
+        "generation_hint": {}
+      },
+      "additionalProperties": true
+    },
+    "block": {
+      "type": "object",
+      "required": ["kind"],
+      "description": "A body block. `kind` is the registry key (BlockSpec). Unknown kinds are allowed (forward-compat / generic-attributed escape hatch) and degrade to a paragraph.",
+      "properties": {
+        "kind": {"type": "string"},
+        "runs": {"type": "array"},
+        "text": {"type": "string"},
+        "ncols": {"type": "integer"},
+        "rows": {"type": "array"},
+        "header": {"type": "boolean"},
+        "lines": {"type": "array", "items": {"type": "string"}},
+        "lang": {"type": "string"},
+        "formula": {"type": "string"},
+        "mode": {"type": "string"},
+        "ordered": {"type": "boolean"},
+        "items": {"type": "array"},
+        "label": {"type": "string"},
+        "heading_like": {"type": "boolean"},
+        "attrs": {"type": "object"},
+        "role": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "treeNode": {
+      "type": "object",
+      "required": ["node_id", "title", "level", "word_count", "children"],
+      "properties": {
+        "node_id": {"type": "string"},
+        "title": {"type": "string"},
+        "level": {"type": "integer"},
+        "word_count": {"type": "integer", "minimum": 0},
+        "child_word_count": {"type": "integer", "minimum": 0},
+        "first_paragraph": {"type": "string"},
+        "children": {"type": "array", "items": {"$ref": "#/$defs/treeNode"}}
+      },
+      "additionalProperties": true
+    }
+  }
+}

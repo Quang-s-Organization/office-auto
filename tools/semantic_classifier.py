@@ -33,12 +33,21 @@ Usage:
 from __future__ import annotations
 import argparse
 import json
+import os
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import contracts
+from role_matcher import RoleMatcher
 
 # confidence assigned by the deterministic stub
 CONF_KEYWORD = 0.9     # matched a profile keyword rule
 CONF_FALLBACK = 0.3    # nothing matched → default role (LLM stage-2 candidate)
 LOW_CONF = 0.7         # below this → flagged for lazy stage-2 (heading+summary)
+
+# router (offline char-ngram) thresholds
+TAU_MATCH = 0.16       # min cosine to accept an n-gram match over the default role
+CONF_NGRAM_BASE = 0.5  # n-gram confidence = base + similarity, capped below keyword
 
 
 def _load_json(path: str, label: str):
@@ -85,6 +94,49 @@ def classify_stub(content_ir: dict, profile: dict) -> list[dict]:
             "confidence": conf,
             "evidence": evidence,
         })
+    return out
+
+
+def classify_router(content_ir: dict, profile: dict, lazy: bool = False) -> list[dict]:
+    """Confidence-routed role assignment (adaptation_research.md S2 + S5).
+
+    Tier 1: profile keyword rules (exact, conf 0.9). Tier 2: offline char-ngram
+    cosine to each role (RoleMatcher) — catches paraphrases the keywords miss,
+    language-agnostically. Tier 3 (lazy, opt-in): for headings that stay below
+    TAU_MATCH, re-score using title + the node's first_paragraph. Nothing ever
+    leaves the profile vocabulary; low scores fall back to the default role."""
+    rules = profile.get("keyword_rules", [])
+    default_role = profile.get("default_role", "generic")
+    tree = content_ir.get("document_tree")
+    if not tree:
+        print("[semantic] ERROR: content IR has no document_tree", file=sys.stderr)
+        sys.exit(1)
+    matcher = RoleMatcher(profile)
+
+    out: list[dict] = []
+    for node in _iter_tree(tree):
+        title = node["title"]
+        title_u = title.upper()
+        # tier 1: keyword rules
+        role, evidence, conf = default_role, "fallback", CONF_FALLBACK
+        for rule in rules:
+            if any(kw.upper() in title_u for kw in rule.get("any", [])):
+                role, evidence, conf = rule["role"], "heading", CONF_KEYWORD
+                break
+        # tier 2: n-gram similarity
+        if evidence == "fallback":
+            r2, sim = matcher.match(title)
+            # tier 3: lazy first_paragraph escalation
+            if sim < TAU_MATCH and lazy and node.get("first_paragraph"):
+                r3, sim3 = matcher.match(title + " " + node["first_paragraph"])
+                if sim3 > sim:
+                    r2, sim, evidence = r3, sim3, "ngram+summary"
+            if sim >= TAU_MATCH:
+                role = r2
+                conf = round(min(0.85, CONF_NGRAM_BASE + sim), 2)
+                evidence = evidence if evidence == "ngram+summary" else "ngram"
+        out.append({"node_id": node["node_id"], "semantic_role": role,
+                    "confidence": conf, "evidence": evidence})
     return out
 
 
@@ -145,9 +197,15 @@ def main():
     ap.add_argument("--check", metavar="SEMANTIC_IR",
                     help="validate an existing semantic.ir.json (e.g. LLM-written) "
                          "against the profile vocabulary, rewrite it clamped, and exit")
+    ap.add_argument("--backend", choices=["keyword", "router"], default="keyword",
+                    help="keyword = exact substring stub (default, parity); "
+                         "router = keyword + offline char-ngram similarity (S2)")
+    ap.add_argument("--lazy", action="store_true",
+                    help="router only: escalate low-similarity headings with the "
+                         "node's first_paragraph (S5)")
     args = ap.parse_args()
 
-    profile = _load_json(args.profile, "profile")
+    profile = contracts.resolve_profile(args.profile)
 
     if args.check:
         ir = _load_json(args.check, "semantic IR")
@@ -166,15 +224,20 @@ def main():
 
     if not args.content:
         ap.error("--content is required unless --check is used")
-    content_ir = _load_json(args.content, "content IR")
-    nodes = classify_stub(content_ir, profile)
+    content_ir = contracts.load_and_validate(args.content, "content.ir", "content IR")
+    if args.backend == "router":
+        nodes = classify_router(content_ir, profile, lazy=args.lazy)
+        model = "ngram-router" + ("+lazy" if args.lazy else "")
+    else:
+        nodes = classify_stub(content_ir, profile)
+        model = "deterministic-stub"
     nodes, warns = validate_roles(nodes, profile)
     for w in warns:
         print(f"[semantic] WARN: {w}", file=sys.stderr)
     for w in quality_gate(nodes, profile):
         print(f"[semantic] GATE: {w}", file=sys.stderr)
 
-    ir = build_ir(nodes, profile, model="deterministic-stub")
+    ir = build_ir(nodes, profile, model=model)
     with open(args.output, "w", encoding="utf-8") as f:
         json.dump(ir, f, ensure_ascii=False, indent=2)
     matched = sum(1 for n in nodes if n["evidence"] == "heading")

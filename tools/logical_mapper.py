@@ -26,7 +26,12 @@ Usage:
 from __future__ import annotations
 import argparse
 import json
+import os
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import contracts
+import capabilities
 
 INTENT_PRESERVE = "preserve"
 INTENT_REMOVE = "remove"
@@ -119,12 +124,29 @@ def build_logical(semantic_ir: dict, content_ir: dict, profile: dict) -> dict:
             "confidence": n.get("confidence"),
         })
 
-    return {
+    out = {
         "profile": profile.get("id"),
         "strategy": profile.get("strategy", "clone"),
         "outline_shift": shift,
         "sections": sections,
     }
+
+    # Capability negotiation (§5) — opt-in: only when the profile declares what
+    # its matched template can render. No `capabilities` block ⇒ no change.
+    caps = profile.get("capabilities")
+    if caps:
+        feats = capabilities.detect_features(content_ir)
+        report = capabilities.negotiate(feats, caps)
+        # concrete degradation: a template with no TOC can't carry TOC marks.
+        if caps.get("toc") is False:
+            for s in sections:
+                s["toc"] = False
+        for r in report:
+            print(f"[logical] CAPABILITY: '{r['feature']}' used but template "
+                  f"lacks '{r['capability']}' → {r['note']}", file=sys.stderr)
+        out["capability_report"] = report
+
+    return out
 
 
 def main():
@@ -136,8 +158,8 @@ def main():
     args = ap.parse_args()
 
     semantic_ir = _load_json(args.semantic, "semantic IR")
-    content_ir = _load_json(args.content, "content IR")
-    profile = _load_json(args.profile, "profile")
+    content_ir = contracts.load_and_validate(args.content, "content.ir", "content IR")
+    profile = contracts.resolve_profile(args.profile)
 
     logical = build_logical(semantic_ir, content_ir, profile)
 
