@@ -21,7 +21,7 @@ Both processes import this module, so the three operations stay in lock-step.
 
 from __future__ import annotations
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, Optional
 
 from inline import tokenize_inline, strip_inline, parse_table_cells, RE_SPAN
@@ -171,24 +171,68 @@ BLOCK_PARSERS: list[Callable] = [
 ]
 
 
+# ── formula normalization (shared by inline + display equation emit) ────────
+
+# officecli's KaTeX→OMML converter cannot parse `\left…`/`\right…` delimiters
+# when they wrap subscript/accent terms (e.g. `\left[ \hat{y}_i \right]` →
+# "Subscript→Run cast" error). Dropping ONLY the sizing wrappers and keeping the
+# bare delimiter is meaning-preserving (it just makes brackets non-stretchy), so
+# the equation renders instead of forcing a hand-edit of the content. Verified
+# against the report's loss/objective/Shapley equations.
+_LEFT_RIGHT = [
+    (r"\left[", "["), (r"\right]", "]"),
+    (r"\left(", "("), (r"\right)", ")"),
+    (r"\left\{", r"\{"), (r"\right\}", r"\}"),
+    (r"\left|", "|"), (r"\right|", "|"),
+    (r"\left.", ""), (r"\right.", ""),
+]
+
+
+def normalize_formula(formula: str) -> str:
+    """Make a LaTeX formula safe for officecli's converter without changing its
+    mathematical meaning (currently: strip `\\left`/`\\right` sizing wrappers)."""
+    for a, b in _LEFT_RIGHT:
+        formula = formula.replace(a, b)
+    return formula
+
+
 # ── emit side: officecli ops per block kind ────────────────────────────────
 
 @dataclass
 class EmitCtx:
     """Context handed to every block emit handler. Wraps the planner's program
     list + discovered body props + run emission, so emit handlers carry no
-    planner-internal closures."""
+    planner-internal closures.
+
+    `run_props` are RUN-level defaults (e.g. body font/size) applied to every
+    body run. They matter when the body paragraphs ride on a style that does
+    NOT define size/font (a style-less template): a run inherits from its STYLE,
+    not from the paragraph mark, so size must be set on the run itself. Empty by
+    default ⇒ runs inherit from their named style (parity for styled templates).
+    Heading runs pass `run_props={}` so they keep inheriting from the heading
+    style."""
     program: list
     body_props: dict
+    run_props: dict = field(default_factory=dict)
 
-    def emit_runs(self, parent_path: str, runs, mono: bool = False):
+    def emit_runs(self, parent_path: str, runs, mono: bool = False,
+                  run_props: dict | None = None):
+        base = self.run_props if run_props is None else run_props
         if isinstance(runs, str):
             runs = [{"text": runs}] if runs else []
         for r in runs:
             text = r.get("text", "")
             if not text:
                 continue
-            props = {"text": text}
+            # Inline math → an inline equation anchored at the current paragraph,
+            # so `$...$` renders as real OMML instead of literal LaTeX text.
+            if r.get("math"):
+                self.program.append({"command": "add", "parent": parent_path,
+                                     "type": "equation",
+                                     "props": {"formula": normalize_formula(text),
+                                               "mode": "inline"}})
+                continue
+            props = {**base, "text": text}
             if mono:
                 props["font.latin"] = "Courier New"
             else:
@@ -203,10 +247,11 @@ class EmitCtx:
             self.program.append({"command": "add", "parent": parent_path,
                                  "type": "r", "props": props})
 
-    def add_paragraph(self, props: dict, runs, mono: bool = False):
+    def add_paragraph(self, props: dict, runs, mono: bool = False,
+                      run_props: dict | None = None):
         self.program.append({"command": "add", "parent": "/body", "type": "p",
                              "props": dict(props)})
-        self.emit_runs("/body/p[last()]", runs, mono=mono)
+        self.emit_runs("/body/p[last()]", runs, mono=mono, run_props=run_props)
 
 
 def _emit_paragraph(block, ctx: EmitCtx):
@@ -236,7 +281,8 @@ def _emit_code(block, ctx: EmitCtx):
 def _emit_equation(block, ctx: EmitCtx):
     mode = block.get("mode", "display")
     ctx.program.append({"command": "add", "parent": "/body", "type": "equation",
-                        "props": {"formula": block.get("formula", ""), "mode": mode}})
+                        "props": {"formula": normalize_formula(block.get("formula", "")),
+                                  "mode": mode}})
 
 
 def _emit_list(block, ctx: EmitCtx):

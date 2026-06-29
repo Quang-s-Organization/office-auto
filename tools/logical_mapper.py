@@ -127,6 +127,7 @@ def build_logical(semantic_ir: dict, content_ir: dict, profile: dict) -> dict:
     out = {
         "profile": profile.get("id"),
         "strategy": profile.get("strategy", "clone"),
+        "front_matter_strategy": profile.get("front_matter_strategy", "preserve"),
         "outline_shift": shift,
         "sections": sections,
     }

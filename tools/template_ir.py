@@ -32,6 +32,10 @@ class StylePrototype:
     line_spacing: Optional[str]
     explicit_size: Optional[str]
     explicit_font: Optional[str]
+    # line_rule pairs with line_spacing (w:spacing@w:lineRule: auto|exact|atLeast).
+    # MUST be carried: officecli defaults a bare pt lineSpacing to lineRule="exact"
+    # (fixed height), which crushes text when the template actually used "atLeast".
+    line_rule: Optional[str] = None
 
     def build_props(self) -> dict:
         """Return officecli SET-keys for reconstructing a paragraph of this style.
@@ -57,6 +61,11 @@ class StylePrototype:
             props["align"] = self.alignment
         if self.line_spacing:
             props["lineSpacing"] = self.line_spacing
+            # Re-apply the discovered rule. Without it officecli defaults a pt
+            # value to lineRule="exact", locking line height (e.g. 1.3pt) and
+            # overlapping the text into solid black bars.
+            if self.line_rule:
+                props["lineRule"] = self.line_rule
         return props
 
 
@@ -71,16 +80,16 @@ class TemplateIR:
     body_sequence: list[dict] = field(default_factory=list)
     # body_sequence: ordered [{para_id, style, has_text, is_heading, outline_level}]
     body_style: Optional[str] = None               # discovered style used for body text
-    preserve_contexts: list[str] = field(
-        default_factory=lambda: [
-            "ACKNOWLEDGEMENTS", "ABSTRACT", "TABLE OF CONTENTS",
-            "LIST OF ABBREVIATIONS", "LIST OF TABLES", "REFERENCES",
-            "APPENDIX", "SUPERVISOR"
-        ]
-    )
-    replace_contexts: list[str] = field(
-        default_factory=lambda: ["CHAPTER", "INTRODUCTION"]
-    )
+    # body_format: discovered DIRECT formatting of body text (font/size/align/
+    # spacing), independent of any style NAME. Lets the planner format body text
+    # correctly even when the template's body paragraphs carry no explicit
+    # w:pStyle (officecli reports style=None) and the only "Normal" prototype is
+    # an unrepresentative caption. Keys mirror StylePrototype.build_props() SET-keys.
+    body_format: Optional[dict] = None
+    # body_tables: direct-child tables of the template body, as [{path, rows}],
+    # in document order. slots.py classifies each as furniture vs slot per build
+    # (default: furniture / preserved). officecli addresses them positionally.
+    body_tables: list[dict] = field(default_factory=list)
 
     def to_json(self) -> dict:
         return {
@@ -96,8 +105,8 @@ class TemplateIR:
             "all_heading_ids": self.all_heading_ids,
             "body_sequence": self.body_sequence,
             "body_style": self.body_style,
-            "preserve_contexts": self.preserve_contexts,
-            "replace_contexts": self.replace_contexts,
+            "body_format": self.body_format,
+            "body_tables": self.body_tables,
         }
 
     @classmethod
@@ -118,11 +127,6 @@ class TemplateIR:
             all_heading_ids=data.get("all_heading_ids", []),
             body_sequence=data.get("body_sequence", []),
             body_style=data.get("body_style"),
-            preserve_contexts=data.get(
-                "preserve_contexts",
-                ["ACKNOWLEDGEMENTS", "ABSTRACT", "TABLE OF CONTENTS",
-                 "LIST OF ABBREVIATIONS", "LIST OF TABLES", "REFERENCES",
-                 "APPENDIX", "SUPERVISOR"]
-            ),
-            replace_contexts=data.get("replace_contexts", ["CHAPTER", "INTRODUCTION"]),
+            body_format=data.get("body_format"),
+            body_tables=data.get("body_tables", []),
         )

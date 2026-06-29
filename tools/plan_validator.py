@@ -62,9 +62,13 @@ def check_add_p_has_style(program, template_ir, content_ir):
 
 
 def check_runs_nonempty(program, template_ir, content_ir):
+    # A run with text " " is LEGITIMATE (e.g. the space between a bold "Từ khoá:"
+    # and the following italic run). Only a truly empty string / missing text is
+    # a fault — do NOT .strip(), or real spacing runs get reported and deleted,
+    # gluing adjacent words together.
     empty = [i for i, op in enumerate(program)
              if op.get("command") == "add" and op.get("type") == "r"
-             and not (op.get("props", {}).get("text") or "").strip()]
+             and (op.get("props", {}).get("text") or "") == ""]
     if empty:
         return Result("runs_nonempty", False, f"{len(empty)} empty run texts",
                       details=empty[:8])

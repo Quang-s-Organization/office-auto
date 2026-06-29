@@ -75,6 +75,66 @@ def _write_tmp(ops: list, path: str) -> str:
     return path
 
 
+def _preflight_equations(template: str, adds: list, out_dir: str) -> tuple[list, int]:
+    """Degrade equations officecli can't parse into raw-LaTeX text runs.
+
+    officecli's KaTeX→OMML converter has gaps we don't control. Rather than fail
+    the build (or silently drop the equation), test every equation formula ONCE
+    in a throwaway batch, then rewrite each failing op in place:
+      • inline (parent is a paragraph) → a `$…$` italic text run on that paragraph;
+      • display (parent /body)        → a body paragraph carrying the `$…$` text,
+        styled like the nearest preceding body paragraph.
+    The math is preserved (as LaTeX source), the document still builds, and a NEW
+    unsupported construct never again forces a code change — it just shows as text.
+    """
+    eq_ops = [(i, op) for i, op in enumerate(adds)
+              if op.get("command") == "add" and op.get("type") == "equation"]
+    if not eq_ops:
+        return adds, 0
+
+    test_doc = os.path.join(out_dir, f".eqtest-{os.getpid()}.docx")
+    shutil.copy2(template, test_doc)
+    test_ops = [{"command": "add", "parent": "/body", "type": "equation",
+                 "props": {"formula": op["props"].get("formula", ""), "mode": "display"}}
+                for _, op in eq_ops]
+    tb = _write_tmp(test_ops, os.path.join(out_dir, f".eqtest-{os.getpid()}.json"))
+    r = run_batch(test_doc, tb)
+    os.remove(tb)
+    _run(["officecli", "close", test_doc])
+    try:
+        os.remove(test_doc)
+    except OSError:
+        pass
+
+    failed_k = {f.get("index") for f in r["failures"]}
+    if not failed_k:
+        return adds, 0
+    rewrite = {adds_idx: op for k, (adds_idx, op) in enumerate(eq_ops) if k in failed_k}
+
+    new_adds: list = []
+    last_p_props = {"style": "Normal"}
+    for idx, op in enumerate(adds):
+        if op.get("command") == "add" and op.get("type") == "p":
+            last_p_props = op.get("props", {})
+        if idx not in rewrite:
+            new_adds.append(op)
+            continue
+        eq = rewrite[idx]
+        formula = eq["props"].get("formula", "")
+        parent = eq.get("parent", "/body")
+        text = f"${formula}$"
+        inline = eq["props"].get("mode") == "inline" or parent != "/body"
+        if inline:
+            new_adds.append({"command": "add", "parent": parent, "type": "r",
+                             "props": {"text": text, "italic": True}})
+        else:
+            new_adds.append({"command": "add", "parent": "/body", "type": "p",
+                             "props": dict(last_p_props)})
+            new_adds.append({"command": "add", "parent": "/body/p[last()]", "type": "r",
+                             "props": {"text": text, "italic": True}})
+    return new_adds, len(rewrite)
+
+
 def compose(template: str, batch_path: str, output: str) -> dict:
     t0 = time.time()
     out_dir = os.path.dirname(output) or "."
@@ -100,8 +160,15 @@ def compose(template: str, batch_path: str, output: str) -> dict:
     removes = [op for op in program if op.get("command") == "remove"]
     adds = [op for op in program if op.get("command") != "remove"]
 
+    # Degrade unparseable equations to text BEFORE building, so the real batch
+    # never fails on them and no equation is silently dropped.
+    adds, degraded = _preflight_equations(template, adds, out_dir)
+    if degraded:
+        print(f"[composer] degraded {degraded} unparseable equation(s) to LaTeX text",
+              file=sys.stderr)
+
     failures = []
-    summary = {"total": len(program), "succeeded": 0, "failed": 0}
+    summary = {"total": len(removes) + len(adds), "succeeded": 0, "failed": 0}
     for label, ops in (("cleanup", removes), ("build", adds)):
         if not ops:
             continue
@@ -125,6 +192,7 @@ def compose(template: str, batch_path: str, output: str) -> dict:
         "success": not failures,
         "summary": summary,
         "failures": failures,
+        "degraded_equations": degraded,
         "elapsed_seconds": round(time.time() - t0, 1),
         "output": output,
     }
@@ -143,6 +211,7 @@ def main():
         "summary": res.get("summary", {}),
         "failure_count": len(res.get("failures", [])),
         "failures": res.get("failures", [])[:5],
+        "degraded_equations": res.get("degraded_equations", 0),
         "output": res["output"],
         "elapsed_seconds": res["elapsed_seconds"],
     }, ensure_ascii=False, indent=2))

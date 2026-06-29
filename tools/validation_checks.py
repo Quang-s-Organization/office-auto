@@ -8,11 +8,15 @@ Each check: fn(filepath, template_ir=None, content_ir=None) -> CheckResult.
 
 from __future__ import annotations
 import json
+import os
 import re
 import subprocess
 import sys
 from dataclasses import dataclass, field
 from typing import Optional
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import slots
 
 
 @dataclass
@@ -57,6 +61,18 @@ def _best(template_ir: Optional[dict], style: str) -> Optional[dict]:
     return template_ir.get("best_prototypes", {}).get(style)
 
 
+def _furniture(template_ir: Optional[dict], content_ir: Optional[dict]) -> set:
+    """Para IDs of preserved template furniture — formatting checks (S3/S4/S6)
+    must judge the EMITTED content, not the template's own boilerplate (e.g. a
+    footnote block with its own font/spacing). Empty when inputs are missing."""
+    if not template_ir or not content_ir:
+        return set()
+    try:
+        return slots.furniture_paraids(template_ir, content_ir)
+    except Exception:
+        return set()
+
+
 # ── S1: heading hierarchy order ────────────────────────────────────
 
 def check_s1_heading_order(filepath, template_ir=None, content_ir=None) -> CheckResult:
@@ -97,6 +113,7 @@ def check_s3_font_size_vs_template(filepath, template_ir=None, content_ir=None) 
         return CheckResult("S3", True, "No template IR — skipped", severity="info")
     body_style = template_ir.get("body_style")
     styles = ["Heading1", "Heading2", "Heading3"] + ([body_style] if body_style else [])
+    furn = _furniture(template_ir, content_ir)
     issues = []
     checked = 0
     for style in styles:
@@ -108,6 +125,8 @@ def check_s3_font_size_vs_template(filepath, template_ir=None, content_ir=None) 
         for r in _query(filepath, f"p[style={style}]"):
             f = r.get("format", {})
             if not (r.get("text") or "").strip():
+                continue
+            if f.get("paraId") in furn:        # preserved template furniture
                 continue
             checked += 1
             font = f.get("effective.font.ascii")
@@ -135,9 +154,12 @@ def check_s4_first_line_indent(filepath, template_ir=None, content_ir=None) -> C
         return CheckResult("S4", True,
                            "Template body has no first-line indent — nothing to enforce",
                            severity="info")
+    furn = _furniture(template_ir, content_ir)
     bad = []
     for r in _query(filepath, f"p[style={body_style}]"):
         if not (r.get("text") or "").strip():
+            continue
+        if r.get("format", {}).get("paraId") in furn:
             continue
         got = r.get("format", {}).get("ind.firstLine")
         if got != expected:
@@ -163,6 +185,44 @@ def check_s5_trailing_empties(filepath, template_ir=None, content_ir=None) -> Ch
         return CheckResult("S5", True, f"{len(empty)} trailing empty paras (informational)",
                            severity="info")
     return CheckResult("S5", True, "No stray trailing empties", severity="info")
+
+
+# ── S6: line-spacing rule parity vs DISCOVERED body format ─────────
+
+def check_s6_line_spacing(filepath, template_ir=None, content_ir=None) -> CheckResult:
+    """Body line spacing must match the template's discovered rule.
+
+    Guards the failure where a fixed pt lineSpacing is re-applied as
+    lineRule="exact": the line height locks (e.g. 1.3pt) and 13pt text
+    collapses into overlapping black bars. The template used "atLeast"/"auto"
+    (lines grow to fit), so an "exact" body rule is a hard rendering fault."""
+    fmt = (template_ir or {}).get("body_format") or {}
+    exp_rule = fmt.get("lineRule")
+    exp_spacing = fmt.get("lineSpacing")
+    if not exp_spacing:
+        return CheckResult("S6", True, "No body line-spacing to enforce", severity="info")
+    body_style = (template_ir or {}).get("body_style") or "Normal"
+    furn = _furniture(template_ir, content_ir)
+    bad, checked = [], 0
+    for r in _query(filepath, f"p[style={body_style}]"):
+        if not (r.get("text") or "").strip():
+            continue
+        f = r.get("format", {})
+        if f.get("paraId") in furn:            # template furniture keeps its own spacing
+            continue
+        checked += 1
+        rule = f.get("lineRule")
+        # An "exact" rule on body prose crushes the text — always a fault here,
+        # regardless of the template (no template body uses fixed exact spacing).
+        if rule == "exact" and exp_rule != "exact":
+            bad.append(f"'{(r.get('text') or '')[:30]}' lineRule=exact (exp {exp_rule})")
+    if bad:
+        return CheckResult("S6", False,
+                           f"{len(bad)} body paragraphs use exact line height (text crush)",
+                           details=bad[:5], severity="error")
+    return CheckResult("S6", True,
+                       f"Body line spacing OK ({checked} paragraphs, rule={exp_rule})",
+                       severity="info")
 
 
 # presentation (logical IR) -> heading style produced by the planner
@@ -236,21 +296,61 @@ def check_s8_heading_counts(filepath, template_ir=None, content_ir=None, logical
     return CheckResult("S8", True, "Heading counts match source", severity="info")
 
 
+# ── S9: template furniture survived the build ──────────────────────
+# The backstop for the slot/furniture model: a build that destroys scaffolding
+# (header/letterhead/signature tables, "Nơi nhận"/footnote blocks) must FAIL,
+# not pass green. Recomputes the SAME slot/furniture split the planner used
+# (slots.classify) and asserts every furniture paragraph + table is still in the
+# output. Genre-agnostic — it compares discovered furniture, no hardcoded names.
+
+def check_s9_furniture_survived(filepath, template_ir=None, content_ir=None,
+                                logical_ir=None) -> CheckResult:
+    if not template_ir or not content_ir:
+        return CheckResult("S9", True, "No template/content IR — skipped", severity="info")
+    cls = slots.classify(template_ir.get("body_sequence", []),
+                         template_ir.get("body_tables", []), content_ir)
+    exp_paras = {p for p in cls["furniture_paras"] if p}
+    exp_tables = len(cls["furniture_tables"])
+    if not exp_paras and not exp_tables:
+        return CheckResult("S9", True, "Template has no furniture to preserve",
+                           severity="info")
+    present = {r.get("format", {}).get("paraId") for r in _query(filepath, "p")}
+    missing = sorted(p for p in exp_paras if p not in present)
+    got_tables = len([r for r in _query(filepath, "tbl")
+                      if (r.get("path") or "").startswith("/body/tbl")])
+    issues = []
+    if missing:
+        issues.append(f"{len(missing)} furniture paragraph(s) deleted: "
+                      f"{', '.join(missing[:5])}")
+    if got_tables < exp_tables:
+        issues.append(f"furniture tables: {got_tables}/{exp_tables} survive "
+                      f"({exp_tables - got_tables} deleted)")
+    if issues:
+        return CheckResult("S9", False, "Template furniture was destroyed",
+                           details=issues, severity="error")
+    return CheckResult("S9", True,
+                       f"Furniture preserved ({len(exp_paras)} paras, {exp_tables} tables)",
+                       severity="info")
+
+
 ALL_CHECKS = [
     check_s1_heading_order,
     check_s2_schema_validity,
     check_s3_font_size_vs_template,
     check_s4_first_line_indent,
     check_s5_trailing_empties,
+    check_s6_line_spacing,
     check_s7_completeness,
     check_s8_heading_counts,
+    check_s9_furniture_survived,
 ]
 
 
 def run_all(filepath, template_ir=None, content_ir=None, logical_ir=None) -> list[CheckResult]:
     results = []
     for c in ALL_CHECKS:
-        if c in (check_s7_completeness, check_s8_heading_counts):
+        if c in (check_s7_completeness, check_s8_heading_counts,
+                 check_s9_furniture_survived):
             results.append(c(filepath, template_ir, content_ir, logical_ir))
         else:
             results.append(c(filepath, template_ir, content_ir))

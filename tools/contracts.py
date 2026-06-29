@@ -102,7 +102,7 @@ def _merge_profile(base: dict, overlay: dict) -> dict:
     (overlay keeps priority for keyword rules by PREPENDING extras)."""
     out = dict(base)
     # scalar / identity fields: overlay wins when present
-    for k in ("id", "description", "strategy", "default_role"):
+    for k in ("id", "description", "strategy", "default_role", "front_matter_strategy"):
         if k in overlay:
             out[k] = overlay[k]
     # role_vocabulary: union, base order preserved, new roles appended

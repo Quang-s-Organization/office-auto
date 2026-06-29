@@ -4,6 +4,9 @@
   "strategy": "clone",
   "default_role": "generic",
 
+  "//front_matter_strategy": "preserve = keep the template's pre-heading front matter (cover/title placeholder) — correct when the content has none of its own (e.g. a thesis chapter). replace = wipe it because the content supplies its own title/author/abstract block (e.g. a self-contained paper), so it isn't duplicated. Default preserve = parity.",
+  "front_matter_strategy": "preserve",
+
   "//note": "These 9 roles + their role_to_logical entries are IDENTICAL across vn-thesis and springer-paper, so they live here once. Overlays add genre-specific roles via role_vocabulary (union) + role_to_logical/role_overrides.",
   "role_vocabulary": [
     "abstract", "literature_review", "methodology", "results",

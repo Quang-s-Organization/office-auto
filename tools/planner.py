@@ -34,6 +34,7 @@ from typing import Optional
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from template_ir import TemplateIR, StylePrototype
 from block_specs import EmitCtx, emit_block
+import slots
 
 
 # ── Intent vocabulary ─────────────────────────────────────────────
@@ -65,37 +66,16 @@ class IntentIR:
     initial_preserved: Optional[str] = None
     body_prototype: str = "body_text"
     strategy: str = "clone"   # "clone" (reconstruction, implemented) | "merge"
+    # "preserve" (default, parity) keeps the template's pre-heading front matter;
+    # "replace" removes it because the content supplies its own. Sourced from the
+    # profile via logical.ir.json.
+    front_matter_strategy: str = "preserve"
 
 
 # strategy routing: clone-prototype (this planner) handles variable-length
 # structured content. The alternative is officecli's native `merge` for
 # fixed {{placeholder}} form templates — chosen by intent.strategy == "merge".
 SUPPORTED_STRATEGIES = {"clone"}
-
-
-# ── content-region detection (policy lives here, not in the inspector) ──
-
-def compute_removable_ids(body_sequence: list[dict]) -> list[str]:
-    """Para IDs of the placeholder content region to delete.
-
-    Region = from the first heading paragraph through the last paragraph
-    that is a heading or carries text. Front matter (before the first
-    heading) and trailing empty section paragraphs are preserved.
-    """
-    heading_idxs = [i for i, p in enumerate(body_sequence) if p.get("is_heading")]
-    if not heading_idxs:
-        return []
-    first = heading_idxs[0]
-    last = first
-    for i in range(first, len(body_sequence)):
-        p = body_sequence[i]
-        if p.get("is_heading") or p.get("has_text"):
-            last = i
-    return [
-        body_sequence[i]["para_id"]
-        for i in range(first, last + 1)
-        if body_sequence[i].get("para_id")
-    ]
 
 
 # ── prop resolution from discovered Template IR ────────────────────
@@ -130,25 +110,53 @@ def build_batch_program(
     template_ir: TemplateIR,
     enforce_justify: bool = False,
 ) -> list[dict]:
-    """Build the officecli batch array (remove region + append content)."""
+    """Build the officecli batch array: remove slots, append content, move
+    trailing furniture after it (see slots.py + docs design note)."""
     program: list[dict] = []
 
-    # 1. Remove the placeholder content region
-    for pid in compute_removable_ids(template_ir.body_sequence):
+    # 1. Slot/furniture classification (genre-agnostic; preserve-by-default).
+    # Remove only paragraphs the content fills (the slot span); every other
+    # paragraph and EVERY table is furniture and is kept. Tables are never wiped
+    # wholesale — that destroyed letterhead/signature scaffolding before.
+    cls = slots.classify(template_ir.body_sequence, template_ir.body_tables,
+                         content_ir)
+    for pid in cls["slots"]:
         program.append({"command": "remove", "path": f"/body/p[@paraId={pid}]"})
 
     # 2. Append new content (reconstruction model)
     content_sections = {s["tag"]: s for s in content_ir.get("sections", [])}
-    body_style = template_ir.body_style or "Normal"
-    body_props = _props_for_style(template_ir, body_style)
+    # Body formatting: prefer the DISCOVERED body_format (direct font/size/align,
+    # works even when body paragraphs have no explicit style name); fall back to
+    # the named-style prototype only when body_format is unavailable.
+    if template_ir.body_format:
+        body_props = dict(template_ir.body_format)
+        # Always carry a style name (every paragraph needs one); the discovered
+        # direct font/size override whatever that style defines, so falling back
+        # to "Normal" when no distinct body style exists is safe.
+        body_props["style"] = template_ir.body_style or "Normal"
+    else:
+        body_style = template_ir.body_style or "Normal"
+        body_props = _props_for_style(template_ir, body_style)
     # Optional Vietnamese-thesis policy: justify body text (opt-in, not hardcoded).
     if enforce_justify:
         body_props = {**body_props, "align": "both"}
 
+    # Run-level body formatting (size/font). Needed when the body style does not
+    # itself define size/font (style-less templates) — a run inherits from its
+    # STYLE, not the paragraph mark. Derived from the discovered body_format;
+    # empty for styled templates so their runs inherit the named style (parity).
+    body_run_props: dict = {}
+    if template_ir.body_format:
+        if template_ir.body_format.get("size"):
+            body_run_props["size"] = template_ir.body_format["size"]
+        font = template_ir.body_format.get("font.ascii")
+        if font:
+            body_run_props["font.latin"] = font
+
     # All per-kind run/block emission lives in block_specs (the BlockSpec
     # registry). The planner owns only headings + body dispatch via the shared
     # EmitCtx, so a new content element is one BlockSpec, not a planner edit.
-    ctx = EmitCtx(program=program, body_props=body_props)
+    ctx = EmitCtx(program=program, body_props=body_props, run_props=body_run_props)
     add_paragraph = ctx.add_paragraph
 
     def emit_body(content_sec: dict):
@@ -176,9 +184,32 @@ def build_batch_program(
             emit_body(content_sec)
             continue
 
+        # Heading runs inherit size/font from the heading style → no run_props.
         add_paragraph(_props_for_style(template_ir, heading_style),
-                      content_sec.get("title", ""))
+                      content_sec.get("title", ""), run_props={})
         emit_body(content_sec)
+
+    # 3. Re-order TRAILING furniture after the appended content. Content was
+    # appended to /body end (the only place where `/body/p[last()]` reliably
+    # targets the new paragraph — see docs/batch-contract.md §3a), so furniture
+    # that must sit AFTER the content (signature block, "Nơi nhận", footnotes)
+    # is now ahead of it. Move each trailing element to just BEFORE the body's
+    # final `sectPr` (NOT `to=/body`, which appends AFTER the sectPr → invalid
+    # OOXML). Moving in document order restores [lead furniture][content]
+    # [trailing furniture] with the sectPr still last. Emitted AFTER all adds, so
+    # they never perturb `p[last()]` during the build. A trailing table is always
+    # at index (kept-tables-before-trailing + 1): each prior trailing table moved
+    # out vacates that slot for the next one.
+    tbl_src = cls["kept_tables_before_trailing"] + 1
+    for elem in cls["trailing"]:
+        if elem["kind"] == "p":
+            program.append({"command": "move",
+                            "path": f"/body/p[@paraId={elem['para_id']}]",
+                            "before": "/body/sectPr"})
+        else:
+            program.append({"command": "move",
+                            "path": f"/body/tbl[{tbl_src}]",
+                            "before": "/body/sectPr"})
 
     return program
 
@@ -206,6 +237,7 @@ def load_intent(path: str) -> Optional[IntentIR]:
         initial_preserved=data.get("initial_preserved"),
         body_prototype=data.get("body_prototype", "body_text"),
         strategy=data.get("strategy", "clone"),
+        front_matter_strategy=data.get("front_matter_strategy", "preserve"),
     )
 
 
@@ -267,10 +299,12 @@ def main():
         json.dump(program, f, ensure_ascii=False, indent=2)
 
     removes = sum(1 for op in program if op["command"] == "remove")
-    adds_p = sum(1 for op in program if op["command"] == "add" and op["type"] == "p")
-    adds_r = sum(1 for op in program if op["command"] == "add" and op["type"] == "r")
+    moves = sum(1 for op in program if op["command"] == "move")
+    adds_p = sum(1 for op in program if op["command"] == "add" and op.get("type") == "p")
+    adds_r = sum(1 for op in program if op["command"] == "add" and op.get("type") == "r")
     print(f"[planner] Wrote {args.output}: {len(program)} ops "
-          f"({removes} remove, {adds_p} paragraphs, {adds_r} runs)", file=sys.stderr)
+          f"({removes} remove, {adds_p} paragraphs, {adds_r} runs, "
+          f"{moves} furniture moves)", file=sys.stderr)
 
 
 if __name__ == "__main__":

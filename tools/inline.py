@@ -25,6 +25,22 @@ RE_SPAN = re.compile(
     r'|(?<![A-Za-z0-9])_(.+?)_(?![A-Za-z0-9])'    # 8: italic (underscore, word-boundaried)
 )
 
+# Inline math spans. MUST be carved out BEFORE emphasis tokenization, otherwise
+# the `_` / `*` inside LaTeX (e.g. `\text{SOFA}_{t}`, `a*b`) get eaten as
+# emphasis markers and the formula is corrupted. `$$..$$` before `$..$`.
+RE_MATH = re.compile(r'\$\$(.+?)\$\$|\$(.+?)\$', re.DOTALL)
+
+# Markdown link `[text](url)`. Rendered as its visible text (the raw
+# `[..](..)` syntax must never reach the document). Resolved before math/
+# emphasis so the URL's parens/underscores can't be misparsed.
+RE_LINK = re.compile(r'\[([^\]]*)\]\(([^)]*)\)')
+
+
+def _link_repr(text: str, url: str) -> str:
+    """Visible representation of a markdown link. Keep just the text (covers
+    `[email](mailto:email)` cleanly); for a bare `[](url)` fall back to the url."""
+    return text or url
+
 
 def _emit_run(runs: list[dict], text: str, bold: bool, italic: bool,
               sup: bool = False, sub: bool = False) -> None:
@@ -36,13 +52,9 @@ def _emit_run(runs: list[dict], text: str, bold: bool, italic: bool,
     runs.append(run)
 
 
-def tokenize_inline(text: str, base_bold: bool = False, base_italic: bool = False) -> list[dict]:
-    """Split text into runs, stripping markdown emphasis markers.
-
-    Returns a list of {text, bold, italic[, sup, sub]}. Adjacent runs with
-    identical styling are merged. `base_*` force a baseline style on every
-    run (used for heading-like / header-cell text)."""
-    runs: list[dict] = []
+def _tokenize_prose(text: str, base_bold: bool, base_italic: bool,
+                    runs: list[dict]) -> None:
+    """Emphasis tokenization for a math-free text segment (appends to `runs`)."""
     pos = 0
     for m in RE_SPAN.finditer(text):
         if m.start() > pos:
@@ -64,13 +76,35 @@ def tokenize_inline(text: str, base_bold: bool = False, base_italic: bool = Fals
     if pos < len(text):
         _emit_run(runs, text[pos:], base_bold, base_italic)
 
+
+def tokenize_inline(text: str, base_bold: bool = False, base_italic: bool = False) -> list[dict]:
+    """Split text into runs, stripping markdown emphasis markers.
+
+    Returns a list of {text, bold, italic[, sup, sub, math]}. A `math` run carries
+    raw LaTeX (no `$`) for inline-equation rendering. Adjacent NON-math runs with
+    identical styling are merged. `base_*` force a baseline style on every run
+    (used for heading-like / header-cell text)."""
+    text = RE_LINK.sub(lambda m: _link_repr(m.group(1), m.group(2)), text)
+    runs: list[dict] = []
+    pos = 0
+    for mm in RE_MATH.finditer(text):
+        if mm.start() > pos:
+            _tokenize_prose(text[pos:mm.start()], base_bold, base_italic, runs)
+        latex = mm.group(1) if mm.group(1) is not None else mm.group(2)
+        runs.append({"text": latex, "bold": False, "italic": False, "math": True})
+        pos = mm.end()
+    if pos < len(text):
+        _tokenize_prose(text[pos:], base_bold, base_italic, runs)
+
     def _key(r):
         return (r["bold"], r["italic"], r.get("sup", False), r.get("sub", False))
     merged: list[dict] = []
     for r in runs:
         if not r["text"]:
             continue
-        if merged and _key(merged[-1]) == _key(r):
+        if r.get("math") or (merged and merged[-1].get("math")):
+            merged.append(r)          # math runs never merge with neighbours
+        elif merged and _key(merged[-1]) == _key(r):
             merged[-1]["text"] += r["text"]
         else:
             merged.append(r)

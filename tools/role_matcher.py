@@ -74,7 +74,7 @@ class RoleMatcher:
         descs = profile.get("role_descriptions", {})
         kw_terms: dict[str, list[str]] = {}
         for rule in profile.get("keyword_rules", []):
-            kw_terms.setdefault(rule["role"], []).extend(rule.get("any", []))
+            kw_terms.setdefault(rule["role"], []).extend(rule.get("keywords") or rule.get("any") or [])
 
         self.vectors: dict[str, Counter] = {}
         for role in profile.get("role_vocabulary", []):

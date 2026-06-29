@@ -39,14 +39,14 @@ semantic tier; `first_paragraph` (≤200 chars) is a lazy-load source only.
                  "section_context":"CONTENT", ...}
   },
   "body_style": "Normalstyle",
-  "body_sequence": [{"para_id":"...","style":"Heading1","has_text":true,
-                     "is_heading":true,"outline_level":1}],
+  "body_sequence": [{"para_id":"...","style":"Heading1","text":"...","path":"/body/p[..]",
+                     "has_text":true,"is_heading":true,"outline_level":1}],
   "prototypes": {"Heading1":[...], "Normalstyle":[...]}
 }
 ```
 - `body_style`: the style actually used for body text (discovered, not assumed).
-- `body_sequence`: ordered `/body/p`; the planner uses it to compute the
-  removable content region.
+- `body_sequence`: ordered `/body/p` (with `text` + `path`); `slots.py` uses it to
+  classify each element as slot (remove) or furniture (preserve) per build.
 - `section_context`: `CONTENT` (main body) or `FRONT` (front matter) — structural,
   no name matching.
 - `StylePrototype.build_props()` yields officecli SET keys (style/size/font.ea/

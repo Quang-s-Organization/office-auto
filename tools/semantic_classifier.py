@@ -66,6 +66,18 @@ def _iter_tree(nodes: list[dict]):
         yield from _iter_tree(n.get("children", []))
 
 
+def _tree_index(tree: list[dict]) -> dict:
+    """node_id -> {title, level, first_paragraph} for enriching a stage-2 worklist."""
+    idx: dict[str, dict] = {}
+    for n in _iter_tree(tree):
+        idx[n["node_id"]] = {
+            "title": n.get("title", ""),
+            "level": n.get("level"),
+            "first_paragraph": n.get("first_paragraph", ""),
+        }
+    return idx
+
+
 def classify_stub(content_ir: dict, profile: dict) -> list[dict]:
     """Rule-based role assignment from heading titles (deterministic)."""
     rules = profile.get("keyword_rules", [])
@@ -83,7 +95,7 @@ def classify_stub(content_ir: dict, profile: dict) -> list[dict]:
         evidence = "fallback"
         conf = CONF_FALLBACK
         for rule in rules:
-            if any(kw.upper() in title_u for kw in rule.get("any", [])):
+            if any(kw.upper() in title_u for kw in (rule.get("keywords") or rule.get("any") or [])):
                 role = rule["role"]
                 evidence = "heading"
                 conf = CONF_KEYWORD
@@ -120,7 +132,7 @@ def classify_router(content_ir: dict, profile: dict, lazy: bool = False) -> list
         # tier 1: keyword rules
         role, evidence, conf = default_role, "fallback", CONF_FALLBACK
         for rule in rules:
-            if any(kw.upper() in title_u for kw in rule.get("any", [])):
+            if any(kw.upper() in title_u for kw in (rule.get("keywords") or rule.get("any") or [])):
                 role, evidence, conf = rule["role"], "heading", CONF_KEYWORD
                 break
         # tier 2: n-gram similarity
@@ -197,6 +209,14 @@ def main():
     ap.add_argument("--check", metavar="SEMANTIC_IR",
                     help="validate an existing semantic.ir.json (e.g. LLM-written) "
                          "against the profile vocabulary, rewrite it clamped, and exit")
+    ap.add_argument("--emit-worklist", metavar="PATH",
+                    help="classify mode: ALSO write the low-confidence nodes "
+                         "(title+level+first_paragraph + legal roles) here, for a "
+                         "SELECTIVE LLM stage-2 pass (the escalation worklist)")
+    ap.add_argument("--merge", metavar="ANSWERS",
+                    help="merge an LLM stage-2 answers file "
+                         "(nodes[].{node_id,semantic_role[,confidence]}) into the "
+                         "semantic.ir.json at --output; validate+clamp; rewrite & exit")
     ap.add_argument("--backend", choices=["keyword", "router"], default="keyword",
                     help="keyword = exact substring stub (default, parity); "
                          "router = keyword + offline char-ngram similarity (S2)")
@@ -206,6 +226,35 @@ def main():
     args = ap.parse_args()
 
     profile = contracts.resolve_profile(args.profile)
+
+    if args.merge:
+        # Stage-2 escalation: overlay the LLM's answers for the (low-confidence)
+        # nodes it was asked to reconsider onto the deterministic semantic.ir.json.
+        # Only listed node_ids change; everything else keeps its stage-1 role.
+        target = args.output
+        ir = _load_json(target, "semantic IR (--output target)")
+        answers = _load_json(args.merge, "stage-2 answers")
+        by_id = {a["node_id"]: a for a in answers.get("nodes", []) if a.get("node_id")}
+        patched = 0
+        for n in ir.get("nodes", []):
+            a = by_id.get(n["node_id"])
+            if a and a.get("semantic_role"):
+                n["semantic_role"] = a["semantic_role"]
+                n["confidence"] = a.get("confidence", CONF_KEYWORD)
+                n["evidence"] = a.get("evidence", "llm-stage2")
+                patched += 1
+        nodes, warns = validate_roles(ir.get("nodes", []), profile)
+        for w in warns:
+            print(f"[semantic] WARN: {w}", file=sys.stderr)
+        ir["nodes"] = nodes
+        ir["profile"] = profile.get("id")
+        low = sum(1 for n in nodes if n["confidence"] < LOW_CONF)
+        ir["evidence_budget"] = {"heading_only": len(nodes) - low, "needs_stage2": low}
+        with open(target, "w", encoding="utf-8") as f:
+            json.dump(ir, f, ensure_ascii=False, indent=2)
+        print(f"[semantic] merged {patched} stage-2 answers into {target} "
+              f"({len(warns)} clamped, {low} still low-confidence)", file=sys.stderr)
+        return
 
     if args.check:
         ir = _load_json(args.check, "semantic IR")
@@ -244,6 +293,31 @@ def main():
     print(f"[semantic] Wrote {args.output}: {len(nodes)} nodes "
           f"({matched} keyword-matched, {ir['evidence_budget']['needs_stage2']} "
           f"low-confidence)", file=sys.stderr)
+
+    # Selective-escalation worklist: the nodes the deterministic pass was unsure
+    # about, enriched with what the LLM needs to decide (title, level, first
+    # paragraph) + the legal roles. The LLM reconsiders ONLY these, then `--merge`.
+    if args.emit_worklist:
+        idx = _tree_index(content_ir.get("document_tree", []))
+        work = [
+            {"node_id": n["node_id"], "current_role": n["semantic_role"],
+             "confidence": n["confidence"], **idx.get(n["node_id"], {})}
+            for n in nodes if n["confidence"] < LOW_CONF
+        ]
+        worklist = {
+            "profile": profile.get("id"),
+            "role_vocabulary": profile.get("role_vocabulary", []),
+            "role_descriptions": profile.get("role_descriptions", {}),
+            "instructions": ("Assign each node a semantic_role from role_vocabulary "
+                             "(meanings in role_descriptions). Reply as "
+                             "{\"nodes\":[{\"node_id\",\"semantic_role\",\"confidence\"}]} "
+                             "then run semantic_classifier --merge."),
+            "nodes": work,
+        }
+        with open(args.emit_worklist, "w", encoding="utf-8") as f:
+            json.dump(worklist, f, ensure_ascii=False, indent=2)
+        print(f"[semantic] Wrote stage-2 worklist {args.emit_worklist}: "
+              f"{len(work)} low-confidence node(s) for the LLM", file=sys.stderr)
 
 
 if __name__ == "__main__":

@@ -75,6 +75,7 @@ def _extract_proto(r: dict) -> StylePrototype:
     explicit_font = fmt.get("font.ascii") or fmt.get("font.hAnsi")
     align = fmt.get("align")
     line_spacing = fmt.get("lineSpacing")
+    line_rule = fmt.get("lineRule")
     space_before = fmt.get("effective.spaceBefore")
     space_after = fmt.get("effective.spaceAfter")
 
@@ -107,6 +108,7 @@ def _extract_proto(r: dict) -> StylePrototype:
         space_after=space_after,
         alignment=align,
         line_spacing=line_spacing,
+        line_rule=line_rule,
         explicit_size=explicit_size,
         explicit_font=explicit_font,
     )
@@ -200,37 +202,141 @@ def get_body_sequence(filepath: str) -> list[dict]:
         style = style_raw.title().replace(" ", "") if style_raw else None
         text = (r.get("text") or "").strip()
         ol = fmt.get("outlineLevel")
+        # The `p` selector is recursive: it also returns paragraphs INSIDE table
+        # cells, footnotes and endnotes. Those are NOT body prose and must not
+        # pollute body-format/style discovery — flag them via their query path.
+        path = r.get("path") or ""
+        in_table = "/tbl[" in path or "note[" in path or not path.startswith("/body/p")
+        # Resolve the paragraph's effective size from the RICHEST source. Real
+        # body prose on the Default/Normal style reports `effective.size = None`
+        # (its size lives on the run mark `markRPr.size`, not the paragraph), so
+        # relying on `effective.size` alone silently drops the whole body and
+        # leaves only TOC/caption paragraphs that carry an explicit size.
+        eff_size = (fmt.get("size") or fmt.get("markRPr.size")
+                    or fmt.get("effective.size"))
+        eff_font = (fmt.get("effective.font.ascii") or fmt.get("font.ascii")
+                    or fmt.get("font.hAnsi"))
         seq.append({
             "para_id": fmt.get("paraId"),
             "style": style,
+            # Captured so slots.py can detect placeholder text and align against
+            # content titles (slot/furniture classification). `path` lets it
+            # reconstruct table positions among the direct /body children.
+            "text": text,
+            "path": path,
             "has_text": bool(text),
             "is_heading": style in _HEADING_STYLES,
+            "in_table": in_table,
             "outline_level": int(ol) if ol is not None and str(ol).isdigit() else None,
+            # EFFECTIVE run/paragraph formatting (inheritance already resolved by
+            # officecli). Captured so we can discover the body FORMAT even when
+            # the paragraph carries no explicit style name.
+            "eff_size": eff_size,
+            "eff_font": eff_font,
+            "align": fmt.get("align"),
+            "line_spacing": fmt.get("lineSpacing"),
+            "line_rule": fmt.get("lineRule"),
+            "space_after": fmt.get("effective.spaceAfter"),
+            "text_len": len(text),
         })
     return seq
+
+
+def _body_prose_cohort(body_sequence: list[dict]) -> list[dict]:
+    """Non-heading, text-bearing paragraphs of the main content region that are
+    REAL body prose: not inside a table/footnote (those are not body text and
+    would otherwise dominate discovery). Shared by style + format discovery so
+    both agree on the same cohort."""
+    first_heading = next((i for i, p in enumerate(body_sequence) if p["is_heading"]), None)
+    region = body_sequence if first_heading is None else body_sequence[first_heading:]
+    return [
+        p for p in region
+        if not p["is_heading"] and p["has_text"] and not p.get("in_table")
+    ]
 
 
 def discover_body_style(body_sequence: list[dict]) -> Optional[str]:
     """Discover the style used for body text within the content region.
 
-    The content region starts at the first heading. Among non-heading
-    paragraphs there that carry text, the most common style is the body
-    style (e.g. 'Normalstyle'). No hardcoded style name assumed.
+    Among real body-prose paragraphs, the most common style is the body style.
+    A paragraph with NO explicit ``w:pStyle`` (officecli reports ``style=None``)
+    IS on Word's Default/Normal style, so it counts as ``Normal`` — otherwise an
+    unstyled prose body is invisible here and a minority list/caption style wins.
     """
-    first_heading = next((i for i, p in enumerate(body_sequence) if p["is_heading"]), None)
-    if first_heading is None:
-        region = body_sequence
-    else:
-        region = body_sequence[first_heading:]
     from collections import Counter
     counts = Counter(
-        p["style"] for p in region
-        if not p["is_heading"] and p["has_text"] and p["style"]
+        (p["style"] or "Normal") for p in _body_prose_cohort(body_sequence)
     )
     if counts:
         return counts.most_common(1)[0][0]
     # Fallback: any non-heading style that exists as a prototype
     return None
+
+
+def get_body_tables(filepath: str) -> list[dict]:
+    """Direct-child tables of the body, as [{path, rows}] in document order.
+
+    A table may be FURNITURE (letterhead, signature grid, national header) or a
+    content placeholder — slots.py decides per build from the content, so this
+    is pure discovered state. Tables default to furniture (preserved): the
+    planner never wipes them wholesale. officecli addresses them positionally
+    (``/body/tbl[1]`` …)."""
+    result = run_officecli(["query", filepath, "tbl", "--json"])
+    if not result.get("success"):
+        return []
+    tables = []
+    for r in result.get("data", {}).get("results", []):
+        path = r.get("path") or ""
+        if path.startswith("/body/tbl"):
+            tables.append({"path": path, "rows": r.get("format", {}).get("rows")})
+    return tables
+
+
+def discover_body_format(body_sequence: list[dict]) -> Optional[dict]:
+    """Discover the DIRECT formatting of body text (font/size/align/spacing),
+    independent of any style NAME.
+
+    Many real templates leave body paragraphs on the Default/Normal style with
+    NO explicit ``w:pStyle`` — officecli then reports ``style=None`` and the
+    name-based ``discover_body_style`` returns None, leaving the planner to fall
+    back to a (often unrepresentative) "Normal" caption prototype. Word's own
+    model says such paragraphs inherit from docDefaults/Normal, and officecli's
+    ``effective.*`` fields already resolve that inheritance — so the dominant
+    ``(font, size)`` among substantial body paragraphs IS the body format.
+
+    Strategy: over non-heading, text-bearing paragraphs in the content region,
+    take the most common (effective_font, effective_size) pair; among paragraphs
+    matching it, take the modal alignment / line-spacing / space-after. Returns
+    None only when nothing carries effective sizing (e.g. an empty template).
+    """
+    from collections import Counter
+    cand = [p for p in _body_prose_cohort(body_sequence) if p.get("eff_size")]
+    if not cand:
+        return None
+    pair_counts = Counter((p.get("eff_font"), p.get("eff_size")) for p in cand)
+    (font, size), _ = pair_counts.most_common(1)[0]
+    matched = [p for p in cand if (p.get("eff_font"), p.get("eff_size")) == (font, size)]
+
+    def _mode(key):
+        c = Counter(p.get(key) for p in matched if p.get(key))
+        return c.most_common(1)[0][0] if c else None
+
+    fmt = {"size": size}
+    if font:
+        fmt["font.ascii"] = font
+        fmt["font.hAnsi"] = font
+    align = _mode("align")
+    if align:
+        fmt["align"] = align
+    line_spacing = _mode("line_spacing")
+    if line_spacing:
+        fmt["lineSpacing"] = line_spacing
+        # Carry the paired rule (auto/exact/atLeast). A pt lineSpacing without
+        # its rule is re-applied as "exact" by officecli, crushing the text.
+        line_rule = _mode("line_rule")
+        if line_rule:
+            fmt["lineRule"] = line_rule
+    return fmt
 
 
 # ── main entry point ───────────────────────────────────────────────
@@ -296,8 +402,10 @@ def inspect_template(filepath: str) -> TemplateIR:
     # Discover the ordered body sequence and the real body text style
     body_sequence = get_body_sequence(abs_path)
     body_style = discover_body_style(body_sequence)
-    print(f"[inspector] Body: {len(body_sequence)} paragraphs, body_style={body_style}",
-          file=sys.stderr)
+    body_format = discover_body_format(body_sequence)
+    body_tables = get_body_tables(abs_path)
+    print(f"[inspector] Body: {len(body_sequence)} paragraphs, body_style={body_style}, "
+          f"body_format={body_format}, body_tables={len(body_tables)}", file=sys.stderr)
 
     # Query the discovered body style as a prototype too (to read its props)
     if body_style and body_style not in prototypes:
@@ -328,6 +436,8 @@ def inspect_template(filepath: str) -> TemplateIR:
         all_heading_ids=all_heading_ids,
         body_sequence=body_sequence,
         body_style=body_style,
+        body_format=body_format,
+        body_tables=body_tables,
     )
 
     print(f"[inspector] Done. Best: {list(best_prototypes.keys())}", file=sys.stderr)
