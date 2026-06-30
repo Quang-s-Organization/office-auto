@@ -1,8 +1,0 @@
-{
-  "servers": {
-    "officecli": {
-      "command": "officecli",
-      "args": ["mcp"]
-    }
-  }
-}
