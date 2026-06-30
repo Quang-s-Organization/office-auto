@@ -18,12 +18,74 @@ Output: Content Intermediate Representation (IR) with:
 import sys, json, os, re, argparse
 from pathlib import Path
 
-# Regex patterns for inline format detection
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from inline import tokenize_inline, strip_inline
+from block_specs import (BLOCK_PARSERS, paragraph_block, count_block,
+                         A_BLOCK, A_SKIP, A_BUFFER, A_ADVANCE)
+
+# Regex patterns for inline format detection (metadata flags only — the run
+# tokenizer + block grammar live in inline.py / block_specs.py)
 RE_IMAGE = re.compile(r'!\[([^\]]*)\]\(([^)]+)\)')           # ![alt](url)
 RE_MATH_INLINE = re.compile(r'(?<!\$)\$(?!\$)(.+?)(?<!\$)\$(?!\$)')  # $...$
 RE_MATH_BLOCK = re.compile(r'\$\$(.+?)\$\$', re.DOTALL)      # $$...$$
 RE_BOLD = re.compile(r'\*\*(.+?)\*\*')                        # **...**
 RE_ITALIC = re.compile(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)')  # *...*
+
+
+def parse_body_blocks(body_lines: list[str]) -> list[dict]:
+    """Parse a section's raw body lines into ordered blocks.
+
+    The per-kind grammar lives in block_specs.BLOCK_PARSERS (one handler per
+    block kind, tried in priority order). This function only owns the text
+    buffer + paragraph flush; adding a new block kind means adding a BlockSpec,
+    not editing this loop. Block kinds: table, code, equation, list, callout,
+    paragraph (see block_specs.py)."""
+    blocks: list[dict] = []
+    i = 0
+    n = len(body_lines)
+    text_buf: list[str] = []
+
+    def flush_text():
+        if not text_buf:
+            return
+        chunk = "\n".join(text_buf).strip("\n")
+        for para in re.split(r'\n\s*\n', chunk):
+            para = para.strip()
+            if not para:
+                continue
+            blocks.append(paragraph_block(para))
+        text_buf.clear()
+
+    while i < n:
+        for handler in BLOCK_PARSERS:
+            res = handler(body_lines, i)
+            if res is None:
+                continue
+            action, payload, ni = res
+            if action == A_BLOCK:
+                flush_text()
+                blocks.append(payload)
+            elif action == A_SKIP:
+                flush_text()
+            elif action == A_BUFFER:
+                text_buf.append(payload)
+            elif action == A_ADVANCE:
+                pass
+            i = ni
+            break
+        else:
+            text_buf.append(body_lines[i])
+            i += 1
+    flush_text()
+    return blocks
+
+
+def count_paragraphs(blocks: list[dict]) -> int:
+    """Number of `add p` ops the planner emits for these blocks (body only).
+
+    Delegates to block_specs.count_block so the count stays in lock-step with
+    the emit handler for every kind (drives validator S7 / plan_validator)."""
+    return sum(count_block(b) for b in blocks)
 
 
 def detect_paragraph_metadata(text: str) -> dict:
@@ -123,14 +185,17 @@ def parse_markdown(filepath: str) -> dict:
 
     for i, sec in enumerate(raw_sections):
         level = sec['level']
-        title = sec['title']
-        body_text = '\n'.join(sec['body']).strip()
+        title = strip_inline(sec['title'])
 
-        # Count paragraphs
-        if body_text:
-            paragraphs = [p.strip() for p in re.split(r'\n\n+', body_text) if p.strip()]
-        else:
-            paragraphs = []
+        # Parse body into ordered blocks (paragraphs + tables), stripping
+        # markdown emphasis and recognising heading-like lines / tables.
+        body_blocks = parse_body_blocks(sec['body'])
+        # body_paragraphs = plain prose text (paragraph + callout blocks), used
+        # for the document tree / first_paragraph and metadata flags. The
+        # planner-accurate paragraph count (incl. list items + code lines) is
+        # computed separately so validator S7 / plan_validator para_count match.
+        paragraphs = [b['text'] for b in body_blocks
+                      if b['kind'] in ('paragraph', 'callout')]
 
         # Generate tag
         if level == 1:
@@ -174,8 +239,9 @@ def parse_markdown(filepath: str) -> dict:
             'title': title,
             'level': level,
             'body_paragraphs': paragraphs,
+            'body_blocks': body_blocks,
             'para_metadata': para_metadata,
-            'paragraph_count': len(paragraphs),
+            'paragraph_count': count_paragraphs(body_blocks),
             'verbatim': verbatim,
             'source_anchor': slugify(title)
         }
@@ -196,8 +262,60 @@ def parse_markdown(filepath: str) -> dict:
         'source_file': os.path.basename(filepath),
         'generated_at': None,  # filled by --date
         'sections': sections,
-        'section_count': len(sections)
+        'section_count': len(sections),
+        'document_tree': build_document_tree(sections)
     }
+
+
+def _word_count(text: str) -> int:
+    """Count whitespace-delimited tokens (cheap, language-agnostic enough for VN)."""
+    return len(text.split())
+
+
+def build_document_tree(sections: list[dict]) -> list[dict]:
+    """Build a nested heading tree from the flat (document-ordered) section list.
+
+    Deterministic — derived purely from `level` + order (nest while level
+    increases, pop while it decreases). Each node carries `word_count` (own
+    body), `child_word_count` (sum of descendants) and a truncated
+    `first_paragraph` used only as a lazy-load source for the semantic tier;
+    no styling/role info lives here.
+    """
+    roots: list[dict] = []
+    stack: list[dict] = []  # nodes currently open, by increasing level
+
+    for sec in sections:
+        first_para = sec["body_paragraphs"][0] if sec.get("body_paragraphs") else ""
+        own_words = sum(_word_count(p) for p in sec.get("body_paragraphs", []))
+        node = {
+            "node_id": sec["tag"],
+            "title": sec["title"],
+            "level": sec["level"],
+            "word_count": own_words,
+            "child_word_count": 0,
+            "first_paragraph": first_para[:200],
+            "children": [],
+        }
+        # Pop deeper-or-equal nodes; remaining top of stack is the parent.
+        while stack and stack[-1]["level"] >= sec["level"]:
+            stack.pop()
+        if stack:
+            stack[-1]["children"].append(node)
+        else:
+            roots.append(node)
+        stack.append(node)
+
+    # Roll up descendant word counts (post-order).
+    def _rollup(node: dict) -> int:
+        total = 0
+        for child in node["children"]:
+            total += child["word_count"] + _rollup(child)
+        node["child_word_count"] = total
+        return total
+
+    for root in roots:
+        _rollup(root)
+    return roots
 
 
 def generate_extra_sections(content_ir: dict) -> list:

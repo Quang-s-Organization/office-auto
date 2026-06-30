@@ -1,47 +1,17 @@
 [
   {
-    "step": "Discover Heading1 prototype",
-    "command": "officecli query <file> \"p[style=Heading1]\" --json",
-    "note": "Extract the first result's paraId as Heading1 prototype. Use for all # H1 headings."
+    "_comment": "Minimal v5 batch sample: remove a placeholder, then build one section.",
+    "_run": "officecli batch <file> --input batch_program.json --json"
   },
-  {
-    "step": "Discover Heading2 prototype",
-    "command": "officecli query <file> \"p[style=Heading2]\" --json",
-    "note": "Extract first result's paraId as Heading2 prototype. Use for all ## H2 headings."
-  },
-  {
-    "step": "Discover Heading3 prototype",
-    "command": "officecli query <file> \"p[style=Heading3]\" --json",
-    "note": "Extract first result's paraId as Heading3 prototype. Use for all ### H3 headings."
-  },
-  {
-    "step": "Discover Normal body prototype",
-    "command": "officecli query <file> \"p[style=Normal and text!='']\" --json",
-    "note": "Extract first result's paraId as Normal prototype. Use for all body paragraphs."
-  },
-  {
-    "step": "Clone heading prototype after anchor",
-    "command": "officecli add <file> /body --from /body/p[@paraId=<prototype_id>] --after /body/p[@paraId=<anchor_id>]",
-    "note": "Creates a clone with full style. Returns path to cloned paragraph."
-  },
-  {
-    "step": "Set heading text on clone",
-    "command": "officecli set <file> /body/p[last()] --prop text=\"HEADING TEXT\"",
-    "note": "Style (bold, font, alignment, numbering) is preserved automatically."
-  },
-  {
-    "step": "Clone body paragraph after heading",
-    "command": "officecli add <file> /body --from /body/p[@paraId=<normal_id>] --after /body/p[@paraId=<last_para>]",
-    "note": "Clone Normal prototype. For multi-paragraph content, repeat N times."
-  },
-  {
-    "step": "Set body text on clone",
-    "command": "officecli set <file> /body/p[last()] --prop text=\"<body paragraph text>\"",
-    "note": "Normal style preserved. Repeat for each paragraph in the section."
-  },
-  {
-    "step": "Verify content",
-    "command": "officecli get <file> /body/p[last()] --json",
-    "note": "Read back first 80 chars + word count. Compare with source verbatim."
-  }
+  {"command": "remove", "path": "/body/p[@paraId=PLACEHOLDER_ID]"},
+
+  {"command": "add", "parent": "/body", "type": "p",
+   "props": {"style": "Heading1", "size": "14pt", "font.ea": "Times New Roman"}},
+  {"command": "add", "parent": "/body/p[last()]", "type": "r",
+   "props": {"text": "CHAPTER TITLE (verbatim from content.ir)"}},
+
+  {"command": "add", "parent": "/body", "type": "p",
+   "props": {"style": "Normalstyle", "size": "14pt", "font.ea": "Times New Roman"}},
+  {"command": "add", "parent": "/body/p[last()]", "type": "r",
+   "props": {"text": "Body paragraph text, verbatim from content.ir.json."}}
 ]

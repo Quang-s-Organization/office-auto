@@ -41,33 +41,12 @@ def run_officecli(args: list[str], timeout: int = 30) -> dict:
         return {"success": False, "error": "timeout"}
 
 
-# ── section context classification ─────────────────────────────────
-
-_CONTEXT_PATTERNS = [
-    (r"ACKNOWLEDGEMENTS?", "ACKNOWLEDGEMENTS"),
-    (r"ABSTRACT", "ABSTRACT"),
-    (r"TABLE\s+OF\s+CONTENTS", "TABLE OF CONTENTS"),
-    (r"LIST\s+OF\s+ABBREVIATIONS?", "LIST OF ABBREVIATIONS"),
-    (r"LIST\s+OF\s+TABLES?", "LIST OF TABLES"),
-    (r"CHAPTER", "CHAPTER"),
-    (r"INTRODUCTION", "INTRODUCTION"),
-    (r"REFERENCES?", "REFERENCES"),
-    (r"APPENDIX", "APPENDIX"),
-    (r"SUPERVISOR", "SUPERVISOR"),
-    (r"TÀI\s+LIỆU\s+THAM\s+KHẢO", "REFERENCES"),
-    (r"CƠ\s+SỞ\s+LÝ\s+THUYẾT", "CHAPTER"),
-    (r"PHƯƠNG\s+PHÁP", "CHAPTER"),
-    (r"KẾT\s+QUẢ", "CHAPTER"),
-    (r"KẾT\s+LUẬN", "CHAPTER"),
-]
-
-
-def classify_context(text: str) -> str:
-    """Classify a heading into a section context based on its text."""
-    for pattern, context in _CONTEXT_PATTERNS:
-        if re.search(pattern, text.upper()):
-            return context
-    return "OTHER"
+# Section context is classified STRUCTURALLY (by position in the body), not by
+# matching hardcoded heading names. A prototype is "CONTENT" if it lives in the
+# main content region (from the first heading to the last content paragraph) and
+# "FRONT" otherwise. This works for any template / language.
+CTX_CONTENT = "CONTENT"
+CTX_FRONT = "FRONT"
 
 
 # ── prototype extraction ───────────────────────────────────────────
@@ -81,19 +60,22 @@ def _extract_proto(r: dict) -> StylePrototype:
     style_name = style_raw.title().replace(" ", "")
     text = r.get("text", "")
 
-    # Section context from text
-    section_context = classify_context(text)
+    # Section context is assigned later (structurally) in inspect_template.
+    section_context = ""
 
     # Effective properties
     eff_size = fmt.get("effective.size")
     eff_font = fmt.get("effective.font.ascii")
     bold = fmt.get("effective.bold")
 
-    # Explicit properties (preferred over effective)
+    # Explicit properties (preferred over effective).
+    # Use Latin-script axes (ascii / hAnsi) for font, NOT font.ea (East Asian).
+    # Vietnamese text is rendered via w:ascii + w:hAnsi; font.ea only affects CJK.
     explicit_size = fmt.get("markRPr.size") or fmt.get("size")
-    explicit_font = fmt.get("font.ea")
+    explicit_font = fmt.get("font.ascii") or fmt.get("font.hAnsi")
     align = fmt.get("align")
     line_spacing = fmt.get("lineSpacing")
+    line_rule = fmt.get("lineRule")
     space_before = fmt.get("effective.spaceBefore")
     space_after = fmt.get("effective.spaceAfter")
 
@@ -126,6 +108,7 @@ def _extract_proto(r: dict) -> StylePrototype:
         space_after=space_after,
         alignment=align,
         line_spacing=line_spacing,
+        line_rule=line_rule,
         explicit_size=explicit_size,
         explicit_font=explicit_font,
     )
@@ -171,83 +154,208 @@ def get_outline(filepath: str) -> list[dict]:
     return outline
 
 
-# ── prototype selection ────────────────────────────────────────────
+# ── prototype selection (structural, language-agnostic) ────────────
 
-def _context_rank(context: str) -> int:
-    """Rank section contexts: CHAPTER content > back/front matter."""
-    if context in ("CHAPTER", "INTRODUCTION"):
-        return 0  # Best — main content
-    elif context == "REFERENCES":
-        return 1
-    elif context in ("ACKNOWLEDGEMENTS", "ABSTRACT"):
-        return 2
-    elif context in ("TABLE OF CONTENTS", "LIST OF ABBREVIATIONS", "LIST OF TABLES"):
-        return 3
-    elif context == "APPENDIX":
-        return 4
-    elif context == "SUPERVISOR":
-        return 5
-    return 6
+def select_best_prototype(candidates: list[StylePrototype]) -> "StylePrototype | None":
+    """Pick the best prototype for a style.
 
-
-def select_best_prototype(
-    candidates: list[StylePrototype],
-    preferred_context: str = "CHAPTER"
-) -> StylePrototype | None:
-    """Select the best prototype from a list of candidates.
-
-    Heuristics (in priority order):
-    1. Prefer candidates whose section_context matches preferred_context
-    2. Prefer candidates with explicit_size (markRPr) over effective-only
-    3. Prefer candidates with larger font size (CHAPTER headings > front matter)
-    4. Fallback to first candidate
+    Priorities (lower score = better), all structural:
+    1. Prefer a prototype that lives in the main CONTENT region (a real body
+       heading) over one in the front matter (TOC/cover).
+    2. Prefer non-empty text (a used example) over an empty placeholder.
+    3. Prefer explicit (markRPr) sizing over inherited-only.
     """
     if not candidates:
         return None
 
-    # Score each candidate (lower is better)
-    def score(c: StylePrototype) -> int:
-        s = 0
-        # STRONG penalty for empty text (only for Normal style — body text)
-        if c.style_name == "Normal" and not c.text.strip():
-            s += 100
-        # Context match: preferred_context gets 0, others get penalty
-        ctx = c.section_context
-        if ctx == preferred_context:
-            s += 0
-        elif ctx == "OTHER":
-            s += 20
-        else:
-            s += 10 + _context_rank(ctx) * 2
-        # Explicit props preferred
-        if c.explicit_size:
-            s -= 5
-        # Parse size for sorting
-        if c.effective_size:
-            sz = c.effective_size
-            num = float(re.sub(r'[^\d.]', '', sz)) if re.search(r'\d', sz) else 0
-            # Prefer larger (CHAPTER = 16pt > ACKNOWLEDGEMENTS = 14pt)
-            s -= num
-        return s
+    def score(c: StylePrototype) -> tuple:
+        in_content = 0 if c.section_context == CTX_CONTENT else 1
+        has_text = 0 if (c.text or "").strip() else 1
+        explicit = 0 if c.explicit_size else 1
+        return (in_content, has_text, explicit)
 
-    candidates_sorted = sorted(candidates, key=score)
-    best = candidates_sorted[0]
-
-    # Debug output
-    print(f"[inspector] Best {best.style_name} prototype: '{best.text[:40]}' "
-          f"(ctx={best.section_context}, size={best.effective_size}, "
-          f"font={best.effective_font}, paraId={best.para_id})",
-          file=sys.stderr)
-
+    best = sorted(candidates, key=score)[0]
+    print(f"[inspector] Best {best.style_name} prototype: '{(best.text or '')[:40]}' "
+          f"(ctx={best.section_context or '-'}, size={best.effective_size}, "
+          f"font={best.effective_font}, paraId={best.para_id})", file=sys.stderr)
     return best
+
+
+# ── body sequence discovery ────────────────────────────────────────
+
+_HEADING_STYLES = {"Heading1", "Heading2", "Heading3"}
+
+
+def get_body_sequence(filepath: str) -> list[dict]:
+    """Return the ordered list of /body/p paragraphs with minimal metadata.
+
+    Each entry: {para_id, style, has_text, is_heading, outline_level}.
+    This is pure discovered state — the planner decides what to do with it.
+    """
+    result = run_officecli(["query", filepath, "p", "--json"])
+    if not result.get("success"):
+        return []
+    seq = []
+    for r in result.get("data", {}).get("results", []):
+        fmt = r.get("format", {})
+        style_raw = fmt.get("style")
+        style = style_raw.title().replace(" ", "") if style_raw else None
+        text = (r.get("text") or "").strip()
+        ol = fmt.get("outlineLevel")
+        # The `p` selector is recursive: it also returns paragraphs INSIDE table
+        # cells, footnotes and endnotes. Those are NOT body prose and must not
+        # pollute body-format/style discovery — flag them via their query path.
+        path = r.get("path") or ""
+        in_table = "/tbl[" in path or "note[" in path or not path.startswith("/body/p")
+        # Resolve the paragraph's effective size from the RICHEST source. Real
+        # body prose on the Default/Normal style reports `effective.size = None`
+        # (its size lives on the run mark `markRPr.size`, not the paragraph), so
+        # relying on `effective.size` alone silently drops the whole body and
+        # leaves only TOC/caption paragraphs that carry an explicit size.
+        eff_size = (fmt.get("size") or fmt.get("markRPr.size")
+                    or fmt.get("effective.size"))
+        eff_font = (fmt.get("effective.font.ascii") or fmt.get("font.ascii")
+                    or fmt.get("font.hAnsi"))
+        seq.append({
+            "para_id": fmt.get("paraId"),
+            "style": style,
+            # Captured so slots.py can detect placeholder text and align against
+            # content titles (slot/furniture classification). `path` lets it
+            # reconstruct table positions among the direct /body children.
+            "text": text,
+            "path": path,
+            "has_text": bool(text),
+            "is_heading": style in _HEADING_STYLES,
+            "in_table": in_table,
+            "outline_level": int(ol) if ol is not None and str(ol).isdigit() else None,
+            # EFFECTIVE run/paragraph formatting (inheritance already resolved by
+            # officecli). Captured so we can discover the body FORMAT even when
+            # the paragraph carries no explicit style name.
+            "eff_size": eff_size,
+            "eff_font": eff_font,
+            "align": fmt.get("align"),
+            "line_spacing": fmt.get("lineSpacing"),
+            "line_rule": fmt.get("lineRule"),
+            "space_after": fmt.get("effective.spaceAfter"),
+            "text_len": len(text),
+        })
+    return seq
+
+
+def _body_prose_cohort(body_sequence: list[dict]) -> list[dict]:
+    """Non-heading, text-bearing paragraphs of the main content region that are
+    REAL body prose: not inside a table/footnote (those are not body text and
+    would otherwise dominate discovery). Shared by style + format discovery so
+    both agree on the same cohort."""
+    first_heading = next((i for i, p in enumerate(body_sequence) if p["is_heading"]), None)
+    region = body_sequence if first_heading is None else body_sequence[first_heading:]
+    return [
+        p for p in region
+        if not p["is_heading"] and p["has_text"] and not p.get("in_table")
+    ]
+
+
+def discover_body_style(body_sequence: list[dict]) -> Optional[str]:
+    """Discover the style used for body text within the content region.
+
+    Among real body-prose paragraphs, the most common style is the body style.
+    A paragraph with NO explicit ``w:pStyle`` (officecli reports ``style=None``)
+    IS on Word's Default/Normal style, so it counts as ``Normal`` — otherwise an
+    unstyled prose body is invisible here and a minority list/caption style wins.
+    """
+    from collections import Counter
+    counts = Counter(
+        (p["style"] or "Normal") for p in _body_prose_cohort(body_sequence)
+    )
+    if counts:
+        return counts.most_common(1)[0][0]
+    # Fallback: any non-heading style that exists as a prototype
+    return None
+
+
+def get_body_tables(filepath: str) -> list[dict]:
+    """Direct-child tables of the body, as [{path, rows}] in document order.
+
+    A table may be FURNITURE (letterhead, signature grid, national header) or a
+    content placeholder — slots.py decides per build from the content, so this
+    is pure discovered state. Tables default to furniture (preserved): the
+    planner never wipes them wholesale. officecli addresses them positionally
+    (``/body/tbl[1]`` …)."""
+    result = run_officecli(["query", filepath, "tbl", "--json"])
+    if not result.get("success"):
+        return []
+    tables = []
+    for r in result.get("data", {}).get("results", []):
+        path = r.get("path") or ""
+        if path.startswith("/body/tbl"):
+            tables.append({"path": path, "rows": r.get("format", {}).get("rows")})
+    return tables
+
+
+def discover_body_format(body_sequence: list[dict]) -> Optional[dict]:
+    """Discover the DIRECT formatting of body text (font/size/align/spacing),
+    independent of any style NAME.
+
+    Many real templates leave body paragraphs on the Default/Normal style with
+    NO explicit ``w:pStyle`` — officecli then reports ``style=None`` and the
+    name-based ``discover_body_style`` returns None, leaving the planner to fall
+    back to a (often unrepresentative) "Normal" caption prototype. Word's own
+    model says such paragraphs inherit from docDefaults/Normal, and officecli's
+    ``effective.*`` fields already resolve that inheritance — so the dominant
+    ``(font, size)`` among substantial body paragraphs IS the body format.
+
+    Strategy: over non-heading, text-bearing paragraphs in the content region,
+    take the most common (effective_font, effective_size) pair; among paragraphs
+    matching it, take the modal alignment / line-spacing / space-after. Returns
+    None only when nothing carries effective sizing (e.g. an empty template).
+    """
+    from collections import Counter
+    cand = [p for p in _body_prose_cohort(body_sequence) if p.get("eff_size")]
+    if not cand:
+        return None
+    pair_counts = Counter((p.get("eff_font"), p.get("eff_size")) for p in cand)
+    (font, size), _ = pair_counts.most_common(1)[0]
+    matched = [p for p in cand if (p.get("eff_font"), p.get("eff_size")) == (font, size)]
+
+    def _mode(key):
+        c = Counter(p.get(key) for p in matched if p.get(key))
+        return c.most_common(1)[0][0] if c else None
+
+    fmt = {"size": size}
+    if font:
+        fmt["font.ascii"] = font
+        fmt["font.hAnsi"] = font
+    align = _mode("align")
+    if align:
+        fmt["align"] = align
+    line_spacing = _mode("line_spacing")
+    if line_spacing:
+        fmt["lineSpacing"] = line_spacing
+        # Carry the paired rule (auto/exact/atLeast). A pt lineSpacing without
+        # its rule is re-applied as "exact" by officecli, crushing the text.
+        line_rule = _mode("line_rule")
+        if line_rule:
+            fmt["lineRule"] = line_rule
+    return fmt
 
 
 # ── main entry point ───────────────────────────────────────────────
 
-def inspect_template(
-    filepath: str,
-    preferred_context: str = "CHAPTER"
-) -> TemplateIR:
+def _content_region_ids(body_sequence: list[dict]) -> set:
+    """Para IDs in the main content region (first heading -> last content para)."""
+    heading_idxs = [i for i, p in enumerate(body_sequence) if p.get("is_heading")]
+    if not heading_idxs:
+        return set()
+    first = heading_idxs[0]
+    last = first
+    for i in range(first, len(body_sequence)):
+        if body_sequence[i].get("is_heading") or body_sequence[i].get("has_text"):
+            last = i
+    return {body_sequence[i]["para_id"] for i in range(first, last + 1)
+            if body_sequence[i].get("para_id")}
+
+
+def inspect_template(filepath: str) -> TemplateIR:
     """Run full template inspection: query, classify, select, return TemplateIR."""
     abs_path = os.path.abspath(filepath)
     print(f"[inspector] Inspecting: {abs_path}", file=sys.stderr)
@@ -264,6 +372,26 @@ def inspect_template(
         prototypes[style] = candidates
         print(f"[inspector] {style}: {len(candidates)} candidates", file=sys.stderr)
 
+    # Enrich outline entries with para_id from heading prototypes
+    _heading_paras = {}
+    for style in ["Heading1", "Heading2", "Heading3"]:
+        for p in prototypes.get(style, []):
+            if p.para_id and p.text:
+                _heading_paras[p.text.strip().rstrip()] = p.para_id
+
+    for entry in outline:
+        txt = entry["text"].strip().rstrip()
+        # Try exact match
+        if txt in _heading_paras:
+            entry["para_id"] = _heading_paras[txt]
+        else:
+            # Try prefix match for truncated titles
+            for title, pid in _heading_paras.items():
+                if txt and (title.startswith(txt) or txt.startswith(title[:min(len(txt), 10)])):
+                    entry["para_id"] = pid
+                    break
+
+
     # Collect all heading paraIds for outline verification
     all_heading_ids: list[str] = []
     for style in ["Heading1", "Heading2", "Heading3"]:
@@ -271,11 +399,32 @@ def inspect_template(
             if p.para_id:
                 all_heading_ids.append(p.para_id)
 
-    # Select best prototype for each style
+    # Discover the ordered body sequence and the real body text style
+    body_sequence = get_body_sequence(abs_path)
+    body_style = discover_body_style(body_sequence)
+    body_format = discover_body_format(body_sequence)
+    body_tables = get_body_tables(abs_path)
+    print(f"[inspector] Body: {len(body_sequence)} paragraphs, body_style={body_style}, "
+          f"body_format={body_format}, body_tables={len(body_tables)}", file=sys.stderr)
+
+    # Query the discovered body style as a prototype too (to read its props)
+    if body_style and body_style not in prototypes:
+        prototypes[body_style] = query_prototypes(abs_path, body_style)
+
+    # Tag every prototype structurally: CONTENT (in main body region) vs FRONT
+    region_ids = _content_region_ids(body_sequence)
+    for plist in prototypes.values():
+        for p in plist:
+            p.section_context = CTX_CONTENT if p.para_id in region_ids else CTX_FRONT
+
+    # Select best prototype for each style (headings + body style)
+    select_styles = list(styles_to_query)
+    if body_style and body_style not in select_styles:
+        select_styles.append(body_style)
     best_prototypes: dict[str, StylePrototype] = {}
-    for style in styles_to_query:
+    for style in select_styles:
         candidates = prototypes.get(style, [])
-        best = select_best_prototype(candidates, preferred_context)
+        best = select_best_prototype(candidates)
         if best:
             best_prototypes[style] = best
 
@@ -285,6 +434,10 @@ def inspect_template(
         outline=outline,
         best_prototypes=best_prototypes,
         all_heading_ids=all_heading_ids,
+        body_sequence=body_sequence,
+        body_style=body_style,
+        body_format=body_format,
+        body_tables=body_tables,
     )
 
     print(f"[inspector] Done. Best: {list(best_prototypes.keys())}", file=sys.stderr)
@@ -298,15 +451,13 @@ def main():
     parser.add_argument("template", help="Path to template.docx")
     parser.add_argument("--out", "-o", default=None,
                         help="Output path for template.ir.json")
-    parser.add_argument("--context", default="CHAPTER",
-                        help="Preferred section context for prototype selection")
     args = parser.parse_args()
 
     if not os.path.exists(args.template):
         print(f"ERROR: Template not found: {args.template}", file=sys.stderr)
         sys.exit(1)
 
-    ir = inspect_template(args.template, args.context)
+    ir = inspect_template(args.template)
     output = ir.to_json()
 
     if args.out:
