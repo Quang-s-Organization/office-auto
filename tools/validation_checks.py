@@ -61,21 +61,29 @@ def _best(template_ir: Optional[dict], style: str) -> Optional[dict]:
     return template_ir.get("best_prototypes", {}).get(style)
 
 
-def _furniture(template_ir: Optional[dict], content_ir: Optional[dict]) -> set:
+def _furniture(template_ir: Optional[dict], content_ir: Optional[dict],
+               logical_ir: Optional[dict] = None) -> set:
     """Para IDs of preserved template furniture — formatting checks (S3/S4/S6)
     must judge the EMITTED content, not the template's own boilerplate (e.g. a
-    footnote block with its own font/spacing). Empty when inputs are missing."""
+    footnote block with its own font/spacing). Empty when inputs are missing.
+
+    Threads the SAME slot inputs the planner used (emitted tags +
+    front_matter_strategy) so the validator's furniture set matches the build."""
     if not template_ir or not content_ir:
         return set()
     try:
-        return slots.furniture_paraids(template_ir, content_ir)
+        return slots.furniture_paraids(
+            template_ir, content_ir,
+            emitted_tags=slots.emitted_tags_from_logical(logical_ir),
+            front_matter_strategy=(logical_ir or {}).get(
+                "front_matter_strategy", "preserve"))
     except Exception:
         return set()
 
 
 # ── S1: heading hierarchy order ────────────────────────────────────
 
-def check_s1_heading_order(filepath, template_ir=None, content_ir=None) -> CheckResult:
+def check_s1_heading_order(filepath, template_ir=None, content_ir=None, logical_ir=None) -> CheckResult:
     out = _run(["officecli", "view", filepath, "outline"])
     if not out:
         return CheckResult("S1", False, "Could not read outline", severity="error")
@@ -95,7 +103,7 @@ def check_s1_heading_order(filepath, template_ir=None, content_ir=None) -> Check
 
 # ── S2: OOXML schema validity ──────────────────────────────────────
 
-def check_s2_schema_validity(filepath, template_ir=None, content_ir=None) -> CheckResult:
+def check_s2_schema_validity(filepath, template_ir=None, content_ir=None, logical_ir=None) -> CheckResult:
     out = _run(["officecli", "validate", filepath])
     if not out:
         return CheckResult("S2", False, "validate returned nothing", severity="error")
@@ -108,12 +116,12 @@ def check_s2_schema_validity(filepath, template_ir=None, content_ir=None) -> Che
 
 # ── S3: font/size match DISCOVERED template prototypes ─────────────
 
-def check_s3_font_size_vs_template(filepath, template_ir=None, content_ir=None) -> CheckResult:
+def check_s3_font_size_vs_template(filepath, template_ir=None, content_ir=None, logical_ir=None) -> CheckResult:
     if not template_ir:
         return CheckResult("S3", True, "No template IR — skipped", severity="info")
     body_style = template_ir.get("body_style")
     styles = ["Heading1", "Heading2", "Heading3"] + ([body_style] if body_style else [])
-    furn = _furniture(template_ir, content_ir)
+    furn = _furniture(template_ir, content_ir, logical_ir)
     issues = []
     checked = 0
     for style in styles:
@@ -144,7 +152,7 @@ def check_s3_font_size_vs_template(filepath, template_ir=None, content_ir=None) 
 
 # ── S4: first-line indent matches DISCOVERED body prototype ────────
 
-def check_s4_first_line_indent(filepath, template_ir=None, content_ir=None) -> CheckResult:
+def check_s4_first_line_indent(filepath, template_ir=None, content_ir=None, logical_ir=None) -> CheckResult:
     body_style = (template_ir or {}).get("body_style")
     bp = _best(template_ir, body_style) if body_style else None
     if not bp:
@@ -154,7 +162,7 @@ def check_s4_first_line_indent(filepath, template_ir=None, content_ir=None) -> C
         return CheckResult("S4", True,
                            "Template body has no first-line indent — nothing to enforce",
                            severity="info")
-    furn = _furniture(template_ir, content_ir)
+    furn = _furniture(template_ir, content_ir, logical_ir)
     bad = []
     for r in _query(filepath, f"p[style={body_style}]"):
         if not (r.get("text") or "").strip():
@@ -172,7 +180,7 @@ def check_s4_first_line_indent(filepath, template_ir=None, content_ir=None) -> C
 
 # ── S5: stray empty non-body paragraphs at end ─────────────────────
 
-def check_s5_trailing_empties(filepath, template_ir=None, content_ir=None) -> CheckResult:
+def check_s5_trailing_empties(filepath, template_ir=None, content_ir=None, logical_ir=None) -> CheckResult:
     rs = _query(filepath, "p")
     if not rs:
         return CheckResult("S5", False, "No paragraphs", severity="error")
@@ -189,7 +197,7 @@ def check_s5_trailing_empties(filepath, template_ir=None, content_ir=None) -> Ch
 
 # ── S6: line-spacing rule parity vs DISCOVERED body format ─────────
 
-def check_s6_line_spacing(filepath, template_ir=None, content_ir=None) -> CheckResult:
+def check_s6_line_spacing(filepath, template_ir=None, content_ir=None, logical_ir=None) -> CheckResult:
     """Body line spacing must match the template's discovered rule.
 
     Guards the failure where a fixed pt lineSpacing is re-applied as
@@ -202,7 +210,7 @@ def check_s6_line_spacing(filepath, template_ir=None, content_ir=None) -> CheckR
     if not exp_spacing:
         return CheckResult("S6", True, "No body line-spacing to enforce", severity="info")
     body_style = (template_ir or {}).get("body_style") or "Normal"
-    furn = _furniture(template_ir, content_ir)
+    furn = _furniture(template_ir, content_ir, logical_ir)
     bad, checked = [], 0
     for r in _query(filepath, f"p[style={body_style}]"):
         if not (r.get("text") or "").strip():
@@ -307,8 +315,12 @@ def check_s9_furniture_survived(filepath, template_ir=None, content_ir=None,
                                 logical_ir=None) -> CheckResult:
     if not template_ir or not content_ir:
         return CheckResult("S9", True, "No template/content IR — skipped", severity="info")
-    cls = slots.classify(template_ir.get("body_sequence", []),
-                         template_ir.get("body_tables", []), content_ir)
+    cls = slots.classify(
+        template_ir.get("body_sequence", []),
+        template_ir.get("body_tables", []), content_ir,
+        emitted_tags=slots.emitted_tags_from_logical(logical_ir),
+        front_matter_strategy=(logical_ir or {}).get(
+            "front_matter_strategy", "preserve"))
     exp_paras = {p for p in cls["furniture_paras"] if p}
     exp_tables = len(cls["furniture_tables"])
     if not exp_paras and not exp_tables:
@@ -347,11 +359,6 @@ ALL_CHECKS = [
 
 
 def run_all(filepath, template_ir=None, content_ir=None, logical_ir=None) -> list[CheckResult]:
-    results = []
-    for c in ALL_CHECKS:
-        if c in (check_s7_completeness, check_s8_heading_counts,
-                 check_s9_furniture_survived):
-            results.append(c(filepath, template_ir, content_ir, logical_ir))
-        else:
-            results.append(c(filepath, template_ir, content_ir))
-    return results
+    # Every check now accepts logical_ir (formatting checks need it to compute the
+    # same furniture set the planner used; S7-S9 already did) — pass it uniformly.
+    return [c(filepath, template_ir, content_ir, logical_ir) for c in ALL_CHECKS]

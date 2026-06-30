@@ -102,6 +102,77 @@ def _heading_style_for(presentation: str) -> str:
     return PRESENTATION_TO_STYLE.get(presentation, "Heading1")
 
 
+# ── per-heading formatting (Issue #3: don't force one prototype on a style) ──
+# A single style (e.g. Heading1) often carries per-paragraph formatting variants
+# — a centred "DANH MỤC…" list title and left-aligned numbered chapters share the
+# style yet differ in alignment. Picking ONE "best" prototype and stamping its
+# props on every heading bakes that outlier in. Instead each emitted heading
+# borrows the props of the TEMPLATE heading whose text it matches; headings with
+# no template twin fall back to the style's REPRESENTATIVE (modal) formatting,
+# not an arbitrary example. Both are discovered from the template — no hardcoding.
+
+def _lcp_len(a: str, b: str) -> int:
+    """Length of the longest common prefix of two strings."""
+    n = 0
+    for x, y in zip(a, b):
+        if x != y:
+            break
+        n += 1
+    return n
+
+
+def _match_heading_prototype(candidates: list, title: str):
+    """Template prototype whose text best matches this heading title, or None.
+
+    Exact normalized text wins; otherwise the prototype sharing the longest
+    common prefix, accepted when that prefix is both ≥ 10 chars and ≥ half the
+    shorter title — so a content "DANH MỤC CÁC HÌNH ẢNH" still inherits the
+    template's centred "DANH MỤC CÁC BIỂU ĐỒ…, HÌNH ẢNH" list-heading format,
+    while distinct chapters ("1. …" vs "2. …") never cross-match. Reuses slots'
+    normalization so planner and slot classifier agree on what "same heading" is.
+    """
+    n = slots._norm(title)
+    if len(n) < 3:
+        return None
+    exact = [c for c in candidates if slots._norm(c.text or "") == n]
+    if exact:
+        return exact[0]
+    best, best_lcp = None, 0
+    for c in candidates:
+        cn = slots._norm(c.text or "")
+        lcp = _lcp_len(n, cn)
+        if lcp > best_lcp and lcp >= 10 and lcp >= 0.5 * min(len(n), len(cn)):
+            best, best_lcp = c, lcp
+    return best
+
+
+def _representative_prototype(candidates: list):
+    """The prototype carrying the style's MODAL alignment (so a lone centred
+    outlier never wins), preferring a used (non-empty, explicitly-sized) one."""
+    if not candidates:
+        return None
+    from collections import Counter
+    modal_align = Counter((c.alignment or "") for c in candidates).most_common(1)[0][0]
+    pool = [c for c in candidates if (c.alignment or "") == modal_align] or candidates
+    pool = sorted(pool, key=lambda c: (
+        0 if (c.text or "").strip() else 1, 0 if c.explicit_size else 1))
+    return pool[0]
+
+
+def _heading_props(template_ir: TemplateIR, style_name: str, title: str) -> dict:
+    """Discovered SET-props for a heading, matched per-heading where possible."""
+    candidates = template_ir.prototypes.get(style_name, [])
+    content_cands = [c for c in candidates
+                     if c.section_context == "CONTENT"] or candidates
+    proto = (_match_heading_prototype(content_cands, title)
+             or _representative_prototype(content_cands))
+    if proto is not None:
+        props = proto.build_props()
+        props["style"] = style_name      # match may come from a co-styled variant
+        return props
+    return _props_for_style(template_ir, style_name)
+
+
 # ── batch program builder ──────────────────────────────────────────
 
 def build_batch_program(
@@ -115,13 +186,23 @@ def build_batch_program(
     program: list[dict] = []
 
     # 1. Slot/furniture classification (genre-agnostic; preserve-by-default).
-    # Remove only paragraphs the content fills (the slot span); every other
-    # paragraph and EVERY table is furniture and is kept. Tables are never wiped
-    # wholesale — that destroyed letterhead/signature scaffolding before.
+    # Remove only the paragraphs AND tables the content fills (the slot span);
+    # every out-of-span paragraph/table (cover, TOC, letterhead, signature) is
+    # furniture and is kept. `emitted_tags` keeps preserve-marked sections from
+    # defining slots; `front_matter_strategy` controls the pre-span front region.
+    emitted_tags = {s.node_id for s in intent_ir.sections
+                    if s.intent in (INTENT_REPLACE, INTENT_INSERT)}
     cls = slots.classify(template_ir.body_sequence, template_ir.body_tables,
-                         content_ir)
+                         content_ir, emitted_tags=emitted_tags,
+                         front_matter_strategy=intent_ir.front_matter_strategy)
     for pid in cls["slots"]:
         program.append({"command": "remove", "path": f"/body/p[@paraId={pid}]"})
+    # In-span example/placeholder tables: remove by positional index. Highest
+    # index first so each removal never shifts a not-yet-removed lower index.
+    # Front/trailing tables keep their relative order, so the trailing-move
+    # arithmetic below (kept_tables_before_trailing + 1) stays valid afterwards.
+    for tbl_index in sorted(cls["slot_tables"], reverse=True):
+        program.append({"command": "remove", "path": f"/body/tbl[{tbl_index}]"})
 
     # 2. Append new content (reconstruction model)
     content_sections = {s["tag"]: s for s in content_ir.get("sections", [])}
@@ -185,7 +266,10 @@ def build_batch_program(
             continue
 
         # Heading runs inherit size/font from the heading style → no run_props.
-        add_paragraph(_props_for_style(template_ir, heading_style),
+        # Props are matched per-heading (see _heading_props) so a centred list
+        # title and a left numbered chapter keep their own template alignment.
+        add_paragraph(_heading_props(template_ir, heading_style,
+                                     content_sec.get("title", "")),
                       content_sec.get("title", ""), run_props={})
         emit_body(content_sec)
 
