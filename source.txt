@@ -1,0 +1,5 @@
+https://skillsllm.com/
+https://github.com/iOfficeAI/OfficeCLI
+https://github.com/anomalyco/opencode
+https://pandoc.org/
+
