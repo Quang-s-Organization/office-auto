@@ -22,6 +22,8 @@ Hai skill:
 | [06-self-discovery-and-induction.md](06-self-discovery-and-induction.md) | **Trái tim**: triết lý "agent tự tìm quy luật" + nền học thuật + phương pháp PROBE→INDUCE→VERIFY→EMIT + generalization. |
 | [07-skill-drafts.md](07-skill-drafts.md) | **Bản nháp 2 `SKILL.md` thuần markdown** + cây thư mục + việc cần làm. |
 | [08-sources.md](08-sources.md) | Toolchain, các phát hiện đã kiểm chứng, toàn bộ nguồn (link). |
+| [09-model-qwen3.6-a3b.md](09-model-qwen3.6-a3b.md) | **Model chính**: Qwen3.6-35B-A3B GGUF — kiến trúc MoE/A3B, quant & VRAM, context, tool-calling, thinking; hệ quả thiết kế skill. |
+| [10-context-and-time-management.md](10-context-and-time-management.md) | **Quản lý context & thời gian** (Qwen + mọi frontier): vì sao nhồi document hại 3 mặt; bằng chứng (Lost-in-Middle/Context Rot/NoLiMa/RULER); 9 kỹ thuật; ngân sách context. |
 
 ## 7 kết luận cốt lõi (TL;DR)
 1. **Lookup → Induction.** Không liệt kê sẵn "Điều=decimal+chấm…". Dạy agent một *phương pháp khám phá*: quan sát → đề xuất quy luật → **tự kiểm trên chính tài liệu** → xuất. Quy luật do **dữ liệu** duyệt. (Nền: SELF-DISCOVER, Hypothesis Search.) → vừa **tổng quát**, vừa **đúng triết lý của bạn**.
