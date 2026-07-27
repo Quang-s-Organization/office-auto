@@ -1,0 +1,81 @@
+{
+  "spec_version": "1.0",
+  "meta": {
+    "source_file": "samples/sample-01-generic-auto.docx",
+    "source": "synth",
+    "generated_by": "hand (P2 ground-truth — built via officecli auto multi-level numbering)",
+    "pandoc_version": "3.8",
+    "notes": "GROUND TRUTH for the generic (non-VN) auto-numbered sample. Built by officecli abstractnum: level0=upperRoman '%1', level1=decimal '%2.', level2=lowerLetter '%3)'. All numbering is AUTO (rendered by Word, not in text). Serves the generality test (no Vietnamese priors apply)."
+  },
+  "document": {
+    "detected_type": "generic-outline",
+    "confidence": 1.0,
+    "header_block": null,
+    "levels": [
+      {
+        "id": "L1",
+        "signal": {
+          "via": "ordered_list",
+          "style": null,
+          "ordinal_regex": null
+        },
+        "numbering": {
+          "scheme": "upperRoman",
+          "delim": "none",
+          "source": "auto",
+          "reset": "none"
+        },
+        "format": {
+          "bold": false,
+          "all_caps": false,
+          "align": "left",
+          "indent": null
+        },
+        "examples": ["I", "II", "III"]
+      },
+      {
+        "id": "L2",
+        "signal": {
+          "via": "ordered_list",
+          "style": null,
+          "ordinal_regex": null
+        },
+        "numbering": {
+          "scheme": "decimal",
+          "delim": "period",
+          "source": "auto",
+          "reset": "L1"
+        },
+        "format": {
+          "bold": false,
+          "all_caps": false,
+          "align": "left",
+          "indent": null
+        },
+        "examples": ["1.", "2."]
+      },
+      {
+        "id": "L3",
+        "signal": {
+          "via": "ordered_list",
+          "style": null,
+          "ordinal_regex": null
+        },
+        "numbering": {
+          "scheme": "lowerAlpha",
+          "delim": "oneParen",
+          "source": "auto",
+          "reset": "L2"
+        },
+        "format": {
+          "bold": false,
+          "all_caps": false,
+          "align": "left",
+          "indent": null
+        },
+        "examples": ["a)", "b)", "c)"]
+      }
+    ],
+    "anomalies": []
+  }
+}

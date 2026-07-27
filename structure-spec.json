@@ -1,0 +1,245 @@
+{
+  "$schema": "flow-a/docx-structure-spec/1.0",
+  "source": "format_template.docx",
+  "confidence": 0.95,
+  "anomalies": [
+    "Mục lục (TOC) được gõ tay theo dạng tĩnh, không phải trường TOC động — mỗi entry dùng style toc 1/toc 2/toc 3 với tab-stop leader=dot ở vị trí 9072 twips.",
+    "Không có trường PAGE động trong footer; số trang trong TOC là số tĩnh.",
+    "18 đoạn trống (empty paragraphs) dùng làm khoảng trắng thay vì spaceBefore/spaceAfter.",
+    "Header mặc định chứa nội dung '51'; header khác chứa 'v' — có thể là merge-field placeholders chưa điền.",
+    "Phông chữ mặc định Times New Roman 14pt cho toàn bộ văn bản (cao hơn chuẩn học thuật 12pt)."
+  ],
+
+  "page_setup": {
+    "pageWidth": "21cm",
+    "pageHeight": "29.7cm",
+    "marginTop": "2.49cm",
+    "marginBottom": "2.01cm",
+    "marginLeft": "3.5cm",
+    "marginRight": "1.5cm",
+    "marginHeader": "1.27cm",
+    "marginFooter": "1.27cm",
+    "titlePage": true,
+    "defaultTabStop": "1.27cm"
+  },
+
+  "typography": {
+    "defaultFont": "Times New Roman",
+    "defaultSize": "14pt",
+    "theme": "Office"
+  },
+
+  "header_footer": {
+    "header": {
+      "type": "default",
+      "style": "header",
+      "content": "Nội dung header (có thể chứa merge-field / content control)"
+    },
+    "footer": {
+      "type": "default",
+      "content": "Trống — không có số trang động"
+    }
+  },
+
+  "heading_numbering": {
+    "source": "auto",
+    "abstractNumId": 11,
+    "numId": 1,
+    "levels": [
+      { "level": 0, "style": "Heading1", "format": "CHƯƠNG %1.", "alignment": "left" },
+      { "level": 1, "style": "Heading2", "format": "%1.%2.", "alignment": "left" },
+      { "level": 2, "style": "Heading3", "format": "%1.%2.%3.", "alignment": "left" }
+    ]
+  },
+
+  "styles": {
+    "Normal": {
+      "role": "base",
+      "size": "14pt",
+      "font": "Times New Roman",
+      "alignment": null
+    },
+    "Normal_style": {
+      "role": "body paragraph",
+      "basedOn": "Normal",
+      "size": "14pt",
+      "font": "Times New Roman",
+      "alignment": "both",
+      "lineSpacing": "1.5x",
+      "firstLineIndent": "28.35pt",
+      "spaceBefore": "4pt"
+    },
+    "heading 1": {
+      "role": "chapter heading",
+      "basedOn": "Normal",
+      "size": "14pt",
+      "font": "Times New Roman",
+      "bold": true,
+      "alignment": "center",
+      "spaceBefore": "6pt",
+      "lineSpacing": "1.5x",
+      "outlineLvl": 0,
+      "numId": 1,
+      "pattern": "CHƯƠNG <n>. <tiêu đề>"
+    },
+    "heading 2": {
+      "role": "section heading",
+      "basedOn": "Normal",
+      "size": "14pt",
+      "font": "Times New Roman",
+      "bold": true,
+      "alignment": "both",
+      "spaceBefore": "6pt",
+      "lineSpacing": "1.5x",
+      "outlineLvl": 1,
+      "numId": 1,
+      "ilvl": 1,
+      "pattern": "<n>.<n>. <tiêu đề>"
+    },
+    "heading 3": {
+      "role": "subsection heading",
+      "basedOn": "Normal",
+      "size": "14pt",
+      "font": "Times New Roman",
+      "bold": true,
+      "italic": true,
+      "alignment": "both",
+      "spaceBefore": "6pt",
+      "lineSpacing": "1.5x",
+      "outlineLvl": 2,
+      "numId": 1,
+      "ilvl": 2,
+      "pattern": "<n>.<n>.<n>. <tiêu đề>"
+    },
+    "toc 1": {
+      "role": "TOC level-1 entry (static)",
+      "basedOn": "Normal",
+      "size": "14pt",
+      "font": "Times New Roman",
+      "bold": true,
+      "spaceBefore": "6pt",
+      "tabs": [{ "pos": 9072, "val": "right", "leader": "dot" }]
+    },
+    "toc 2": {
+      "role": "TOC level-2 entry (static)",
+      "basedOn": "Normal",
+      "size": "14pt",
+      "font": "Times New Roman",
+      "spaceBefore": "6pt",
+      "leftIndent": "13.9pt",
+      "tabs": [{ "pos": 9072, "val": "right", "leader": "dot" }]
+    },
+    "toc 3": {
+      "role": "TOC level-3 entry (static)",
+      "basedOn": "Normal",
+      "size": "14pt",
+      "font": "Times New Roman",
+      "spaceBefore": "6pt",
+      "firstLineIndent": "28.35pt",
+      "tabs": [{ "pos": 2148, "val": "left" }, { "pos": 9072, "val": "right", "leader": "dot" }]
+    },
+    "table of figures": {
+      "role": "figure list entry (static)",
+      "basedOn": "Normal",
+      "size": "14pt",
+      "font": "Times New Roman",
+      "spaceBefore": "6pt",
+      "hangingIndent": "28.05pt",
+      "leftIndent": "28.05pt",
+      "tabs": [{ "pos": 9072, "val": "right", "leader": "dot" }]
+    },
+    "Bảng biểu - title": {
+      "role": "figure/table caption",
+      "basedOn": "Normal",
+      "size": "11pt",
+      "font": "Times New Roman",
+      "italic": true,
+      "alignment": "center",
+      "spaceBefore": "3pt",
+      "spaceAfter": "3pt",
+      "lineSpacing": "1.2x",
+      "pattern": "Hình <n>.<n>. <tên hình>"
+    },
+    "List Paragraph": {
+      "role": "reference entry",
+      "font": "Arial",
+      "size": "11pt",
+      "alignment": "both",
+      "lineSpacing": "1.5x",
+      "leftIndent": "54pt"
+    }
+  },
+
+  "structure": {
+    "sections": [
+      {
+        "id": "cover",
+        "name": "Trang bìa",
+        "blocks": [
+          { "type": "spacers", "description": "11 đoạn trống để căn giữa theo chiều dọc" },
+          { "type": "text", "style": "Normal", "bold": true, "size": "14pt", "alignment": "center", "content_pattern": "BÁO CÁO CHUYÊN ĐỀ" },
+          { "type": "spacer" },
+          { "type": "text", "style": "Normal", "bold": true, "size": "15pt", "alignment": "center", "content_pattern": "NGHIÊN CỨU VÀ ĐÁNH GIÁ PHƯƠNG PHÁP ..." }
+        ]
+      },
+      {
+        "id": "table_of_contents",
+        "name": "Mục lục (tĩnh)",
+        "blocks": [
+          { "type": "spacer" },
+          { "type": "text", "style": "Normal", "bold": true, "content_pattern": "MỤC LỤC" },
+          { "type": "spacer" },
+          { "type": "text", "style": "Normal", "content_pattern": "Trang" },
+          { "type": "toc_entries", "description": "Danh sách mục lục tĩnh dùng style toc 1 / toc 2 / toc 3" }
+        ]
+      },
+      {
+        "id": "abbreviations",
+        "name": "Danh mục ký hiệu, chữ viết tắt",
+        "blocks": [
+          { "type": "text", "style": "Normal", "bold": true, "content_pattern": "DANH MỤC CÁC KÝ HIỆU, CHỮ VIẾT TẮT" },
+          { "type": "spacer" },
+          {
+            "type": "table",
+            "cols": 2,
+            "layout": "fixed",
+            "description": "Cột 1: ký hiệu (rộng), Cột 2: giải nghĩa tiếng Việt (+ tiếng Anh). 11 hàng dữ liệu."
+          }
+        ]
+      },
+      {
+        "id": "figures_list",
+        "name": "Danh mục hình vẽ (tĩnh)",
+        "blocks": [
+          { "type": "text", "style": "Normal", "bold": true, "content_pattern": "DANH MỤC CÁC HÌNH VẼ" },
+          { "type": "spacer" },
+          { "type": "text", "style": "Normal", "content_pattern": "Trang" },
+          { "type": "figure_list_entries", "description": "Danh sách hình vẽ tĩnh dùng style 'table of figures'" }
+        ]
+      },
+      {
+        "id": "body",
+        "name": "Nội dung chính",
+        "pattern": "Giảm theo hierarchy: heading 1 → heading 2 → heading 3 → body paragraph → figure → caption"
+      },
+      {
+        "id": "references",
+        "name": "Tài liệu tham khảo",
+        "blocks": [
+          { "type": "heading", "style": "heading 1", "content_pattern": "TÀI LIỆU THAM KHẢO" },
+          { "type": "entries", "style": "List Paragraph", "pattern": "[<n>]. <tài liệu>" }
+        ]
+      }
+    ],
+
+    "body_block_grammar": [
+      { "role": "chapter_start", "type": "heading", "style": "heading 1", "pattern": "CHƯƠNG <n>. <TIÊU ĐỀ>" },
+      { "role": "section", "type": "heading", "style": "heading 2", "pattern": "<n>.<n>. <tiêu đề>" },
+      { "role": "subsection", "type": "heading", "style": "heading 3", "pattern": "<n>.<n>.<n>. <tiêu đề>" },
+      { "role": "paragraph", "type": "text", "style": "Normal_style" },
+      { "role": "paragraph_alt", "type": "text", "style": "Normal" },
+      { "role": "figure", "type": "image" },
+      { "role": "caption", "type": "text", "style": "Bảng biểu - title", "pattern": "Hình <n>.<n>. <tên hình>" }
+    ]
+  }
+}

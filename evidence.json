@@ -1,0 +1,19 @@
+{
+  "probe_metadata": {
+    "file": "format_template.docx",
+    "page_size": { "width": "21cm", "height": "29.7cm" },
+    "margins": { "top": "2.49cm", "bottom": "2.01cm", "left": "3.5cm", "right": "1.5cm" },
+    "default_font": "Times New Roman",
+    "default_size": "14pt",
+    "theme": "Office",
+    "title_page": true,
+    "total_paragraphs": 57,
+    "empty_paragraphs": 18,
+    "tables": 1,
+    "images": 1,
+    "headers": 3,
+    "footers": 1,
+    "abstractNums": 23,
+    "numBindings": 25
+  }
+}

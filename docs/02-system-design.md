@@ -92,8 +92,8 @@ IR_in ──Skill2──► output.docx ──(save!)──► Skill1.PROBE ─�
 - **Style naming** ảnh hưởng parity → đặt "Heading 1" + outline level khi dựng.
 - **Bảng/Phụ lục** → nhánh riêng; bảng là điểm dễ vỡ.
 - **Phase transition** → giữ đúng 2 skill, primitive gọn.
-- **Quyết định mở cần bạn chốt:**
-  1. IR: `.md + .json` song sinh (khuyến nghị) hay nhúng json trong md?
-  2. Có giữ **header block** (Quốc hiệu/số ký hiệu) trong IR không?
-  3. Ngưỡng **parity** chấp nhận (đề xuất ≥ 95% format).
-  4. Skill 2 mặc định **Path C** (cần chuẩn bị docx mẫu/loại) hay **Path B**?
+- **Quyết định (✅ đã chốt 2026-07-01 — chi tiết [11 §3](11-implementation-plan.md#3-cổng-quyết-định)):**
+  1. IR: **`.md` + `.json` song sinh** (Skill 2 chỉ đọc `.json`).
+  2. Header block: **có, optional & tách khối** (`document.header_block`).
+  3. Ngưỡng **parity ≥ 0.95** format-fields, hard-fail nếu tụt cấp/scheme.
+  4. Skill 2: **Path B mặc định**, Path C khi có docx mẫu cùng loại.

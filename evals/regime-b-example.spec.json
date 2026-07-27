@@ -1,0 +1,512 @@
+{
+  "$schemaVersion": "flow-a/regime-b-spec/1.0",
+  "source": "unknown",
+  "evidence": {
+    "probe": "evals/probe2.lua",
+    "style_catalog_source": "officecli (TODO join)",
+    "blocks_probed": 38
+  },
+  "clusters": [
+    {
+      "id": "C1",
+      "cluster_key": "signature",
+      "styleId": null,
+      "signature": {
+        "styleId": null,
+        "bold": true,
+        "italic": false,
+        "allcaps": true,
+        "len_bucket": "short",
+        "has_num": false,
+        "has_image": false,
+        "has_math": false,
+        "has_link": false
+      },
+      "role_label": "unlabeled:sig1",
+      "target_style": null,
+      "context_rule": null,
+      "frequency": 4,
+      "members": [
+        1,
+        4,
+        18,
+        20
+      ],
+      "examples": [
+        "BÁO CÁO CHUYÊN ĐỀ",
+        "MỤC LỤC"
+      ],
+      "build_action": {
+        "mode": "typed",
+        "fallback_tier": null,
+        "needs_dep_closure": false
+      }
+    },
+    {
+      "id": "C2",
+      "cluster_key": "signature",
+      "styleId": null,
+      "signature": {
+        "styleId": null,
+        "bold": true,
+        "italic": false,
+        "allcaps": true,
+        "len_bucket": "medium",
+        "has_num": false,
+        "has_image": false,
+        "has_math": false,
+        "has_link": false
+      },
+      "role_label": "unlabeled:sig2",
+      "target_style": null,
+      "context_rule": null,
+      "frequency": 1,
+      "members": [
+        2
+      ],
+      "examples": [
+        "NGHIÊN CỨU VÀ ĐÁNH GIÁ PHƯƠNG P"
+      ],
+      "build_action": {
+        "mode": "typed",
+        "fallback_tier": null,
+        "needs_dep_closure": false
+      }
+    },
+    {
+      "id": "C3",
+      "cluster_key": "signature",
+      "styleId": null,
+      "signature": {
+        "styleId": null,
+        "bold": true,
+        "italic": false,
+        "allcaps": false,
+        "len_bucket": "short",
+        "has_num": false,
+        "has_image": false,
+        "has_math": false,
+        "has_link": false
+      },
+      "role_label": "unlabeled:sig3",
+      "target_style": null,
+      "context_rule": null,
+      "frequency": 1,
+      "members": [
+        3
+      ],
+      "examples": [
+        " "
+      ],
+      "build_action": {
+        "mode": "typed",
+        "fallback_tier": null,
+        "needs_dep_closure": false
+      }
+    },
+    {
+      "id": "C4",
+      "cluster_key": "signature",
+      "styleId": null,
+      "signature": {
+        "styleId": null,
+        "bold": false,
+        "italic": false,
+        "allcaps": false,
+        "len_bucket": "short",
+        "has_num": false,
+        "has_image": false,
+        "has_math": false,
+        "has_link": false
+      },
+      "role_label": "unlabeled:sig4",
+      "target_style": null,
+      "context_rule": null,
+      "frequency": 4,
+      "members": [
+        5,
+        21,
+        29,
+        32
+      ],
+      "examples": [
+        "Trang",
+        "Trang"
+      ],
+      "build_action": {
+        "mode": "typed",
+        "fallback_tier": null,
+        "needs_dep_closure": false
+      }
+    },
+    {
+      "id": "C5",
+      "cluster_key": "styleId",
+      "styleId": "toc 1",
+      "signature": {
+        "styleId": "toc 1",
+        "bold": false,
+        "italic": false,
+        "allcaps": false,
+        "len_bucket": "short",
+        "has_num": false,
+        "has_image": false,
+        "has_math": false,
+        "has_link": true
+      },
+      "role_label": "unlabeled:toc 1",
+      "target_style": "toc 1",
+      "context_rule": null,
+      "frequency": 6,
+      "members": [
+        6,
+        7,
+        8,
+        9,
+        16,
+        17
+      ],
+      "examples": [
+        "DANH MỤC CÁC KÝ HIỆU, CHỮ VIẾT",
+        "DANH MỤC CÁC HÌNH VẼ iv"
+      ],
+      "build_action": {
+        "mode": "typed",
+        "fallback_tier": null,
+        "needs_dep_closure": false
+      }
+    },
+    {
+      "id": "C6",
+      "cluster_key": "styleId",
+      "styleId": "toc 2",
+      "signature": {
+        "styleId": "toc 2",
+        "bold": false,
+        "italic": false,
+        "allcaps": false,
+        "len_bucket": "medium",
+        "has_num": false,
+        "has_image": false,
+        "has_math": false,
+        "has_link": true
+      },
+      "role_label": "unlabeled:toc 2",
+      "target_style": "toc 2",
+      "context_rule": null,
+      "frequency": 4,
+      "members": [
+        10,
+        11,
+        12,
+        13
+      ],
+      "examples": [
+        "1.1. Tầm quan trọng dữ liệu ản",
+        "1.2. Các thách thức phổ biến li�"
+      ],
+      "build_action": {
+        "mode": "typed",
+        "fallback_tier": null,
+        "needs_dep_closure": false
+      }
+    },
+    {
+      "id": "C7",
+      "cluster_key": "styleId",
+      "styleId": "toc 3",
+      "signature": {
+        "styleId": "toc 3",
+        "bold": false,
+        "italic": false,
+        "allcaps": false,
+        "len_bucket": "short",
+        "has_num": false,
+        "has_image": false,
+        "has_math": false,
+        "has_link": true
+      },
+      "role_label": "unlabeled:toc 3",
+      "target_style": "toc 3",
+      "context_rule": null,
+      "frequency": 2,
+      "members": [
+        14,
+        15
+      ],
+      "examples": [
+        "1.4.1. Thu thập dữ liệu ảnh th��",
+        "1.4.2. Tăng cường dữ liệu ảnh "
+      ],
+      "build_action": {
+        "mode": "typed",
+        "fallback_tier": null,
+        "needs_dep_closure": false
+      }
+    },
+    {
+      "id": "C8",
+      "cluster_key": "signature",
+      "styleId": null,
+      "signature": {
+        "styleId": null,
+        "bold": false,
+        "italic": false,
+        "allcaps": false,
+        "len_bucket": "empty",
+        "has_num": false,
+        "has_image": false,
+        "has_math": false,
+        "has_link": false
+      },
+      "role_label": "unlabeled:Table",
+      "target_style": null,
+      "context_rule": null,
+      "frequency": 1,
+      "members": [
+        19
+      ],
+      "examples": [],
+      "build_action": {
+        "mode": "raw_fallback",
+        "fallback_tier": "raw-splice",
+        "needs_dep_closure": true
+      }
+    },
+    {
+      "id": "C9",
+      "cluster_key": "styleId",
+      "styleId": "table of figures",
+      "signature": {
+        "styleId": "table of figures",
+        "bold": false,
+        "italic": false,
+        "allcaps": false,
+        "len_bucket": "medium",
+        "has_num": false,
+        "has_image": false,
+        "has_math": false,
+        "has_link": true
+      },
+      "role_label": "unlabeled:table of figures",
+      "target_style": "table of figures",
+      "context_rule": null,
+      "frequency": 3,
+      "members": [
+        22,
+        23,
+        24
+      ],
+      "examples": [
+        "Hình 1.1. Các bước xây dựng mô ",
+        "Hình 1.2. Vai trò của dữ liệu đ"
+      ],
+      "build_action": {
+        "mode": "typed",
+        "fallback_tier": null,
+        "needs_dep_closure": false
+      }
+    },
+    {
+      "id": "C10",
+      "cluster_key": "signature",
+      "styleId": null,
+      "signature": {
+        "styleId": null,
+        "bold": false,
+        "italic": false,
+        "allcaps": true,
+        "len_bucket": "short",
+        "has_num": false,
+        "has_image": false,
+        "has_math": false,
+        "has_link": false
+      },
+      "role_label": "unlabeled:sig10",
+      "target_style": null,
+      "context_rule": null,
+      "frequency": 4,
+      "members": [
+        25,
+        27,
+        34,
+        36
+      ],
+      "examples": [
+        "GIỚI THIỆU",
+        "CƠ SỞ LÝ THUYẾT"
+      ],
+      "build_action": {
+        "mode": "typed",
+        "fallback_tier": null,
+        "needs_dep_closure": false
+      }
+    },
+    {
+      "id": "C11",
+      "cluster_key": "styleId",
+      "styleId": "Normal_style",
+      "signature": {
+        "styleId": "Normal_style",
+        "bold": false,
+        "italic": false,
+        "allcaps": false,
+        "len_bucket": "short",
+        "has_num": false,
+        "has_image": false,
+        "has_math": false,
+        "has_link": false
+      },
+      "role_label": "unlabeled:Normal_style",
+      "target_style": "Normal_style",
+      "context_rule": null,
+      "frequency": 3,
+      "members": [
+        26,
+        33,
+        35
+      ],
+      "examples": [
+        "Nội dung …",
+        "Nội dung"
+      ],
+      "build_action": {
+        "mode": "typed",
+        "fallback_tier": null,
+        "needs_dep_closure": false
+      }
+    },
+    {
+      "id": "C12",
+      "cluster_key": "signature",
+      "styleId": null,
+      "signature": {
+        "styleId": null,
+        "bold": false,
+        "italic": false,
+        "allcaps": false,
+        "len_bucket": "medium",
+        "has_num": false,
+        "has_image": false,
+        "has_math": false,
+        "has_link": false
+      },
+      "role_label": "unlabeled:sig12",
+      "target_style": null,
+      "context_rule": null,
+      "frequency": 1,
+      "members": [
+        28
+      ],
+      "examples": [
+        "Tầm quan trọng dữ liệu ảnh hu�"
+      ],
+      "build_action": {
+        "mode": "typed",
+        "fallback_tier": null,
+        "needs_dep_closure": false
+      }
+    },
+    {
+      "id": "C13",
+      "cluster_key": "styleId",
+      "styleId": "Bảng biểu - title",
+      "signature": {
+        "styleId": "Bảng biểu - title",
+        "bold": false,
+        "italic": false,
+        "allcaps": false,
+        "len_bucket": "medium",
+        "has_num": false,
+        "has_image": true,
+        "has_math": false,
+        "has_link": false
+      },
+      "role_label": "unlabeled:Bảng biểu - title",
+      "target_style": "Bảng biểu - title",
+      "context_rule": null,
+      "frequency": 2,
+      "members": [
+        30,
+        31
+      ],
+      "examples": [
+        "Machine Learning là gì? Các ứng d��",
+        "Hình .. Các bước xây dựng mô h�"
+      ],
+      "build_action": {
+        "mode": "typed",
+        "fallback_tier": null,
+        "needs_dep_closure": false
+      }
+    },
+    {
+      "id": "C14",
+      "cluster_key": "signature",
+      "styleId": null,
+      "signature": {
+        "styleId": null,
+        "bold": false,
+        "italic": false,
+        "allcaps": false,
+        "len_bucket": "empty",
+        "has_num": false,
+        "has_image": false,
+        "has_math": false,
+        "has_link": false
+      },
+      "role_label": "unlabeled:OrderedList",
+      "target_style": null,
+      "context_rule": null,
+      "frequency": 1,
+      "members": [
+        37
+      ],
+      "examples": [],
+      "build_action": {
+        "mode": "raw_fallback",
+        "fallback_tier": "raw-splice",
+        "needs_dep_closure": false
+      }
+    },
+    {
+      "id": "C15",
+      "cluster_key": "styleId",
+      "styleId": "List Paragraph",
+      "signature": {
+        "styleId": "List Paragraph",
+        "bold": false,
+        "italic": false,
+        "allcaps": false,
+        "len_bucket": "long",
+        "has_num": false,
+        "has_image": false,
+        "has_math": false,
+        "has_link": true
+      },
+      "role_label": "unlabeled:List Paragraph",
+      "target_style": "List Paragraph",
+      "context_rule": null,
+      "frequency": 1,
+      "members": [
+        38
+      ],
+      "examples": [
+        "The comprehensive Vietnamese virtual ass"
+      ],
+      "build_action": {
+        "mode": "typed",
+        "fallback_tier": null,
+        "needs_dep_closure": false
+      }
+    }
+  ],
+  "coverage": {
+    "blocks_total": 38,
+    "blocks_assigned": 38,
+    "ratio": 1.0
+  },
+  "anomalies": [
+    "role_label values are placeholders (unlabeled:*) — the LLM labelling step assigns open-vocabulary roles."
+  ]
+}

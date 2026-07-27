@@ -1,0 +1,110 @@
+{
+  "spec_version": "1.0",
+  "meta": {
+    "source_file": "(hand-written fixture — no source docx)",
+    "source": "synth",
+    "generated_by": "hand (P1 fixture)",
+    "pandoc_version": null,
+    "notes": "Realistic VN Thông tư skeleton with MANUAL numbering + header block. Used to test building-docx-from-structure before inducing-doc-structure can produce a real spec. Keep in sync with grammar-schema.md."
+  },
+  "document": {
+    "detected_type": "vn-legal-thongtu",
+    "confidence": 1.0,
+    "header_block": {
+      "present": true,
+      "lines": [
+        { "text": "BỘ XÂY DỰNG", "align": "center", "bold": true, "all_caps": true },
+        { "text": "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", "align": "center", "bold": true, "all_caps": true },
+        { "text": "Độc lập - Tự do - Hạnh phúc", "align": "center", "bold": true, "all_caps": false },
+        { "text": "Số: 01/2026/TT-BXD", "align": "left", "bold": false, "all_caps": false }
+      ]
+    },
+    "levels": [
+      {
+        "id": "L1",
+        "signal": {
+          "via": "ordinal_text",
+          "style": "Heading 1",
+          "ordinal_regex": "^Chương\\s+([IVXLC]+)"
+        },
+        "numbering": {
+          "scheme": "upperRoman",
+          "delim": "none",
+          "source": "manual",
+          "reset": "none"
+        },
+        "format": {
+          "bold": true,
+          "all_caps": true,
+          "align": "center",
+          "indent": null
+        },
+        "examples": ["Chương I", "Chương II"]
+      },
+      {
+        "id": "L2",
+        "signal": {
+          "via": "ordinal_text",
+          "style": "Heading 2",
+          "ordinal_regex": "^Điều\\s+(\\d+)"
+        },
+        "numbering": {
+          "scheme": "decimal",
+          "delim": "period",
+          "source": "manual",
+          "reset": "none"
+        },
+        "format": {
+          "bold": true,
+          "all_caps": false,
+          "align": "left",
+          "indent": null
+        },
+        "examples": ["Điều 1.", "Điều 2.", "Điều 3."]
+      },
+      {
+        "id": "L3",
+        "signal": {
+          "via": "ordinal_text",
+          "style": null,
+          "ordinal_regex": "^(\\d+)\\."
+        },
+        "numbering": {
+          "scheme": "decimal",
+          "delim": "period",
+          "source": "manual",
+          "reset": "L2"
+        },
+        "format": {
+          "bold": false,
+          "all_caps": false,
+          "align": "justify",
+          "indent": null
+        },
+        "examples": ["1.", "2."]
+      },
+      {
+        "id": "L4",
+        "signal": {
+          "via": "ordinal_text",
+          "style": null,
+          "ordinal_regex": "^([a-zđ])\\)"
+        },
+        "numbering": {
+          "scheme": "lowerAlpha",
+          "delim": "oneParen",
+          "source": "manual",
+          "reset": "L3"
+        },
+        "format": {
+          "bold": false,
+          "all_caps": false,
+          "align": "justify",
+          "indent": 720
+        },
+        "examples": ["a)", "b)", "c)"]
+      }
+    ],
+    "anomalies": []
+  }
+}
